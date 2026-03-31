@@ -1,0 +1,40 @@
+name: Deploy Flutter Web to GitHub Pages
+
+on:
+  push:
+    branches:
+      - main  # Runs every time you commit to the main branch
+
+permissions:
+  contents: write
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      # 1. Check out your code from the repo
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      # 2. Install the Flutter framework
+      - name: Install Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: 'stable'
+
+      # 3. Get the "Shopping List" (Flame engine, etc.)
+      - name: Install dependencies
+        run: flutter pub get
+
+      # 4. THE SECURITY STEP: Compile Dart into an obfuscated PWA
+      # --base-href matches your repo name so links work on GitHub Pages
+      - name: Build Web App
+        run: flutter build web --release --base-href /RaceRider/
+
+      # 5. Push the compiled "Armored" code to a special branch called 'gh-pages'
+      - name: Deploy to GitHub Pages
+        uses: peaceiris/actions-gh-pages@v3
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: ./build/web
