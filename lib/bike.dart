@@ -114,4 +114,18 @@ class Bike extends Component with HasWorldReference<Forge2DWorld> {
     world.physicsWorld.createJoint(WheelJoint(rearJointDef));
     world.physicsWorld.createJoint(WheelJoint(frontJointDef));
   }
+  // Inside class Bike ...
+  late Chassis _chassisRef;
+
+  @override
+  Future<void> onLoad() async {
+    // ... (Keep all your existing joint/setup code) ...
+    
+    // Add this line so we can track the chassis later
+    _chassisRef = Chassis(initialPosition);
+    // (Note: ensure you use this _chassisRef in your world.addAll([_chassisRef, ...]))
+  }
+
+  // The helper for the camera:
+  Vector2 getChassisPosition() => _chassisRef.body.position;
 }
