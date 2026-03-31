@@ -86,24 +86,31 @@ class Bike extends Component with HasWorldReference<Forge2DWorld> {
     // Add them to the world and wait for the physics engine to register them
     await world.addAll([chassis, rearWheel, frontWheel]);
 
-    // --- THE "AT ANGLES" SUSPENSION ---
-    // The axis dictates the exact line the wheel is allowed to bounce along.
+    // --- INDEPENDENT SUSPENSION TUNING ---
     
-    // Rear Shock (Angled slightly backwards)
+    // Rear Shock Settings (Softer/Springier)
+    double rearStiffness = 4.0; 
+    double rearDamping = 0.4;   // Lower = More bounce/spring-back
+    
+    // Front Fork Settings (Stiffer for landings)
+    double frontStiffness = 5.0; 
+    double frontDamping = 0.5;
+
+    // Rear Joint
     final rearAxis = Vector2(-0.2, 1.0)..normalize();
     final rearJointDef = WheelJointDef()
       ..initialize(chassis.body, rearWheel.body, rearWheel.body.position, rearAxis)
-      ..dampingRatio = 0.6  // The "heavy" dampening
-      ..frequencyHz = 4.0;  // The spring stiffness
+      ..dampingRatio = rearDamping
+      ..frequencyHz = rearStiffness;
     
-    // Front Fork (Angled forwards - "Rake")
+    // Front Joint
     final frontAxis = Vector2(0.4, 1.0)..normalize();
     final frontJointDef = WheelJointDef()
       ..initialize(chassis.body, frontWheel.body, frontWheel.body.position, frontAxis)
-      ..dampingRatio = 0.6
-      ..frequencyHz = 4.0;
+      ..dampingRatio = frontDamping
+      ..frequencyHz = frontStiffness;
 
-    // Bolt them onto the physics world
+    // Bolt them on
     world.physicsWorld.createJoint(WheelJoint(rearJointDef));
     world.physicsWorld.createJoint(WheelJoint(frontJointDef));
   }
