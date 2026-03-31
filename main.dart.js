@@ -36195,7 +36195,7 @@ f===$&&A.c()
 p=l.ax
 p===$&&A.c()
 i.hU(f,p,p.d.a,j)
-i.Q=0.6
+i.Q=0.4
 i.z=4
 h=new A.e(new Float32Array(2))
 h.a0(0.4,1)
@@ -36205,8 +36205,8 @@ f=m.ax
 p=k.ax
 p===$&&A.c()
 g.hU(f,p,p.d.a,h)
-g.Q=0.6
-g.z=4
+g.Q=0.5
+g.z=5
 q.goK().k1.n_(A.Nv(i))
 q.goK().k1.n_(A.Nv(g))
 return A.B(null,r)}})
