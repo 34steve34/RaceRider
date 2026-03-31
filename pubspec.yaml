@@ -9,11 +9,8 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
-  flame: ^1.14.0
-  flame_forge2d: ^0.15.0
-
-dependency_overrides:
-  vector_math: ^2.1.4
+  flame: ^1.16.0
+  flame_forge2d: ^0.17.0
 
 dev_dependencies:
   flutter_test:
