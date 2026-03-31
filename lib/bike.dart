@@ -13,8 +13,8 @@ class Wheel extends BodyComponent {
     final fixtureDef = FixtureDef(
       shape,
       density: 0.5,
-      friction: 0.9,     // Grippy rubber tires
-      restitution: 0.1,  // Not too bouncy on their own
+      friction: 0.9,
+      restitution: 0.1,
     );
     final bodyDef = BodyDef(
       userData: this,
@@ -31,15 +31,12 @@ class Wheel extends BodyComponent {
       ..color = Colors.white
       ..style = PaintingStyle.stroke
       ..strokeWidth = 0.2;
-    
-    // Draw the tire
     canvas.drawCircle(Offset.zero, 0.75, paint);
-    // Draw a spoke line so we can actually see it spinning!
     canvas.drawLine(Offset.zero, const Offset(0.75, 0), paint);
   }
 }
 
-// 2. The Chassis (The Blue Box)
+// 2. The Chassis
 class Chassis extends BodyComponent {
   final Vector2 initialPosition;
   Chassis(this.initialPosition);
@@ -49,7 +46,7 @@ class Chassis extends BodyComponent {
     final shape = PolygonShape()..setAsBoxXY(2.0, 0.5);
     final fixtureDef = FixtureDef(
       shape,
-      density: 1.0, // Chassis is heavier than the wheels
+      density: 1.0,
       friction: 0.3,
       restitution: 0.2,
     );
@@ -69,63 +66,50 @@ class Chassis extends BodyComponent {
   }
 }
 
-// 3. The Assembler (Bolts it all together)
+// 3. The Assembler
 class Bike extends Component with HasWorldReference<Forge2DWorld> {
   final Vector2 initialPosition;
+  late Chassis _chassisRef; 
+
   Bike({required this.initialPosition});
 
   @override
   Future<void> onLoad() async {
     await super.onLoad();
 
-    // Spawn the individual parts
-    final chassis = Chassis(initialPosition);
+    // Create parts
+    _chassisRef = Chassis(initialPosition);
     final rearWheel = Wheel(initialPosition + Vector2(-1.5, 1.0));
     final frontWheel = Wheel(initialPosition + Vector2(1.5, 1.0));
 
-    // Add them to the world and wait for the physics engine to register them
-    await world.addAll([chassis, rearWheel, frontWheel]);
+    // Add them to the world
+    await world.addAll([_chassisRef, rearWheel, frontWheel]);
 
-    // --- INDEPENDENT SUSPENSION TUNING ---
-    
-    // Rear Shock Settings (Softer/Springier)
+    // Independent Suspension Settings
     double rearStiffness = 4.0; 
-    double rearDamping = 0.4;   // Lower = More bounce/spring-back
-    
-    // Front Fork Settings (Stiffer for landings)
+    double rearDamping = 0.4;
     double frontStiffness = 5.0; 
     double frontDamping = 0.5;
 
-    // Rear Joint
+    // Rear Joint Setup
     final rearAxis = Vector2(-0.2, 1.0)..normalize();
     final rearJointDef = WheelJointDef()
-      ..initialize(chassis.body, rearWheel.body, rearWheel.body.position, rearAxis)
+      ..initialize(_chassisRef.body, rearWheel.body, rearWheel.body.position, rearAxis)
       ..dampingRatio = rearDamping
       ..frequencyHz = rearStiffness;
     
-    // Front Joint
+    // Front Joint Setup
     final frontAxis = Vector2(0.4, 1.0)..normalize();
     final frontJointDef = WheelJointDef()
-      ..initialize(chassis.body, frontWheel.body, frontWheel.body.position, frontAxis)
+      ..initialize(_chassisRef.body, frontWheel.body, frontWheel.body.position, frontAxis)
       ..dampingRatio = frontDamping
       ..frequencyHz = frontStiffness;
 
-    // Bolt them on
+    // Bolt onto the world
     world.physicsWorld.createJoint(WheelJoint(rearJointDef));
-    world.physicsWorld.createJoint(WheelJoint(frontJointDef));
-  }
-  // Inside class Bike ...
-  late Chassis _chassisRef;
-
-  @override
-  Future<void> onLoad() async {
-    // ... (Keep all your existing joint/setup code) ...
-    
-    // Add this line so we can track the chassis later
-    _chassisRef = Chassis(initialPosition);
-    // (Note: ensure you use this _chassisRef in your world.addAll([_chassisRef, ...]))
+    world.physicsWorld.createJoint(frontJointDef);
   }
 
-  // The helper for the camera:
-  Vector2 getChassisPosition() => _chassisRef.body.position;
+  // Camera Helper
+  Vector2 getChassisPosition() => _chassisRef.isLoaded ? _chassisRef.body.position : initialPosition;
 }
