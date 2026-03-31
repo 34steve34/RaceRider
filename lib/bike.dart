@@ -104,7 +104,7 @@ class Bike extends Component with HasWorldReference<Forge2DWorld> {
       ..frequencyHz = 4.0;
 
     // Bolt them onto the physics world
-    world.physicsWorld.createJoint(rearJointDef);
-    world.physicsWorld.createJoint(frontJointDef);
+    world.physicsWorld.createJoint(WheelJoint(rearJointDef));
+    world.physicsWorld.createJoint(WheelJoint(frontJointDef));
   }
 }
