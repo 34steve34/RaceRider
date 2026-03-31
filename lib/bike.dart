@@ -2,43 +2,109 @@ import 'package:flame/components.dart';
 import 'package:flame_forge2d/flame_forge2d.dart';
 import 'package:flutter/material.dart';
 
-class BikeChassis extends BodyComponent {
+// 1. The Wheels
+class Wheel extends BodyComponent {
   final Vector2 initialPosition;
-  
-  BikeChassis({required this.initialPosition});
+  Wheel(this.initialPosition);
 
   @override
   Body createBody() {
-    // 1. Define the Shape (A simple rectangle: 4 meters wide, 2 meters tall)
-    final shape = PolygonShape()..setAsBoxXY(2.0, 1.0);
-
-    // 2. Define the Body (Dynamic means it falls and reacts to hits)
+    final shape = CircleShape()..radius = 0.75;
+    final fixtureDef = FixtureDef(
+      shape,
+      density: 0.5,
+      friction: 0.9,     // Grippy rubber tires
+      restitution: 0.1,  // Not too bouncy on their own
+    );
     final bodyDef = BodyDef(
       userData: this,
       position: initialPosition,
       type: BodyType.dynamic,
     );
-
-    // 3. Define the Physics Properties
-    final fixtureDef = FixtureDef(
-      shape,
-      density: 1.0,      // How heavy it is
-      friction: 0.3,     // How much it slides vs grips
-      restitution: 0.4,  // BOUNCINESS! (0 = lead weight, 1 = superball)
-    );
-
-    final body = world.createBody(bodyDef);
-    body.createFixture(fixtureDef);
-    return body;
+    return world.createBody(bodyDef)..createFixture(fixtureDef);
   }
 
   @override
   void render(Canvas canvas) {
     super.render(canvas);
+    final paint = Paint()
+      ..color = Colors.white
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 0.2;
     
-    // Draw a blue box to match our physics shape
+    // Draw the tire
+    canvas.drawCircle(Offset.zero, 0.75, paint);
+    // Draw a spoke line so we can actually see it spinning!
+    canvas.drawLine(Offset.zero, const Offset(0.75, 0), paint);
+  }
+}
+
+// 2. The Chassis (The Blue Box)
+class Chassis extends BodyComponent {
+  final Vector2 initialPosition;
+  Chassis(this.initialPosition);
+
+  @override
+  Body createBody() {
+    final shape = PolygonShape()..setAsBoxXY(2.0, 0.5);
+    final fixtureDef = FixtureDef(
+      shape,
+      density: 1.0, // Chassis is heavier than the wheels
+      friction: 0.3,
+      restitution: 0.2,
+    );
+    final bodyDef = BodyDef(
+      userData: this,
+      position: initialPosition,
+      type: BodyType.dynamic,
+    );
+    return world.createBody(bodyDef)..createFixture(fixtureDef);
+  }
+
+  @override
+  void render(Canvas canvas) {
+    super.render(canvas);
     final paint = Paint()..color = Colors.blueAccent;
-    // Forge2D draws from the center, so a 4x2 box goes from -2 to +2 on X, and -1 to +1 on Y
-    canvas.drawRect(const Rect.fromLTRB(-2, -1, 2, 1), paint);
+    canvas.drawRect(const Rect.fromLTRB(-2, -0.5, 2, 0.5), paint);
+  }
+}
+
+// 3. The Assembler (Bolts it all together)
+class Bike extends Component with HasWorldReference<Forge2DWorld> {
+  final Vector2 initialPosition;
+  Bike({required this.initialPosition});
+
+  @override
+  Future<void> onLoad() async {
+    await super.onLoad();
+
+    // Spawn the individual parts
+    final chassis = Chassis(initialPosition);
+    final rearWheel = Wheel(initialPosition + Vector2(-1.5, 1.0));
+    final frontWheel = Wheel(initialPosition + Vector2(1.5, 1.0));
+
+    // Add them to the world and wait for the physics engine to register them
+    await world.addAll([chassis, rearWheel, frontWheel]);
+
+    // --- THE "AT ANGLES" SUSPENSION ---
+    // The axis dictates the exact line the wheel is allowed to bounce along.
+    
+    // Rear Shock (Angled slightly backwards)
+    final rearAxis = Vector2(-0.2, 1.0)..normalize();
+    final rearJointDef = WheelJointDef()
+      ..initialize(chassis.body, rearWheel.body, rearWheel.body.position, rearAxis)
+      ..dampingRatio = 0.6  // The "heavy" dampening
+      ..frequencyHz = 4.0;  // The spring stiffness
+    
+    // Front Fork (Angled forwards - "Rake")
+    final frontAxis = Vector2(0.4, 1.0)..normalize();
+    final frontJointDef = WheelJointDef()
+      ..initialize(chassis.body, frontWheel.body, frontWheel.body.position, frontAxis)
+      ..dampingRatio = 0.6
+      ..frequencyHz = 4.0;
+
+    // Bolt them onto the physics world
+    world.physicsWorld.createJoint(rearJointDef);
+    world.physicsWorld.createJoint(frontJointDef);
   }
 }
