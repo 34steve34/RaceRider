@@ -9,8 +9,8 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
-  flame: ^1.16.0
-  flame_forge2d: ^0.17.0
+  flame: any
+  flame_forge2d: ^0.19.2
 
 dev_dependencies:
   flutter_test:
