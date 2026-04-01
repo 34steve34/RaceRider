@@ -119,8 +119,8 @@ class Bike extends Component with HasWorldReference<Forge2DWorld> {
 
   // Called by main.dart when keys are pressed
   void setGas(bool isOn) {
-    // motorSpeed is in radians. -25.0 is a solid racing speed.
-    _rearJoint.setMotorSpeed(isOn ? -25.0 : 0.0);
+    // UPDATED: Use the property setter instead of the method
+    _rearJoint.motorSpeed = isOn ? -25.0 : 0.0;
   }
 
   // Helper for the Camera Follow logic
