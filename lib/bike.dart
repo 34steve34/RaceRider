@@ -2,20 +2,21 @@ import 'package:flame/components.dart';
 import 'package:flame_forge2d/flame_forge2d.dart';
 import 'package:flutter/material.dart';
 
-// --- THE TUNING TABLE (Adjust these for the "Exquisite" feel) ---
+// --- THE TUNING TABLE (v1.0.9 - BR Edition) ---
 class BikeConfig {
-  static const double maxMotorTorque = 60.0;   // Engine Power
-  static const double motorSpeed = 35.0;       // Top Speed
-  static const double tireFriction = 1.4;      // 1.4 = Super Sticky
-  static const double chassisDensity = 1.0;    // Weight
-  static const double tiltStrength = 50.0;     // Backflip/Frontflip power
+  static const double maxMotorTorque = 150.0;  // High torque for wall climbing
+  static const double motorSpeed = 40.0;      
+  static const double tireFriction = 1.6;      // Extra grip for loops
+  static const double chassisDensity = 1.2;    
   
-  // Suspension (Rear)
-  static const double rearStiffness = 4.0; 
+  // TILT SETTINGS
+  static const double tiltTorque = 800.0;      // Constant force, not a "hit"
+  static const double angularDamping = 1.5;    // Stops the "Tornado" spin
+  
+  // Suspension
+  static const double rearStiffness = 4.5; 
   static const double rearDamping = 0.4;
-  
-  // Suspension (Front)
-  static const double frontStiffness = 5.0; 
+  static const double frontStiffness = 5.5; 
   static const double frontDamping = 0.5;
 }
 
@@ -26,7 +27,7 @@ class Wheel extends BodyComponent {
   @override
   Body createBody() {
     final shape = CircleShape()..radius = 0.75;
-    final fixtureDef = FixtureDef(shape, density: 0.5, friction: BikeConfig.tireFriction, restitution: 0.1);
+    final fixtureDef = FixtureDef(shape, density: 0.5, friction: BikeConfig.tireFriction, restitution: 0.05);
     final bodyDef = BodyDef(userData: this, position: initialPosition, type: BodyType.dynamic);
     return world.createBody(bodyDef)..createFixture(fixtureDef);
   }
@@ -46,8 +47,15 @@ class Chassis extends BodyComponent {
   @override
   Body createBody() {
     final shape = PolygonShape()..setAsBoxXY(2.0, 0.5);
-    final fixtureDef = FixtureDef(shape, density: BikeConfig.chassisDensity, friction: 0.3, restitution: 0.2);
-    final bodyDef = BodyDef(userData: this, position: initialPosition, type: BodyType.dynamic);
+    final fixtureDef = FixtureDef(shape, density: BikeConfig.chassisDensity, friction: 0.3, restitution: 0.1);
+    
+    final bodyDef = BodyDef(
+      userData: this, 
+      position: initialPosition, 
+      type: BodyType.dynamic,
+      angularDamping: BikeConfig.angularDamping, // Keeps the spin under control
+    );
+    
     return world.createBody(bodyDef)..createFixture(fixtureDef);
   }
 
@@ -55,7 +63,6 @@ class Chassis extends BodyComponent {
   void render(Canvas canvas) {
     final paint = Paint()..color = Colors.blueAccent;
     canvas.drawRect(const Rect.fromLTRB(-2, -0.5, 2, 0.5), paint);
-    // Front Windshield
     canvas.drawRect(const Rect.fromLTRB(0.5, -1.0, 1.8, -0.5), Paint()..color = Colors.lightBlueAccent);
   }
 }
@@ -77,7 +84,6 @@ class Bike extends Component with HasWorldReference<Forge2DWorld> {
 
     await world.addAll([_chassisRef, rearWheel, frontWheel]);
 
-    // REAR
     final rearJointDef = WheelJointDef()
       ..initialize(_chassisRef.body, rearWheel.body, rearWheel.body.position, (Vector2(-0.2, 1.0)..normalize()))
       ..dampingRatio = BikeConfig.rearDamping
@@ -88,7 +94,6 @@ class Bike extends Component with HasWorldReference<Forge2DWorld> {
     _rearJoint = WheelJoint(rearJointDef);
     world.physicsWorld.createJoint(_rearJoint);
 
-    // FRONT
     final frontJointDef = WheelJointDef()
       ..initialize(_chassisRef.body, frontWheel.body, frontWheel.body.position, (Vector2(0.4, 1.0)..normalize()))
       ..dampingRatio = BikeConfig.frontDamping
@@ -97,21 +102,24 @@ class Bike extends Component with HasWorldReference<Forge2DWorld> {
     world.physicsWorld.createJoint(WheelJoint(frontJointDef));
   }
 
+  // UPDATED: This is where the magic happens
   void updateInput(bool isGas, bool isLeft, bool isRight) {
-    // 1. MOTOR (Gas) - Neutral Gear Fix
+    // 1. Motor
     if (isGas) {
-      _rearJoint.enableMotor(true); // Engages the gear
+      _rearJoint.enableMotor(true);
       _rearJoint.motorSpeed = BikeConfig.motorSpeed;
     } else {
-      _rearJoint.enableMotor(false); // Neutral: rolls freely!
+      _rearJoint.enableMotor(false); 
     }
 
-    // 2. TILT (Angular Impulse)
+    // 2. Smooth Tilt
     if (isLeft) {
-      _chassisRef.body.applyAngularImpulse(-BikeConfig.tiltStrength);
+      // Counter-clockwise (Backflip)
+      _chassisRef.body.applyTorque(-BikeConfig.tiltTorque);
     }
     if (isRight) {
-      _chassisRef.body.applyAngularImpulse(BikeConfig.tiltStrength);
+      // Clockwise (Frontflip/Leaning forward)
+      _chassisRef.body.applyTorque(BikeConfig.tiltTorque);
     }
   }
 
