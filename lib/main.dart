@@ -68,15 +68,13 @@ class RaceRiderGame extends Forge2DGame with HasKeyboardHandlerComponents {
     }
   }
 
-  @override
+@override
   KeyEventResult onKeyEvent(KeyEvent event, Set<LogicalKeyboardKey> keysPressed) {
-    // 6. INPUT HANDLING
-    // Check if the user is pressing Space or Up Arrow
-    final isGasInput = keysPressed.contains(LogicalKeyboardKey.space) || 
-                       keysPressed.contains(LogicalKeyboardKey.arrowUp);
+    final isGas = keysPressed.contains(LogicalKeyboardKey.space) || keysPressed.contains(LogicalKeyboardKey.arrowUp);
+    final isLeft = keysPressed.contains(LogicalKeyboardKey.arrowLeft);
+    final isRight = keysPressed.contains(LogicalKeyboardKey.arrowRight);
     
-    // Tell the bike motor to turn on or off
-    playerBike?.setGas(isGasInput);
+    playerBike?.updateInput(isGas, isLeft, isRight);
 
     return KeyEventResult.handled;
   }
