@@ -3,15 +3,15 @@ import 'package:flame_forge2d/flame_forge2d.dart';
 import 'package:flutter/material.dart';
 import 'dart:math';
 
-// --- THE BR PURIST TUNING TABLE (v1.1.6) ---
+// --- THE BR PURIST TUNING TABLE (v1.1.7) ---
 class BikeConfig {
-  static const double driveForce = 1000.0;     
+  static const double driveForce = 2500.0;     
   static const double maxSpeed = 35.0;         
   static const double tireFriction = 1.6;
   static const double tiltTorque = 1000.0;     
   static const double angularDamping = 2.0;    
+  static const double wheelSpinImpulse = 0.5; // New: How fast the wheel revs in air
 
-  // Suspension - These keep the bike together!
   static const double stiffness = 5.0;
   static const double damping = 0.7;
 }
@@ -33,8 +33,18 @@ class Wheel extends BodyComponent {
       userData: this, 
       position: initialPosition, 
       type: BodyType.dynamic,
+      // Allow the wheel to spin freely but eventually slow down
+      angularDamping: 0.5, 
     );
     return world.createBody(bodyDef)..createFixture(fixtureDef);
+  }
+
+  // Helper to spin the wheel visually when gas is pressed
+  void spinUp() {
+    // Only spin up if the wheel isn't already spinning faster than a threshold
+    if (body.angularVelocity < 20.0) {
+      body.applyAngularImpulse(BikeConfig.wheelSpinImpulse);
+    }
   }
 
   @override
@@ -44,6 +54,7 @@ class Wheel extends BodyComponent {
       ..style = PaintingStyle.stroke
       ..strokeWidth = 0.12;
     canvas.drawCircle(Offset.zero, 0.75, paint);
+    // This line allows us to see the wheel spinning
     canvas.drawLine(
       Offset.zero, 
       const Offset(0.75, 0), 
@@ -147,13 +158,18 @@ class Bike extends Component with HasWorldReference<Forge2DWorld> {
   }
 
   void updateInput(bool isGas, bool isLeft, bool isRight) {
-    if (isGas && 
-        _chassisRef.body.linearVelocity.length < BikeConfig.maxSpeed &&
-        _hasTraction(_rearWheelRef.body)) {
-      
-      final angle = _chassisRef.body.angle;
-      final forwardVector = Vector2(cos(angle), sin(angle));
-      _rearWheelRef.body.applyForce(forwardVector * BikeConfig.driveForce);
+    if (isGas) {
+      // 1. ALWAYS spin the wheel visually/angularly
+      _rearWheelRef.spinUp();
+
+      // 2. ONLY apply linear propulsion if touching the ground
+      if (_chassisRef.body.linearVelocity.length < BikeConfig.maxSpeed &&
+          _hasTraction(_rearWheelRef.body)) {
+        
+        final angle = _chassisRef.body.angle;
+        final forwardVector = Vector2(cos(angle), sin(angle));
+        _rearWheelRef.body.applyForce(forwardVector * BikeConfig.driveForce);
+      }
     }
 
     if (isLeft) _chassisRef.body.applyTorque(-BikeConfig.tiltTorque);
