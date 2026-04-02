@@ -24524,16 +24524,16 @@ r.aP(!0)
 r=s.b
 r===$&&A.c()
 r.aP(!0)
-s.CW=40}else{s===$&&A.c()
+s.CW=45}else{s===$&&A.c()
 s.uW(!1)}if(p){s=n.ay
 s===$&&A.c()
 s=s.ax
 s===$&&A.c()
-s.u0(-800)}if(o){n=n.ay
+s.u0(-1000)}if(o){n=n.ay
 n===$&&A.c()
 n=n.ax
 n===$&&A.c()
-n.u0(800)}}return B.dv},
+n.u0(1000)}}return B.dv},
 b_(a){return this.rG(new A.zi(this,a))}}
 A.zj.prototype={
 $0(){var s=0,r=A.E(t.P),q=this,p,o
@@ -36717,7 +36717,7 @@ q=new A.e(new Float32Array(2))
 q.Z(-1,0)
 B.b.J(p,A.d([k,s,r,q],o))
 l.c.aO()
-n=A.JD(l,1.2,0.3,0.1)
+n=A.JD(l,1.5,0.3,0.1)
 m=A.Jq(1.5,this.to,B.A,this)
 o=this.cx
 o===$&&A.c()
@@ -36764,7 +36764,7 @@ o=new A.e(new Float32Array(2))
 o.Z(-0.2,1)
 o.aR()
 k.i_(p,i,i.d.a,o)
-k.Q=0.4
+k.Q=0.7
 k.z=4.5
 k.w=!0
 k.x=150
@@ -36779,8 +36779,8 @@ p=new A.e(new Float32Array(2))
 p.Z(0.4,1)
 p.aR()
 j.i_(o,i,i.d.a,p)
-j.Q=0.5
-j.z=5.5
+j.Q=0.7
+j.z=5
 q.goR().k1.n7(A.NY(j))
 return A.C(null,r)}})
 return A.D($async$aT,r)}}
@@ -36835,9 +36835,9 @@ k=new A.fG(k,new Float32Array(2))
 k.h7(l)
 k.aS()
 n=A.Z(A.dq(null),null,!1,n)
-p=new A.iL("RaceRider v1.0.6",o,m,k,B.as,0,new A.aM(n,0,0,p),null,new A.aR([]),new A.aR([]),t.BA)
+p=new A.iL("RaceRider v1.0.9",o,m,k,B.as,0,new A.aM(n,0,0,p),null,new A.aR([]),new A.aR([]),t.BA)
 p.zY(null,null,null,null,0,h,null,null,null)
-h=A.K7(o.oF("RaceRider v1.0.6"))
+h=A.K7(o.oF("RaceRider v1.0.9"))
 p.p3=h
 j=h.b
 h=j.d
