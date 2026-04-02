@@ -3,7 +3,7 @@ import 'package:flame_forge2d/flame_forge2d.dart';
 import 'package:flutter/material.dart';
 import 'dart:math';
 
-// --- THE BR PURIST TUNING TABLE (v1.1.5) ---
+// --- THE BR PURIST TUNING TABLE (v1.1.6) ---
 class BikeConfig {
   static const double driveForce = 2500.0;     
   static const double maxSpeed = 35.0;         
@@ -129,21 +129,13 @@ class Bike extends Component with HasWorldReference<Forge2DWorld> {
     world.physicsWorld.createJoint(WheelJoint(frontJointDef));
   }
 
-  /// IMPROVED TRACTION CHECK
-  /// We ensure the wheel is touching something that IS NOT the bike itself.
   bool _hasTraction(Body wheelBody) {
-    for (var contactEdge = wheelBody.contacts; 
-         contactEdge != null; 
-         contactEdge = contactEdge.next) {
-      
-      if (contactEdge.contact.isTouching()) {
-        final bodyA = contactEdge.contact.fixtureA.body;
-        final bodyB = contactEdge.contact.fixtureB.body;
-
-        // Get the "other" body in the collision
+    for (final contact in wheelBody.contacts) {
+      if (contact.isTouching()) {
+        final bodyA = contact.fixtureA.body;
+        final bodyB = contact.fixtureB.body;
         final otherBody = (bodyA == wheelBody) ? bodyB : bodyA;
 
-        // If the other body isn't part of our bike, we have traction!
         if (otherBody != _chassisRef.body && 
             otherBody != _frontWheelRef.body && 
             otherBody != _rearWheelRef.body) {
