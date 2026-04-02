@@ -24534,7 +24534,7 @@ s=i.ch
 s===$&&A.c()
 s=s.ax
 s===$&&A.c()
-r=m.E(0,2500)
+r=m.E(0,1000)
 l=s.f.c
 s.Am(r)
 k=l.a
@@ -36860,9 +36860,9 @@ k=new A.fG(k,new Float32Array(2))
 k.h7(l)
 k.aQ()
 n=A.Z(A.dq(null),null,!1,n)
-p=new A.iL("RaceRider v1.1.9",o,m,k,B.as,0,new A.aM(n,0,0,p),null,new A.aR([]),new A.aR([]),t.BA)
+p=new A.iL("RaceRider v1.2.0",o,m,k,B.as,0,new A.aM(n,0,0,p),null,new A.aR([]),new A.aR([]),t.BA)
 p.zX(null,null,null,null,0,h,null,null,null)
-h=A.K7(o.oF("RaceRider v1.1.9"))
+h=A.K7(o.oF("RaceRider v1.2.0"))
 p.p3=h
 j=h.b
 h=j.d
