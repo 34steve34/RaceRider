@@ -6,8 +6,8 @@ import 'package:flutter/material.dart';
 class BikeConfig {
   static const double maxMotorTorque = 150.0;  // High torque for wall climbing
   static const double motorSpeed = 45.0;      
-  static const double tireFriction = 1.6;      // Extra grip for loops
-  static const double chassisDensity = 1.5;    
+  static const double tireFriction = 1.9;      // Extra grip for loops
+  static const double chassisDensity = 1.8;    
   
   // TILT SETTINGS
   static const double tiltTorque = 1000.0;      // Constant force, not a "hit"

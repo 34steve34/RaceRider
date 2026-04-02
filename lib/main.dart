@@ -18,8 +18,8 @@ void main() {
 class RaceRiderGame extends Forge2DGame with HasKeyboardHandlerComponents {
   Bike? playerBike;
 
-  // Set gravity to 15.0 for a "heavy" dirt bike feel
-  RaceRiderGame() : super(gravity: Vector2(0, 15.0));
+  // Set gravity to 19.0 for a "heavy" dirt bike feel
+  RaceRiderGame() : super(gravity: Vector2(0, 19.0));
 
   @override
   Future<void> onLoad() async {
@@ -29,7 +29,7 @@ class RaceRiderGame extends Forge2DGame with HasKeyboardHandlerComponents {
     world.add(TrackComponent());
     
     // 2. Spawn the bike (Started a bit higher and further left)
-    playerBike = Bike(initialPosition: Vector2(-15, -25));
+    playerBike = Bike(initialPosition: Vector2(-15, -15));
     await world.add(playerBike!);
 
     // 3. HUD - Version Text (Stays fixed to screen)
