@@ -3,19 +3,36 @@ import 'package:flame_forge2d/flame_forge2d.dart';
 import 'package:flutter/material.dart';
 import 'dart:math';
 
-// --- THE BR PURIST TUNING TABLE (v1.1.7) ---
+// --- THE BR PURIST TUNING TABLE (v1.2.0) ---
 class BikeConfig {
-  static const double driveForce = 2500.0;     
-  static const double maxSpeed = 35.0;         
-  static const double tireFriction = 1.6;
-  static const double tiltTorque = 1000.0;     
-  static const double angularDamping = 2.0;    
-  static const double wheelSpinImpulse = 0.5; // New: How fast the wheel revs in air
+  // Propulsion: applied directly to chassis, always horizontal
+  static const double driveForce = 1800.0;
 
-  static const double stiffness = 5.0;
-  static const double damping = 0.7;
+  // Speed cap (meters/sec in physics world)
+  static const double maxSpeed = 35.0;
+
+  // Tire grip (affects how well wheels grip terrain)
+  static const double tireFriction = 1.6;
+
+  // Tilt controls (torque on chassis only, totally independent of gas)
+  static const double tiltTorque = 900.0;
+
+  // How quickly the chassis resists spinning on its own
+  static const double angularDamping = 2.5;
+
+  // Cosmetic wheel spin rate when gas is held
+  static const double wheelSpinRate = 25.0;
+
+  // Suspension tuning
+  static const double suspensionStiffness = 6.0;
+  static const double suspensionDamping = 0.8;
 }
 
+// ─────────────────────────────────────────────
+// WHEEL
+// Purely physical contact + cosmetic spin.
+// Has NO role in propulsion whatsoever.
+// ─────────────────────────────────────────────
 class Wheel extends BodyComponent {
   final Vector2 initialPosition;
   Wheel(this.initialPosition);
@@ -24,26 +41,25 @@ class Wheel extends BodyComponent {
   Body createBody() {
     final shape = CircleShape()..radius = 0.75;
     final fixtureDef = FixtureDef(
-      shape, 
-      density: 0.5, 
-      friction: BikeConfig.tireFriction, 
-      restitution: 0.1,
+      shape,
+      density: 1.2,           // heavier wheels = more stable, less floaty
+      friction: BikeConfig.tireFriction,
+      restitution: 0.05,      // low bounce
     );
     final bodyDef = BodyDef(
-      userData: this, 
-      position: initialPosition, 
+      userData: this,
+      position: initialPosition,
       type: BodyType.dynamic,
-      // Allow the wheel to spin freely but eventually slow down
-      angularDamping: 0.5, 
+      angularDamping: 1.0,    // wheels slow their spin naturally when off gas
     );
     return world.createBody(bodyDef)..createFixture(fixtureDef);
   }
 
-  // Helper to spin the wheel visually when gas is pressed
+  /// Cosmetic only — spins the wheel visually when gas is pressed.
+  /// Has zero effect on forward motion.
   void spinUp() {
-    // Only spin up if the wheel isn't already spinning faster than a threshold
-    if (body.angularVelocity < 20.0) {
-      body.applyAngularImpulse(BikeConfig.wheelSpinImpulse);
+    if (body.angularVelocity > -BikeConfig.wheelSpinRate) {
+      body.applyAngularImpulse(-0.4); // negative = clockwise = forward roll
     }
   }
 
@@ -54,32 +70,36 @@ class Wheel extends BodyComponent {
       ..style = PaintingStyle.stroke
       ..strokeWidth = 0.12;
     canvas.drawCircle(Offset.zero, 0.75, paint);
-    // This line allows us to see the wheel spinning
+    // Spoke line so you can see the wheel rotating
     canvas.drawLine(
-      Offset.zero, 
-      const Offset(0.75, 0), 
+      Offset.zero,
+      const Offset(0.75, 0),
       paint..strokeWidth = 0.18,
     );
   }
 }
 
+// ─────────────────────────────────────────────
+// CHASSIS
+// This is what actually gets pushed forward.
+// ─────────────────────────────────────────────
 class Chassis extends BodyComponent {
   final Vector2 initialPosition;
   Chassis(this.initialPosition);
 
   @override
   Body createBody() {
-    final shape = PolygonShape()..setAsBoxXY(2.0, 0.5);
+    final shape = PolygonShape()..setAsBoxXY(2.0, 0.4);
     final fixtureDef = FixtureDef(
-      shape, 
-      density: 1.2, 
-      friction: 0.3, 
-      restitution: 0.1,
+      shape,
+      density: 1.5,
+      friction: 0.3,
+      restitution: 0.05,
     );
     final bodyDef = BodyDef(
-      userData: this, 
-      position: initialPosition, 
-      type: BodyType.dynamic, 
+      userData: this,
+      position: initialPosition,
+      type: BodyType.dynamic,
       angularDamping: BikeConfig.angularDamping,
     );
     return world.createBody(bodyDef)..createFixture(fixtureDef);
@@ -88,19 +108,25 @@ class Chassis extends BodyComponent {
   @override
   void render(Canvas canvas) {
     final paint = Paint()..color = Colors.blueAccent;
-    canvas.drawRect(const Rect.fromLTRB(-2.0, -0.5, 2.0, 0.5), paint);
+    canvas.drawRect(const Rect.fromLTRB(-2.0, -0.4, 2.0, 0.4), paint);
+    // Fairing / rider hump to show orientation clearly
     canvas.drawRect(
-      const Rect.fromLTRB(0.5, -1.0, 1.8, -0.5), 
+      const Rect.fromLTRB(0.5, -0.9, 1.8, -0.4),
       Paint()..color = Colors.lightBlueAccent,
     );
   }
 }
 
+// ─────────────────────────────────────────────
+// BIKE
+// Wires everything together.
+// ─────────────────────────────────────────────
 class Bike extends Component with HasWorldReference<Forge2DWorld> {
   final Vector2 initialPosition;
-  late Chassis _chassisRef;
-  late Wheel _rearWheelRef;
-  late Wheel _frontWheelRef;
+
+  late Chassis _chassis;
+  late Wheel _rearWheel;
+  late Wheel _frontWheel;
 
   Bike({required this.initialPosition});
 
@@ -108,74 +134,96 @@ class Bike extends Component with HasWorldReference<Forge2DWorld> {
   Future<void> onLoad() async {
     await super.onLoad();
 
-    _chassisRef = Chassis(initialPosition);
-    _rearWheelRef = Wheel(initialPosition + Vector2(-1.5, 1.0));
-    _frontWheelRef = Wheel(initialPosition + Vector2(1.5, 1.0));
+    // Create parts
+    _chassis   = Chassis(initialPosition);
+    _rearWheel = Wheel(initialPosition + Vector2(-1.5, 0.9));
+    _frontWheel = Wheel(initialPosition + Vector2( 1.5, 0.9));
 
-    await world.addAll([_chassisRef, _rearWheelRef, _frontWheelRef]);
+    await world.addAll([_chassis, _rearWheel, _frontWheel]);
 
+    // ── Rear suspension joint ──────────────────
     final rearJointDef = WheelJointDef()
       ..initialize(
-        _chassisRef.body, 
-        _rearWheelRef.body, 
-        _rearWheelRef.body.position, 
-        Vector2(0, 1),
+        _chassis.body,
+        _rearWheel.body,
+        _rearWheel.body.position,
+        Vector2(0, 1),        // suspension travel axis (local Y)
       )
-      ..frequencyHz = BikeConfig.stiffness
-      ..dampingRatio = BikeConfig.damping
-      ..enableMotor = false;
+      ..frequencyHz   = BikeConfig.suspensionStiffness
+      ..dampingRatio  = BikeConfig.suspensionDamping
+      ..enableMotor   = false // ← motor OFF; propulsion is NOT through this joint
+      ..motorSpeed    = 0
+      ..maxMotorTorque = 0;
 
+    // ── Front suspension joint ─────────────────
     final frontJointDef = WheelJointDef()
       ..initialize(
-        _chassisRef.body, 
-        _frontWheelRef.body, 
-        _frontWheelRef.body.position, 
+        _chassis.body,
+        _frontWheel.body,
+        _frontWheel.body.position,
         Vector2(0, 1),
       )
-      ..frequencyHz = BikeConfig.stiffness
-      ..dampingRatio = BikeConfig.damping
-      ..enableMotor = false;
+      ..frequencyHz   = BikeConfig.suspensionStiffness
+      ..dampingRatio  = BikeConfig.suspensionDamping
+      ..enableMotor   = false
+      ..motorSpeed    = 0
+      ..maxMotorTorque = 0;
 
     world.physicsWorld.createJoint(WheelJoint(rearJointDef));
     world.physicsWorld.createJoint(WheelJoint(frontJointDef));
   }
 
+  // ── Traction check ─────────────────────────
+  // Only propel if at least one wheel is on the ground.
+  // Uses contactList linked-list traversal (correct for Forge2D).
   bool _hasTraction(Body wheelBody) {
-    for (final contact in wheelBody.contacts) {
-      if (contact.isTouching()) {
-        final bodyA = contact.fixtureA.body;
-        final bodyB = contact.fixtureB.body;
-        final otherBody = (bodyA == wheelBody) ? bodyB : bodyA;
-
-        if (otherBody != _chassisRef.body && 
-            otherBody != _frontWheelRef.body && 
-            otherBody != _rearWheelRef.body) {
+    var contact = wheelBody.contactList;
+    while (contact != null) {
+      if (contact.contact!.isTouching()) {
+        final other = contact.other;
+        if (other != _chassis.body &&
+            other != _rearWheel.body &&
+            other != _frontWheel.body) {
           return true;
         }
       }
+      contact = contact.next;
     }
     return false;
   }
 
+  // ── Main input handler ─────────────────────
   void updateInput(bool isGas, bool isLeft, bool isRight) {
-    if (isGas) {
-      // 1. ALWAYS spin the wheel visually/angularly
-      _rearWheelRef.spinUp();
 
-      // 2. ONLY apply linear propulsion if touching the ground
-      if (_chassisRef.body.linearVelocity.length < BikeConfig.maxSpeed &&
-          _hasTraction(_rearWheelRef.body)) {
-        
-        final angle = _chassisRef.body.angle;
-        final forwardVector = Vector2(cos(angle), sin(angle));
-        _rearWheelRef.body.applyForce(forwardVector * BikeConfig.driveForce);
+    // ── GAS ────────────────────────────────────
+    // Push chassis purely horizontally (world X axis).
+    // Completely ignores chassis angle — just like BR.
+    // Wheel spin is cosmetic only.
+    if (isGas) {
+      _rearWheel.spinUp();
+      _frontWheel.spinUp(); // optional; BR spun both
+
+      final speed = _chassis.body.linearVelocity.x;
+      final hasTraction = _hasTraction(_rearWheel.body) ||
+                          _hasTraction(_frontWheel.body);
+
+      if (speed < BikeConfig.maxSpeed && hasTraction) {
+        // ↓ THE KEY LINE: purely horizontal force on chassis, ignores tilt angle
+        _chassis.body.applyForce(
+          Vector2(BikeConfig.driveForce, 0), // always world-X, never world-Y
+        );
       }
     }
 
-    if (isLeft) _chassisRef.body.applyTorque(-BikeConfig.tiltTorque);
-    if (isRight) _chassisRef.body.applyTorque(BikeConfig.tiltTorque);
+    // ── TILT ───────────────────────────────────
+    // Completely independent of gas.
+    // Negative torque = lean forward (clockwise on screen).
+    // Positive torque = lean back  (counter-clockwise).
+    if (isLeft)  _chassis.body.applyTorque(-BikeConfig.tiltTorque);
+    if (isRight) _chassis.body.applyTorque( BikeConfig.tiltTorque);
   }
 
-  Vector2 getChassisPosition() => 
-      _chassisRef.isLoaded ? _chassisRef.body.position : initialPosition;
+  // ── Utility ───────────────────────────────
+  Vector2 getChassisPosition() =>
+      _chassis.isLoaded ? _chassis.body.position : initialPosition;
 }
