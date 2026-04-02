@@ -3,7 +3,7 @@ import 'package:flame_forge2d/flame_forge2d.dart';
 import 'package:flutter/material.dart';
 import 'dart:math';
 
-// --- THE BR PURIST TUNING TABLE (v1.1.4) ---
+// --- THE BR PURIST TUNING TABLE (v1.1.5) ---
 class BikeConfig {
   static const double driveForce = 2500.0;     
   static const double maxSpeed = 35.0;         
@@ -98,14 +98,11 @@ class Bike extends Component with HasWorldReference<Forge2DWorld> {
     await super.onLoad();
 
     _chassisRef = Chassis(initialPosition);
-    // Position wheels relative to the chassis center
     _rearWheelRef = Wheel(initialPosition + Vector2(-1.5, 1.0));
     _frontWheelRef = Wheel(initialPosition + Vector2(1.5, 1.0));
 
-    // Add bodies to the world
     await world.addAll([_chassisRef, _rearWheelRef, _frontWheelRef]);
 
-    // JOINTS: Physical connection using WheelJoints
     final rearJointDef = WheelJointDef()
       ..initialize(
         _chassisRef.body, 
@@ -132,20 +129,32 @@ class Bike extends Component with HasWorldReference<Forge2DWorld> {
     world.physicsWorld.createJoint(WheelJoint(frontJointDef));
   }
 
-  /// Checks if a wheel is actually touching the ground to prevent "air-swimming"
+  /// IMPROVED TRACTION CHECK
+  /// We ensure the wheel is touching something that IS NOT the bike itself.
   bool _hasTraction(Body wheelBody) {
     for (var contactEdge = wheelBody.contacts; 
          contactEdge != null; 
          contactEdge = contactEdge.next) {
+      
       if (contactEdge.contact.isTouching()) {
-        return true;
+        final bodyA = contactEdge.contact.fixtureA.body;
+        final bodyB = contactEdge.contact.fixtureB.body;
+
+        // Get the "other" body in the collision
+        final otherBody = (bodyA == wheelBody) ? bodyB : bodyA;
+
+        // If the other body isn't part of our bike, we have traction!
+        if (otherBody != _chassisRef.body && 
+            otherBody != _frontWheelRef.body && 
+            otherBody != _rearWheelRef.body) {
+          return true;
+        }
       }
     }
     return false;
   }
 
   void updateInput(bool isGas, bool isLeft, bool isRight) {
-    // DRIVE LOGIC: Gas only works if rear wheel is touching ground
     if (isGas && 
         _chassisRef.body.linearVelocity.length < BikeConfig.maxSpeed &&
         _hasTraction(_rearWheelRef.body)) {
@@ -155,7 +164,6 @@ class Bike extends Component with HasWorldReference<Forge2DWorld> {
       _rearWheelRef.body.applyForce(forwardVector * BikeConfig.driveForce);
     }
 
-    // ROTATION LOGIC: Pure torque on chassis for mid-air/ground leaning
     if (isLeft) _chassisRef.body.applyTorque(-BikeConfig.tiltTorque);
     if (isRight) _chassisRef.body.applyTorque(BikeConfig.tiltTorque);
   }
