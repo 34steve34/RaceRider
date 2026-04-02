@@ -250,7 +250,7 @@ r.toString
 return A.dB(r,null)>=119}return!1},
 LH(a,b){var s
 if(a.a!=null)throw A.h(A.b1(u.g,null))
-if(b==null)b=B.uG
+if(b==null)b=B.uH
 s=new v.G.window.flutterCanvasKit.PictureRecorder()
 a.a=s
 return new A.jD(s.beginRecording(A.cB(b),!0))},
@@ -24524,16 +24524,16 @@ r.aP(!0)
 r=s.b
 r===$&&A.c()
 r.aP(!0)
-s.CW=45}else{s===$&&A.c()
+s.CW=40}else{s===$&&A.c()
 s.uW(!1)}if(p){s=n.ay
 s===$&&A.c()
 s=s.ax
 s===$&&A.c()
-s.u0(-1000)}if(o){n=n.ay
+s.u0(-900)}if(o){n=n.ay
 n===$&&A.c()
 n=n.ax
 n===$&&A.c()
-n.u0(1000)}}return B.dv},
+n.u0(900)}}return B.dv},
 b_(a){return this.rG(new A.zi(this,a))}}
 A.zj.prototype={
 $0(){var s=0,r=A.E(t.P),q=this,p,o
@@ -36676,7 +36676,7 @@ A.iB.prototype={}
 A.rc.prototype={
 jE(){var s,r,q,p=A.LG(null,0)
 p.b=0.75
-s=A.JD(p,0.5,1.9,0.05)
+s=A.JD(p,0.5,1.6,0.05)
 r=A.Jq(0,this.to,B.A,this)
 q=this.cx
 q===$&&A.c()
@@ -36696,13 +36696,13 @@ A.nC.prototype={
 jE(){var s,r,q,p,o,n,m,l=A.N7(),k=l.d
 B.b.A(k)
 s=new A.e(new Float32Array(2))
-s.Z(-2,-0.5)
+s.Z(-2.5,-0.5)
 r=new A.e(new Float32Array(2))
-r.Z(2,-0.5)
+r.Z(2.5,-0.5)
 q=new A.e(new Float32Array(2))
-q.Z(2,0.5)
+q.Z(2.5,0.5)
 p=new A.e(new Float32Array(2))
-p.Z(-2,0.5)
+p.Z(-2.5,0.5)
 o=t.eO
 B.b.J(k,A.d([s,r,q,p],o))
 p=l.e
@@ -36717,8 +36717,8 @@ q=new A.e(new Float32Array(2))
 q.Z(-1,0)
 B.b.J(p,A.d([k,s,r,q],o))
 l.c.aO()
-n=A.JD(l,1.8,0.3,0.1)
-m=A.Jq(1.5,this.to,B.A,this)
+n=A.JD(l,2.5,0.3,0.1)
+m=A.Jq(2,this.to,B.A,this)
 o=this.cx
 o===$&&A.c()
 o=o.k1.jF(m)
@@ -36728,10 +36728,10 @@ e8(a){var s,r
 $.ar()
 s=A.c5()
 s.r=B.tt.ag()
-a.hN(B.uI,s)
+a.hN(B.uG,s)
 r=A.c5()
 r.r=B.tr.ag()
-a.hN(B.uH,r)}}
+a.hN(B.uI,r)}}
 A.nq.prototype={
 aT(){var s=0,r=A.E(t.H),q=this,p,o,n,m,l,k,j,i
 var $async$aT=A.F(function(a,b){if(a===1)return A.B(b,r)
@@ -36748,10 +36748,10 @@ p=new A.nC(i,p,$,o,null,null,0,new A.aM(n,0,0,t.d),null,new A.aR([]),new A.aR([]
 p.lb(null,null,null,null,null,null,!0)
 q.ay=p
 p=new A.e(new Float32Array(2))
-p.Z(-1.5,1)
+p.Z(-2,1.2)
 m=A.NX(i.I(0,p))
 p=new A.e(new Float32Array(2))
-p.Z(1.5,1)
+p.Z(2,1.2)
 l=A.NX(i.I(0,p))
 s=3
 return A.A(q.goR().J(0,A.d([q.ay,m,l],t.po)),$async$aT)
@@ -36764,10 +36764,10 @@ o=new A.e(new Float32Array(2))
 o.Z(-0.2,1)
 o.aR()
 k.i_(p,i,i.d.a,o)
-k.Q=0.7
-k.z=4.5
+k.Q=0.5
+k.z=5
 k.w=!0
-k.x=150
+k.x=120
 q.ch=A.NY(k)
 q.goR().k1.n7(q.ch)
 j=A.NZ()
@@ -36779,8 +36779,8 @@ p=new A.e(new Float32Array(2))
 p.Z(0.4,1)
 p.aR()
 j.i_(o,i,i.d.a,p)
-j.Q=0.7
-j.z=5
+j.Q=0.6
+j.z=6
 q.goR().k1.n7(A.NY(j))
 return A.C(null,r)}})
 return A.D($async$aT,r)}}
@@ -36835,9 +36835,9 @@ k=new A.fG(k,new Float32Array(2))
 k.h7(l)
 k.aS()
 n=A.Z(A.dq(null),null,!1,n)
-p=new A.iL("RaceRider v1.0.9",o,m,k,B.as,0,new A.aM(n,0,0,p),null,new A.aR([]),new A.aR([]),t.BA)
+p=new A.iL("RaceRider v1.1.0",o,m,k,B.as,0,new A.aM(n,0,0,p),null,new A.aR([]),new A.aR([]),t.BA)
 p.zY(null,null,null,null,0,h,null,null,null)
-h=A.K7(o.oF("RaceRider v1.0.9"))
+h=A.K7(o.oF("RaceRider v1.1.0"))
 p.p3=h
 j=h.b
 h=j.d
@@ -39319,9 +39319,9 @@ B.uD=new A.ix(1,"scroll")
 B.uE=new A.ix(3,"scale")
 B.uF=new A.ix(4,"unknown")
 B.E=new A.W(0,0,0,0)
-B.uG=new A.W(-1e9,-1e9,1e9,1e9)
-B.uH=new A.W(0.5,-1,1.8,-0.5)
-B.uI=new A.W(-2,-0.5,2,0.5)
+B.uG=new A.W(-2.5,-0.5,2.5,0.5)
+B.uH=new A.W(-1e9,-1e9,1e9,1e9)
+B.uI=new A.W(1,-1,2.3,-0.5)
 B.aF=new A.h1(0,"idle")
 B.nb=new A.h1(1,"transientCallbacks")
 B.nc=new A.h1(2,"midFrameMicrotasks")
