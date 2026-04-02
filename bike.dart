@@ -3,7 +3,7 @@ import 'package:flame_forge2d/flame_forge2d.dart';
 import 'package:flutter/material.dart';
 import 'dart:math';
 
-// --- THE BR PURIST TUNING TABLE (v1.1.5) ---
+// --- THE BR PURIST TUNING TABLE (v1.1.8) ---
 class BikeConfig {
   static const double driveForce = 2500.0;     
   static const double maxSpeed = 35.0;         
