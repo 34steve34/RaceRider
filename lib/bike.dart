@@ -2,22 +2,24 @@ import 'package:flame/components.dart';
 import 'package:flame_forge2d/flame_forge2d.dart';
 import 'package:flutter/material.dart';
 
-// --- THE TUNING TABLE (v1.0.9 - BR Edition) ---
+// --- THE TUNING TABLE (v1.1.0) ---
 class BikeConfig {
-  static const double maxMotorTorque = 150.0;  // High torque for wall climbing
-  static const double motorSpeed = 45.0;      
-  static const double tireFriction = 1.9;      // Extra grip for loops
-  static const double chassisDensity = 1.8;    
+  static const double maxMotorTorque = 120.0;  
+  static const double motorSpeed = 40.0;      
+  static const double tireFriction = 1.6;      
+  
+  // ANTI-WHEELIE SETTINGS
+  static const double chassisDensity = 2.5;    // Heavier chassis = harder to lift
+  static const double angularDamping = 2.0;    // More resistance to accidental rotation
   
   // TILT SETTINGS
-  static const double tiltTorque = 1000.0;      // Constant force, not a "hit"
-  static const double angularDamping = 1.5;    // Stops the "Tornado" spin
+  static const double tiltTorque = 900.0;      
   
   // Suspension
-  static const double rearStiffness = 4.5; 
-  static const double rearDamping = 0.7;
-  static const double frontStiffness = 5.0; 
-  static const double frontDamping = 0.7;
+  static const double rearStiffness = 5.0; 
+  static const double rearDamping = 0.5;
+  static const double frontStiffness = 6.0; 
+  static const double frontDamping = 0.6;
 }
 
 class Wheel extends BodyComponent {
@@ -46,14 +48,15 @@ class Chassis extends BodyComponent {
 
   @override
   Body createBody() {
-    final shape = PolygonShape()..setAsBoxXY(2.0, 0.5);
+    // Making the box slightly wider (2.5 instead of 2.0) to stabilize the center of gravity
+    final shape = PolygonShape()..setAsBoxXY(2.5, 0.5);
     final fixtureDef = FixtureDef(shape, density: BikeConfig.chassisDensity, friction: 0.3, restitution: 0.1);
     
     final bodyDef = BodyDef(
       userData: this, 
       position: initialPosition, 
       type: BodyType.dynamic,
-      angularDamping: BikeConfig.angularDamping, // Keeps the spin under control
+      angularDamping: BikeConfig.angularDamping,
     );
     
     return world.createBody(bodyDef)..createFixture(fixtureDef);
@@ -62,8 +65,9 @@ class Chassis extends BodyComponent {
   @override
   void render(Canvas canvas) {
     final paint = Paint()..color = Colors.blueAccent;
-    canvas.drawRect(const Rect.fromLTRB(-2, -0.5, 2, 0.5), paint);
-    canvas.drawRect(const Rect.fromLTRB(0.5, -1.0, 1.8, -0.5), Paint()..color = Colors.lightBlueAccent);
+    canvas.drawRect(const Rect.fromLTRB(-2.5, -0.5, 2.5, 0.5), paint);
+    // Front Windshield (on the right)
+    canvas.drawRect(const Rect.fromLTRB(1.0, -1.0, 2.3, -0.5), Paint()..color = Colors.lightBlueAccent);
   }
 }
 
@@ -79,8 +83,9 @@ class Bike extends Component with HasWorldReference<Forge2DWorld> {
     await super.onLoad();
 
     _chassisRef = Chassis(initialPosition);
-    final rearWheel = Wheel(initialPosition + Vector2(-1.5, 1.0));
-    final frontWheel = Wheel(initialPosition + Vector2(1.5, 1.0));
+    // Spread the wheels further apart to prevent the wheelie
+    final rearWheel = Wheel(initialPosition + Vector2(-2.0, 1.2));
+    final frontWheel = Wheel(initialPosition + Vector2(2.0, 1.2));
 
     await world.addAll([_chassisRef, rearWheel, frontWheel]);
 
@@ -102,9 +107,7 @@ class Bike extends Component with HasWorldReference<Forge2DWorld> {
     world.physicsWorld.createJoint(WheelJoint(frontJointDef));
   }
 
-  // UPDATED: This is where the magic happens
   void updateInput(bool isGas, bool isLeft, bool isRight) {
-    // 1. Motor
     if (isGas) {
       _rearJoint.enableMotor(true);
       _rearJoint.motorSpeed = BikeConfig.motorSpeed;
@@ -112,13 +115,10 @@ class Bike extends Component with HasWorldReference<Forge2DWorld> {
       _rearJoint.enableMotor(false); 
     }
 
-    // 2. Smooth Tilt
     if (isLeft) {
-      // Counter-clockwise (Backflip)
       _chassisRef.body.applyTorque(-BikeConfig.tiltTorque);
     }
     if (isRight) {
-      // Clockwise (Frontflip/Leaning forward)
       _chassisRef.body.applyTorque(BikeConfig.tiltTorque);
     }
   }
