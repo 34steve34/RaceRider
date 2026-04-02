@@ -176,21 +176,22 @@ class Bike extends Component with HasWorldReference<Forge2DWorld> {
   // ── Traction check ─────────────────────────
   // Only propel if at least one wheel is on the ground.
   // Uses contactList linked-list traversal (correct for Forge2D).
+  
   bool _hasTraction(Body wheelBody) {
-    var contact = wheelBody.contactList;
-    while (contact != null) {
-      if (contact.contact!.isTouching()) {
-        final other = contact.other;
-        if (other != _chassis.body &&
-            other != _rearWheel.body &&
-            other != _frontWheel.body) {
-          return true;
-        }
+  for (final contact in wheelBody.contacts) {
+    if (contact.isTouching()) {
+      final bodyA = contact.fixtureA.body;
+      final bodyB = contact.fixtureB.body;
+      final other = (bodyA == wheelBody) ? bodyB : bodyA;
+      if (other != _chassis.body &&
+          other != _rearWheel.body &&
+          other != _frontWheel.body) {
+        return true;
       }
-      contact = contact.next;
     }
-    return false;
   }
+  return false;
+}
 
   // ── Main input handler ─────────────────────
   void updateInput(bool isGas, bool isLeft, bool isRight) {
