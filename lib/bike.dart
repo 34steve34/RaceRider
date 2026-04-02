@@ -3,7 +3,7 @@ import 'package:flame_forge2d/flame_forge2d.dart';
 import 'package:flutter/material.dart';
 import 'dart:math';
 
-// --- THE BR PURIST TUNING TABLE (v1.1.4) ---
+// --- THE BR PURIST TUNING TABLE (v1.1.5) ---
 class BikeConfig {
   static const double driveForce = 2500.0;     
   static const double maxSpeed = 35.0;         
@@ -23,16 +23,32 @@ class Wheel extends BodyComponent {
   @override
   Body createBody() {
     final shape = CircleShape()..radius = 0.75;
-    final fixtureDef = FixtureDef(shape, density: 0.5, friction: BikeConfig.tireFriction, restitution: 0.1);
-    final bodyDef = BodyDef(userData: this, position: initialPosition, type: BodyType.dynamic);
+    final fixtureDef = FixtureDef(
+      shape, 
+      density: 0.5, 
+      friction: BikeConfig.tireFriction, 
+      restitution: 0.1,
+    );
+    final bodyDef = BodyDef(
+      userData: this, 
+      position: initialPosition, 
+      type: BodyType.dynamic,
+    );
     return world.createBody(bodyDef)..createFixture(fixtureDef);
   }
 
   @override
   void render(Canvas canvas) {
-    final paint = Paint()..color = Colors.white..style = PaintingStyle.stroke..strokeWidth = 0.12;
+    final paint = Paint()
+      ..color = Colors.white
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 0.12;
     canvas.drawCircle(Offset.zero, 0.75, paint);
-    canvas.drawLine(Offset.zero, const Offset(0.75, 0), paint..strokeWidth = 0.18);
+    canvas.drawLine(
+      Offset.zero, 
+      const Offset(0.75, 0), 
+      paint..strokeWidth = 0.18,
+    );
   }
 }
 
@@ -43,7 +59,12 @@ class Chassis extends BodyComponent {
   @override
   Body createBody() {
     final shape = PolygonShape()..setAsBoxXY(2.0, 0.5);
-    final fixtureDef = FixtureDef(shape, density: 1.2, friction: 0.3, restitution: 0.1);
+    final fixtureDef = FixtureDef(
+      shape, 
+      density: 1.2, 
+      friction: 0.3, 
+      restitution: 0.1,
+    );
     final bodyDef = BodyDef(
       userData: this, 
       position: initialPosition, 
@@ -57,7 +78,10 @@ class Chassis extends BodyComponent {
   void render(Canvas canvas) {
     final paint = Paint()..color = Colors.blueAccent;
     canvas.drawRect(const Rect.fromLTRB(-2.0, -0.5, 2.0, 0.5), paint);
-    canvas.drawRect(const Rect.fromLTRB(0.5, -1.0, 1.8, -0.5), Paint()..color = Colors.lightBlueAccent);
+    canvas.drawRect(
+      const Rect.fromLTRB(0.5, -1.0, 1.8, -0.5), 
+      Paint()..color = Colors.lightBlueAccent,
+    );
   }
 }
 
@@ -74,24 +98,29 @@ class Bike extends Component with HasWorldReference<Forge2DWorld> {
     await super.onLoad();
 
     _chassisRef = Chassis(initialPosition);
-    // Position wheels relative to the chassis center
     _rearWheelRef = Wheel(initialPosition + Vector2(-1.5, 1.0));
     _frontWheelRef = Wheel(initialPosition + Vector2(1.5, 1.0));
 
-    // IMPORTANT: Add bodies to the world FIRST
     await world.addAll([_chassisRef, _rearWheelRef, _frontWheelRef]);
 
-    // JOINTS: Bolting the wheels to the chassis
-    // Even with enableMotor = false, the WheelJoint creates the physical connection.
-    
     final rearJointDef = WheelJointDef()
-      ..initialize(_chassisRef.body, _rearWheelRef.body, _rearWheelRef.body.position, Vector2(0, 1))
+      ..initialize(
+        _chassisRef.body, 
+        _rearWheelRef.body, 
+        _rearWheelRef.body.position, 
+        Vector2(0, 1),
+      )
       ..frequencyHz = BikeConfig.stiffness
       ..dampingRatio = BikeConfig.damping
       ..enableMotor = false;
 
     final frontJointDef = WheelJointDef()
-      ..initialize(_chassisRef.body, _frontWheelRef.body, _frontWheelRef.body.position, Vector2(0, 1))
+      ..initialize(
+        _chassisRef.body, 
+        _frontWheelRef.body, 
+        _frontWheelRef.body.position, 
+        Vector2(0, 1),
+      )
       ..frequencyHz = BikeConfig.stiffness
       ..dampingRatio = BikeConfig.damping
       ..enableMotor = false;
@@ -100,11 +129,38 @@ class Bike extends Component with HasWorldReference<Forge2DWorld> {
     world.physicsWorld.createJoint(WheelJoint(frontJointDef));
   }
 
+  /// IMPROVED TRACTION CHECK
+  /// We ensure the wheel is touching something that IS NOT the bike itself.
+  bool _hasTraction(Body wheelBody) {
+    for (var contactEdge = wheelBody.contacts; 
+         contactEdge != null; 
+         contactEdge = contactEdge.next) {
+      
+      if (contactEdge.contact.isTouching()) {
+        final bodyA = contactEdge.contact.fixtureA.body;
+        final bodyB = contactEdge.contact.fixtureB.body;
+
+        // Get the "other" body in the collision
+        final otherBody = (bodyA == wheelBody) ? bodyB : bodyA;
+
+        // If the other body isn't part of our bike, we have traction!
+        if (otherBody != _chassisRef.body && 
+            otherBody != _frontWheelRef.body && 
+            otherBody != _rearWheelRef.body) {
+          return true;
+        }
+      }
+    }
+    return false;
+  }
+
   void updateInput(bool isGas, bool isLeft, bool isRight) {
-    if (isGas && _chassisRef.body.linearVelocity.length < BikeConfig.maxSpeed) {
+    if (isGas && 
+        _chassisRef.body.linearVelocity.length < BikeConfig.maxSpeed &&
+        _hasTraction(_rearWheelRef.body)) {
+      
       final angle = _chassisRef.body.angle;
       final forwardVector = Vector2(cos(angle), sin(angle));
-      // Applying force to the rear wheel to drive forward
       _rearWheelRef.body.applyForce(forwardVector * BikeConfig.driveForce);
     }
 
@@ -112,5 +168,6 @@ class Bike extends Component with HasWorldReference<Forge2DWorld> {
     if (isRight) _chassisRef.body.applyTorque(BikeConfig.tiltTorque);
   }
 
-  Vector2 getChassisPosition() => _chassisRef.isLoaded ? _chassisRef.body.position : initialPosition;
+  Vector2 getChassisPosition() => 
+      _chassisRef.isLoaded ? _chassisRef.body.position : initialPosition;
 }
