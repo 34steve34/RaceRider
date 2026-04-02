@@ -5,19 +5,19 @@ import 'package:flutter/material.dart';
 // --- THE TUNING TABLE (v1.0.9 - BR Edition) ---
 class BikeConfig {
   static const double maxMotorTorque = 150.0;  // High torque for wall climbing
-  static const double motorSpeed = 40.0;      
+  static const double motorSpeed = 45.0;      
   static const double tireFriction = 1.6;      // Extra grip for loops
-  static const double chassisDensity = 1.2;    
+  static const double chassisDensity = 1.5;    
   
   // TILT SETTINGS
-  static const double tiltTorque = 800.0;      // Constant force, not a "hit"
+  static const double tiltTorque = 1000.0;      // Constant force, not a "hit"
   static const double angularDamping = 1.5;    // Stops the "Tornado" spin
   
   // Suspension
   static const double rearStiffness = 4.5; 
-  static const double rearDamping = 0.4;
-  static const double frontStiffness = 5.5; 
-  static const double frontDamping = 0.5;
+  static const double rearDamping = 0.7;
+  static const double frontStiffness = 5.0; 
+  static const double frontDamping = 0.7;
 }
 
 class Wheel extends BodyComponent {
