@@ -2,24 +2,24 @@ import 'package:flame/components.dart';
 import 'package:flame_forge2d/flame_forge2d.dart';
 import 'package:flutter/material.dart';
 
-// --- THE TUNING TABLE (v1.1.0) ---
+// --- THE TUNING TABLE (v1.1.1) ---
 class BikeConfig {
-  static const double maxMotorTorque = 120.0;  
+  static const double maxMotorTorque = 140.0;  
   static const double motorSpeed = 40.0;      
   static const double tireFriction = 1.6;      
   
-  // ANTI-WHEELIE SETTINGS
-  static const double chassisDensity = 2.5;    // Heavier chassis = harder to lift
-  static const double angularDamping = 2.0;    // More resistance to accidental rotation
+  // Visuals & Physics
+  static const double chassisDensity = 1.2;    
+  static const double angularDamping = 1.8;    
   
   // TILT SETTINGS
-  static const double tiltTorque = 900.0;      
+  static const double tiltTorque = 950.0;      
   
   // Suspension
-  static const double rearStiffness = 5.0; 
-  static const double rearDamping = 0.5;
-  static const double frontStiffness = 6.0; 
-  static const double frontDamping = 0.6;
+  static const double rearStiffness = 4.5; 
+  static const double rearDamping = 0.4;
+  static const double frontStiffness = 5.5; 
+  static const double frontDamping = 0.5;
 }
 
 class Wheel extends BodyComponent {
@@ -48,8 +48,7 @@ class Chassis extends BodyComponent {
 
   @override
   Body createBody() {
-    // Making the box slightly wider (2.5 instead of 2.0) to stabilize the center of gravity
-    final shape = PolygonShape()..setAsBoxXY(2.5, 0.5);
+    final shape = PolygonShape()..setAsBoxXY(2.0, 0.5); // Back to standard size
     final fixtureDef = FixtureDef(shape, density: BikeConfig.chassisDensity, friction: 0.3, restitution: 0.1);
     
     final bodyDef = BodyDef(
@@ -65,9 +64,8 @@ class Chassis extends BodyComponent {
   @override
   void render(Canvas canvas) {
     final paint = Paint()..color = Colors.blueAccent;
-    canvas.drawRect(const Rect.fromLTRB(-2.5, -0.5, 2.5, 0.5), paint);
-    // Front Windshield (on the right)
-    canvas.drawRect(const Rect.fromLTRB(1.0, -1.0, 2.3, -0.5), Paint()..color = Colors.lightBlueAccent);
+    canvas.drawRect(const Rect.fromLTRB(-2.0, -0.5, 2.0, 0.5), paint);
+    canvas.drawRect(const Rect.fromLTRB(0.5, -1.0, 1.8, -0.5), Paint()..color = Colors.lightBlueAccent);
   }
 }
 
@@ -83,9 +81,9 @@ class Bike extends Component with HasWorldReference<Forge2DWorld> {
     await super.onLoad();
 
     _chassisRef = Chassis(initialPosition);
-    // Spread the wheels further apart to prevent the wheelie
-    final rearWheel = Wheel(initialPosition + Vector2(-2.0, 1.2));
-    final frontWheel = Wheel(initialPosition + Vector2(2.0, 1.2));
+    // Agility-focused wheelbase
+    final rearWheel = Wheel(initialPosition + Vector2(-1.5, 1.0));
+    final frontWheel = Wheel(initialPosition + Vector2(1.5, 1.0));
 
     await world.addAll([_chassisRef, rearWheel, frontWheel]);
 
@@ -108,13 +106,20 @@ class Bike extends Component with HasWorldReference<Forge2DWorld> {
   }
 
   void updateInput(bool isGas, bool isLeft, bool isRight) {
+    // 1. MOTOR + ANTI-WHEELIE
     if (isGas) {
       _rearJoint.enableMotor(true);
       _rearJoint.motorSpeed = BikeConfig.motorSpeed;
+      
+      // THE FIX: Apply clockwise torque to the CHASSIS to counter the 
+      // counter-clockwise reaction force of the motor.
+      // This keeps the nose down during acceleration.
+      _chassisRef.body.applyTorque(BikeConfig.maxMotorTorque); 
     } else {
       _rearJoint.enableMotor(false); 
     }
 
+    // 2. TILT
     if (isLeft) {
       _chassisRef.body.applyTorque(-BikeConfig.tiltTorque);
     }
