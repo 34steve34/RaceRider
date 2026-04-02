@@ -5,7 +5,7 @@ import 'dart:math';
 
 // --- THE BR PURIST TUNING TABLE (v1.1.6) ---
 class BikeConfig {
-  static const double driveForce = 2500.0;     
+  static const double driveForce = 1000.0;     
   static const double maxSpeed = 35.0;         
   static const double tireFriction = 1.6;
   static const double tiltTorque = 1000.0;     
