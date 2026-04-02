@@ -9,7 +9,7 @@ import 'track.dart';
 import 'bike.dart';
 
 // --- BUMP VERSION TO TRACK REFRESHES ---
-const String gameVersion = "v1.1.1"; 
+const String gameVersion = "v1.1.2"; 
 
 void main() {
   runApp(GameWidget(game: RaceRiderGame()));

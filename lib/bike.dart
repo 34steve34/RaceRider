@@ -1,25 +1,15 @@
 import 'package:flame/components.dart';
 import 'package:flame_forge2d/flame_forge2d.dart';
 import 'package:flutter/material.dart';
+import 'dart:math';
 
-// --- THE TUNING TABLE (v1.1.1) ---
+// --- THE BR PURIST TUNING TABLE ---
 class BikeConfig {
-  static const double maxMotorTorque = 140.0;  
-  static const double motorSpeed = 40.0;      
-  static const double tireFriction = 1.6;      
-  
-  // Visuals & Physics
-  static const double chassisDensity = 1.2;    
-  static const double angularDamping = 1.8;    
-  
-  // TILT SETTINGS
-  static const double tiltTorque = 950.0;      
-  
-  // Suspension
-  static const double rearStiffness = 4.5; 
-  static const double rearDamping = 0.4;
-  static const double frontStiffness = 5.5; 
-  static const double frontDamping = 0.5;
+  static const double driveForce = 2500.0;     // Pushes the bike forward
+  static const double maxSpeed = 35.0;         // Speed limit
+  static const double tireFriction = 1.6;
+  static const double tiltTorque = 1000.0;     // Only way the bike rotates
+  static const double angularDamping = 2.0;    
 }
 
 class Wheel extends BodyComponent {
@@ -48,16 +38,9 @@ class Chassis extends BodyComponent {
 
   @override
   Body createBody() {
-    final shape = PolygonShape()..setAsBoxXY(2.0, 0.5); // Back to standard size
-    final fixtureDef = FixtureDef(shape, density: BikeConfig.chassisDensity, friction: 0.3, restitution: 0.1);
-    
-    final bodyDef = BodyDef(
-      userData: this, 
-      position: initialPosition, 
-      type: BodyType.dynamic,
-      angularDamping: BikeConfig.angularDamping,
-    );
-    
+    final shape = PolygonShape()..setAsBoxXY(2.0, 0.5);
+    final fixtureDef = FixtureDef(shape, density: 1.2, friction: 0.3, restitution: 0.1);
+    final bodyDef = BodyDef(userData: this, position: initialPosition, type: BodyType.dynamic, angularDamping: BikeConfig.angularDamping);
     return world.createBody(bodyDef)..createFixture(fixtureDef);
   }
 
@@ -72,7 +55,8 @@ class Chassis extends BodyComponent {
 class Bike extends Component with HasWorldReference<Forge2DWorld> {
   final Vector2 initialPosition;
   late Chassis _chassisRef;
-  late WheelJoint _rearJoint; 
+  late Wheel _rearWheelRef;
+  late Wheel _frontWheelRef;
 
   Bike({required this.initialPosition});
 
@@ -81,51 +65,39 @@ class Bike extends Component with HasWorldReference<Forge2DWorld> {
     await super.onLoad();
 
     _chassisRef = Chassis(initialPosition);
-    // Agility-focused wheelbase
-    final rearWheel = Wheel(initialPosition + Vector2(-1.5, 1.0));
-    final frontWheel = Wheel(initialPosition + Vector2(1.5, 1.0));
+    _rearWheelRef = Wheel(initialPosition + Vector2(-1.5, 1.0));
+    _frontWheelRef = Wheel(initialPosition + Vector2(1.5, 1.0));
 
-    await world.addAll([_chassisRef, rearWheel, frontWheel]);
+    await world.addAll([_chassisRef, _rearWheelRef, _frontWheelRef]);
 
+    // JOINTS: Now purely for suspension. Motor is DISABLED.
     final rearJointDef = WheelJointDef()
-      ..initialize(_chassisRef.body, rearWheel.body, rearWheel.body.position, (Vector2(-0.2, 1.0)..normalize()))
-      ..dampingRatio = BikeConfig.rearDamping
-      ..frequencyHz = BikeConfig.rearStiffness
-      ..enableMotor = true
-      ..maxMotorTorque = BikeConfig.maxMotorTorque;
-
-    _rearJoint = WheelJoint(rearJointDef);
-    world.physicsWorld.createJoint(_rearJoint);
+      ..initialize(_chassisRef.body, _rearWheelRef.body, _rearWheelRef.body.position, (Vector2(-0.2, 1.0)..normalize()))
+      ..enableMotor = false; // THE KEY: No motor = No kickback
 
     final frontJointDef = WheelJointDef()
-      ..initialize(_chassisRef.body, frontWheel.body, frontWheel.body.position, (Vector2(0.4, 1.0)..normalize()))
-      ..dampingRatio = BikeConfig.frontDamping
-      ..frequencyHz = BikeConfig.frontStiffness;
+      ..initialize(_chassisRef.body, _frontWheelRef.body, _frontWheelRef.body.position, (Vector2(0.4, 1.0)..normalize()))
+      ..enableMotor = false;
 
+    world.physicsWorld.createJoint(WheelJoint(rearJointDef));
     world.physicsWorld.createJoint(WheelJoint(frontJointDef));
   }
 
   void updateInput(bool isGas, bool isLeft, bool isRight) {
-    // 1. MOTOR + ANTI-WHEELIE
-    if (isGas) {
-      _rearJoint.enableMotor(true);
-      _rearJoint.motorSpeed = BikeConfig.motorSpeed;
+    // 1. GAS: Apply force directly to the wheels
+    if (isGas && _chassisRef.body.linearVelocity.length < BikeConfig.maxSpeed) {
+      // We find the "Forward" vector of the bike
+      final angle = _chassisRef.body.angle;
+      final forwardVector = Vector2(cos(angle), sin(angle));
       
-      // THE FIX: Apply clockwise torque to the CHASSIS to counter the 
-      // counter-clockwise reaction force of the motor.
-      // This keeps the nose down during acceleration.
-      _chassisRef.body.applyTorque(BikeConfig.maxMotorTorque); 
-    } else {
-      _rearJoint.enableMotor(false); 
+      // Push the rear wheel forward. 
+      // This creates traction without twisting the chassis.
+      _rearWheelRef.body.applyForce(forwardVector * BikeConfig.driveForce);
     }
 
-    // 2. TILT
-    if (isLeft) {
-      _chassisRef.body.applyTorque(-BikeConfig.tiltTorque);
-    }
-    if (isRight) {
-      _chassisRef.body.applyTorque(BikeConfig.tiltTorque);
-    }
+    // 2. TILT: The only source of rotation
+    if (isLeft) _chassisRef.body.applyTorque(-BikeConfig.tiltTorque);
+    if (isRight) _chassisRef.body.applyTorque(BikeConfig.tiltTorque);
   }
 
   Vector2 getChassisPosition() => _chassisRef.isLoaded ? _chassisRef.body.position : initialPosition;
