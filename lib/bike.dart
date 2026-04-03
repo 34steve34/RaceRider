@@ -205,8 +205,8 @@ class Bike extends Component with HasWorldReference<Forge2DWorld> {
     if (isGas && _rearHasTraction()) {
       _rearWheel.spinUp();
       _frontWheel.spinUp();
-      final vel = _chassis.body.linearVelocity;
-      _chassis.body.linearVelocity = Vector2(BikeConfig.maxSpeed, vel.y);
+      final vel = _rearWheel.body.linearVelocity;
+      _rearWheel.body.linearVelocity = Vector2(BikeConfig.maxSpeed, vel.y);
     } // END if isGas
 
     // ── TILT ─────────────────────────────────────────
