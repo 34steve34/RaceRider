@@ -9,7 +9,7 @@ import 'track.dart';
 import 'bike.dart';
 
 // --- BUMP VERSION TO TRACK REFRESHES ---
-const String gameVersion = "v1.2.7"; 
+const String gameVersion = "v1.2.8"; 
 
 void main() {
   runApp(GameWidget(game: RaceRiderGame()));
@@ -53,20 +53,17 @@ class RaceRiderGame extends Forge2DGame with HasKeyboardHandlerComponents {
 
   @override
   void update(double dt) {
-    super.update(dt);
-    
-    // 5. THE "EXQUISITE" CAMERA TETHER
-    // Instead of being bolted to the bike, the camera "chases" it at 10% speed
-    final bike = playerBike;
-    if (bike != null) {
-      final targetPos = bike.getChassisPosition();
-      final currentPos = camera.viewfinder.position;
-      
-      // Calculate the distance vector and scale it down to 10%
-      final delta = (targetPos - currentPos)..scale(0.1);
-      camera.viewfinder.position.add(delta);
-    }
-  }
+  super.update(dt);
+
+  final bike = playerBike;
+  if (bike == null) return;
+
+  final bikePos = bike.getChassisPosition();
+  camera.viewfinder.position = Vector2(
+    bikePos.x + 10.0,  // look ahead
+    bikePos.y,
+  );
+} // END update
 
 @override
   KeyEventResult onKeyEvent(KeyEvent event, Set<LogicalKeyboardKey> keysPressed) {
