@@ -36834,9 +36834,9 @@ k=new A.fG(k,new Float32Array(2))
 k.eX(m)
 k.aP()
 n=A.Z(A.dq(null),null,!1,n)
-o=new A.iL("RaceRider v1.3.0",p,o,k,B.as,0,new A.aM(n,0,0,l),null,new A.aR([]),new A.aR([]),t.BA)
+o=new A.iL("RaceRider v1.3.1",p,o,k,B.as,0,new A.aM(n,0,0,l),null,new A.aR([]),new A.aR([]),t.BA)
 o.zW(null,null,null,null,0,h,null,null,null)
-h=A.K4(p.oF("RaceRider v1.3.0"))
+h=A.K4(p.oF("RaceRider v1.3.1"))
 o.p3=h
 j=h.b
 h=j.d
