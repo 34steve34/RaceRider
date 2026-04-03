@@ -6,7 +6,7 @@ import 'package:flutter/material.dart';
 // TUNING TABLE v3.0.0
 // ─────────────────────────────────────────────────────────────
 class BikeConfig {
-  static const double maxSpeed           = 10.0;  // world units/sec, instant on gas
+  static const double maxSpeed           = 50.0;  // world units/sec, instant on gas
   static const double tireFriction       = 1.8;   // front wheel
   static const double rearTireFriction   = 2.2;   // rear wheel (drive wheel)
   static const double tiltTorque         = 900.0; // lean left/right
