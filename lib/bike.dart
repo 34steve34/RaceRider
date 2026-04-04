@@ -8,36 +8,39 @@ import 'dart:math' as math;
 // ─────────────────────────────────────────────────────────────
 class BikeConfig {
   // Movement
-  static const double maxSpeed = 45.0;        // World units/sec
-  static const double uphillSpeedFactor = 0.6; // Speed multiplier going uphill
-  static const double downhillSpeedFactor = 1.3; // Speed multiplier going downhill
+  static const double maxSpeed = 45.0;
   
   // Rotation (radians/sec)
-  static const double maxAngularVelocity = 8.0;  // How fast bike rotates to target
-  static const double airAngularVelocity = 6.0;  // Slightly slower in air
-  static const double groundSnapSpeed = 12.0;    // How fast bike snaps to ground
+  static const double maxAngularVelocity = 8.0;
+  static const double airAngularVelocity = 6.0;
+  static const double groundSnapSpeed = 12.0;
   
   // Dimensions
-  static const double wheelRadius = 0.75;
-  static const double wheelBase = 3.0;           // Distance between wheels
-  static const double chassisWidth = 2.5;
-  static const double chassisHeight = 0.5;
-  static const double headOffsetX = 1.8;         // Head position from center
-  static const double headOffsetY = -1.0;        // Head above chassis
-  static const double headRadius = 0.4;
+  static const double wheelRadius = 0.6;
+  static const double wheelBase = 2.8;
+  static const double chassisWidth = 2.0;
+  static const double chassisHeight = 0.4;
+  static const double headOffsetX = 1.5;
+  static const double headOffsetY = -0.8;
+  static const double headRadius = 0.35;
+  
+  // Suspension
+  static const double suspensionRestLength = 0.3;
+  static const double suspensionMaxCompression = 0.5;
+  static const double suspensionStiffness = 800.0;
+  static const double suspensionDamping = 50.0;
+  static const double breakImpactVelocity = 20.0;
   
   // Physics
-  static const double bikeMass = 1.0;
-  static const double groundSnapStrength = 50.0; // Force pulling wheels to ground
-  static const double microGravityStrength = 20.0; // Magnetic pull when grounded
+  static const double bikeMass = 2.0;
+  static const double microGravityStrength = 30.0;
   
-  // Crash detection
-  static const double headCrashVelocity = 5.0;   // Min velocity for head crash
-  static const double wheelCrashVelocity = 15.0; // Min velocity for wheel crash
+  // Brake
+  static const double brakeDeceleration = 30.0;
 }
 
 // ─────────────────────────────────────────────────────────────
-// BIKE - SINGLE BODY PUPPET PHYSICS
+// BIKE - HYBRID PUPPET PHYSICS
 // ─────────────────────────────────────────────────────────────
 class Bike extends BodyComponent {
   final Vector2 initialPosition;
@@ -45,32 +48,38 @@ class Bike extends BodyComponent {
   // Control state
   double _targetAngle = 0.0;
   bool _isGasPressed = false;
+  bool _isBrakePressed = false;
+  bool _inputLocked = false; // First-touch priority
   
-  // Ground contact state
+  // Wheel state
+  double _frontWheelCompression = 0.0;
+  double _rearWheelCompression = 0.0;
   bool _frontWheelGrounded = false;
   bool _rearWheelGrounded = false;
+  Vector2 _frontWheelWorldPos = Vector2.zero();
+  Vector2 _rearWheelWorldPos = Vector2.zero();
+  
+  // Ground info
   Vector2 _groundNormal = Vector2(0, -1);
   Vector2 _groundPoint = Vector2.zero();
   
   // Crash state
   bool _isCrashed = false;
+  double _impactVelocity = 0.0;
 
   Bike({required this.initialPosition});
 
   @override
   Body createBody() {
-    // Create a single rectangular body for the entire bike
-    final shape = PolygonShape()
-      ..setAsBoxXY(
-        BikeConfig.chassisWidth,
-        BikeConfig.chassisHeight,
-      );
+    // Main chassis body - centered mass
+    final chassisShape = PolygonShape()
+      ..setAsBoxXY(BikeConfig.chassisWidth, BikeConfig.chassisHeight);
     
-    final fixtureDef = FixtureDef(
-      shape,
+    final chassisFixture = FixtureDef(
+      chassisShape,
       density: BikeConfig.bikeMass,
-      friction: 0.0,    // We handle friction ourselves
-      restitution: 0.1, // Slight bounce
+      friction: 0.0,
+      restitution: 0.0,
     );
     
     final bodyDef = BodyDef(
@@ -82,216 +91,254 @@ class Bike extends BodyComponent {
       linearDamping: 0.0,
     );
     
-    final body = world.createBody(bodyDef)..createFixture(fixtureDef);
-    
-    // Add wheel sensors (for ground detection only)
-    _addWheelSensor(body, isFront: true);
-    _addWheelSensor(body, isFront: false);
+    final body = world.createBody(bodyDef)..createFixture(chassisFixture);
     
     // Add head sensor
-    _addHeadSensor(body);
-    
-    return body;
-  }
-  
-  void _addWheelSensor(Body body, {required bool isFront}) {
-    final offsetX = isFront 
-        ? BikeConfig.wheelBase / 2 
-        : -BikeConfig.wheelBase / 2;
-    
-    final shape = CircleShape()
-      ..radius = BikeConfig.wheelRadius
-      ..position.setValues(offsetX, BikeConfig.wheelRadius);
-    
-    final fixtureDef = FixtureDef(
-      shape,
-      isSensor: true,  // Sensor only - no collision response
-      userData: isFront ? 'frontWheel' : 'rearWheel',
-    );
-    
-    body.createFixture(fixtureDef);
-  }
-  
-  void _addHeadSensor(Body body) {
-    final shape = CircleShape()
+    final headShape = CircleShape()
       ..radius = BikeConfig.headRadius
       ..position.setValues(BikeConfig.headOffsetX, BikeConfig.headOffsetY);
     
-    final fixtureDef = FixtureDef(
-      shape,
-      isSensor: true,
-      userData: 'head',
-    );
+    body.createFixture(FixtureDef(headShape, isSensor: true, userData: 'head'));
     
-    body.createFixture(fixtureDef);
+    return body;
   }
 
   // Called every frame from game.update()
-  void updateControl(double phoneTiltAngle, bool isGasPressed) {
+  void updateControl(double phoneTiltAngle, bool isGas, bool isBrake) {
     if (_isCrashed) return;
     
     _targetAngle = phoneTiltAngle;
-    _isGasPressed = isGasPressed;
     
-    // Update ground contact state
-    _updateGroundContact();
+    // First-touch priority for gas/brake
+    if (!_inputLocked) {
+      if (isGas) {
+        _isGasPressed = true;
+        _isBrakePressed = false;
+        _inputLocked = true;
+      } else if (isBrake) {
+        _isBrakePressed = true;
+        _isGasPressed = false;
+        _inputLocked = true;
+      }
+    } else {
+      // Keep current input until both are released
+      if (!isGas && !isBrake) {
+        _isGasPressed = false;
+        _isBrakePressed = false;
+        _inputLocked = false;
+      }
+    }
+    
+    // Update wheel positions and check ground
+    _updateWheelPhysics();
     
     // Apply puppet physics
     _applyRotationControl();
     _applyGroundSnap();
-    _applyMicroGravity();
     _applyDriveForce();
+    _applyBrakeForce();
   }
   
-  void _updateGroundContact() {
+  // ─────────────────────────────────────────────────────────────
+  // WHEEL PHYSICS - Manual simulation
+  // ─────────────────────────────────────────────────────────────
+  void _updateWheelPhysics() {
+    final chassisPos = body.position;
+    final chassisAngle = body.angle;
+    
+    // Calculate wheel attachment points in world space
+    final frontAttachLocal = Vector2(BikeConfig.wheelBase / 2, BikeConfig.chassisHeight);
+    final rearAttachLocal = Vector2(-BikeConfig.wheelBase / 2, BikeConfig.chassisHeight);
+    
+    final frontAttachWorld = _localToWorld(frontAttachLocal, chassisPos, chassisAngle);
+    final rearAttachWorld = _localToWorld(rearAttachLocal, chassisPos, chassisAngle);
+    
+    // Raycast down from each wheel to find ground
     _frontWheelGrounded = false;
     _rearWheelGrounded = false;
     
-    // Check contacts for wheel sensors
-    for (final contact in body.contacts) {
-      if (!contact.isTouching()) continue;
-      
-      final fixtureA = contact.fixtureA;
-      final fixtureB = contact.fixtureB;
-      
-      final userDataA = fixtureA.userData;
-      final userDataB = fixtureB.userData;
-      
-      // Check if either fixture is a wheel sensor
-      if (userDataA == 'frontWheel' || userDataB == 'frontWheel') {
-        _frontWheelGrounded = true;
-        _extractGroundInfo(contact);
-      }
-      if (userDataA == 'rearWheel' || userDataB == 'rearWheel') {
-        _rearWheelGrounded = true;
-        _extractGroundInfo(contact);
-      }
-      
-      // Check for head crash
-      if (userDataA == 'head' || userDataB == 'head') {
-        _checkHeadCrash(contact);
-      }
-    }
-  }
-  
-  void _extractGroundInfo(Contact contact) {
-    // Get the world manifold to find contact normal
-    final worldManifold = WorldManifold();
-    contact.getWorldManifold(worldManifold);
-    if (worldManifold.points.isNotEmpty) {
-      _groundNormal.setFrom(worldManifold.normal);
-      _groundPoint.setFrom(worldManifold.points[0]);
-    }
-  }
-  
-  void _checkHeadCrash(Contact contact) {
-    final velocity = body.linearVelocity;
-    final speed = velocity.length;
+    final rayLength = BikeConfig.wheelRadius + BikeConfig.suspensionRestLength + BikeConfig.suspensionMaxCompression;
     
-    // Check relative velocity at head
-    if (speed > BikeConfig.headCrashVelocity) {
-      _isCrashed = true;
-      // TODO: Trigger crash animation/restart
+    // Front wheel raycast
+    final frontResult = _raycastWheel(frontAttachWorld, chassisAngle, rayLength);
+    if (frontResult != null) {
+      _frontWheelGrounded = true;
+      _frontWheelCompression = frontResult['compression'] as double;
+      _frontWheelWorldPos = frontResult['wheelPos'] as Vector2;
+      _groundNormal = frontResult['normal'] as Vector2;
+      _groundPoint = frontResult['contactPoint'] as Vector2;
+      _impactVelocity = frontResult['impactVelocity'] as double;
+      
+      // Apply suspension force
+      _applySuspensionForce(frontAttachWorld, _frontWheelWorldPos, _frontWheelCompression, true);
+    } else {
+      _frontWheelCompression = 0.0;
+      _frontWheelWorldPos = frontAttachWorld + Vector2(0, BikeConfig.wheelRadius + BikeConfig.suspensionRestLength);
     }
+    
+    // Rear wheel raycast
+    final rearResult = _raycastWheel(rearAttachWorld, chassisAngle, rayLength);
+    if (rearResult != null) {
+      _rearWheelGrounded = true;
+      _rearWheelCompression = rearResult['compression'] as double;
+      _rearWheelWorldPos = rearResult['wheelPos'] as Vector2;
+      if (!_frontWheelGrounded) {
+        _groundNormal = rearResult['normal'] as Vector2;
+        _groundPoint = rearResult['contactPoint'] as Vector2;
+      }
+      
+      _applySuspensionForce(rearAttachWorld, _rearWheelWorldPos, _rearWheelCompression, false);
+    } else {
+      _rearWheelCompression = 0.0;
+      _rearWheelWorldPos = rearAttachWorld + Vector2(0, BikeConfig.wheelRadius + BikeConfig.suspensionRestLength);
+    }
+    
+    // Check for break impact
+    if (_impactVelocity > BikeConfig.breakImpactVelocity) {
+      _isCrashed = true;
+    }
+  }
+  
+  Map<String, dynamic>? _raycastWheel(Vector2 attachPoint, double chassisAngle, double rayLength) {
+    // Ray direction: down relative to bike rotation
+    final rayDir = Vector2(
+      math.sin(chassisAngle),
+      math.cos(chassisAngle),
+    );
+    
+    final rayEnd = attachPoint + rayDir * rayLength;
+    
+    // Perform raycast
+    final callback = _WheelRaycastCallback(attachPoint, rayDir, rayLength);
+    world.physicsWorld.raycast(callback, attachPoint, rayEnd);
+    
+    if (callback.hit) {
+      return {
+        'compression': callback.compression,
+        'wheelPos': callback.wheelPos,
+        'normal': callback.normal,
+        'contactPoint': callback.contactPoint,
+        'impactVelocity': callback.impactVelocity,
+      };
+    }
+    return null;
+  }
+  
+  void _applySuspensionForce(Vector2 attachPoint, Vector2 wheelPos, double compression, bool isFront) {
+    if (compression <= 0) return;
+    
+    // Suspension force pushes chassis up
+    final springForce = compression * BikeConfig.suspensionStiffness;
+    final dampingForce = body.linearVelocity.y * BikeConfig.suspensionDamping;
+    
+    final totalForce = springForce - dampingForce;
+    final forceDir = -_groundNormal; // Push away from ground
+    
+    body.applyForce(forceDir * totalForce);
+  }
+  
+  Vector2 _localToWorld(Vector2 local, Vector2 worldPos, double angle) {
+    final cos = math.cos(angle);
+    final sin = math.sin(angle);
+    return Vector2(
+      worldPos.x + local.x * cos - local.y * sin,
+      worldPos.y + local.x * sin + local.y * cos,
+    );
   }
 
   // ─────────────────────────────────────────────────────────────
-  // ROTATION CONTROL - Player angle matching
+  // ROTATION CONTROL
   // ─────────────────────────────────────────────────────────────
   void _applyRotationControl() {
     final currentAngle = body.angle;
-    final angleDiff = _targetAngle - currentAngle;
+    var angleDiff = _targetAngle - currentAngle;
     
-    // Normalize angle difference to -pi to +pi
-    var normalizedDiff = angleDiff;
-    while (normalizedDiff > math.pi) normalizedDiff -= 2 * math.pi;
-    while (normalizedDiff < -math.pi) normalizedDiff += 2 * math.pi;
+    // Normalize
+    while (angleDiff > math.pi) angleDiff -= 2 * math.pi;
+    while (angleDiff < -math.pi) angleDiff += 2 * math.pi;
     
-    // Determine max rotation speed based on grounded state
     final isGrounded = _frontWheelGrounded || _rearWheelGrounded;
     final maxRotSpeed = isGrounded 
         ? BikeConfig.maxAngularVelocity 
         : BikeConfig.airAngularVelocity;
     
-    // Calculate desired angular velocity to reach target
-    // Simple proportional control
-    final desiredAngularVelocity = (normalizedDiff * 4.0).clamp(-maxRotSpeed, maxRotSpeed);
-    
-    // Directly set angular velocity (puppet physics!)
+    final desiredAngularVelocity = (angleDiff * 4.0).clamp(-maxRotSpeed, maxRotSpeed);
     body.angularVelocity = desiredAngularVelocity;
   }
 
   // ─────────────────────────────────────────────────────────────
-  // GROUND SNAP - Active correction when wheels touch
+  // GROUND SNAP
   // ─────────────────────────────────────────────────────────────
   void _applyGroundSnap() {
     if (!_frontWheelGrounded && !_rearWheelGrounded) return;
     
-    // Calculate angle to ground normal
-    // Ground normal points away from surface, so bike should align perpendicular to it
+    // Align bike to ground normal
     final groundAngle = math.atan2(-_groundNormal.x, -_groundNormal.y);
+    var angleDiff = groundAngle - body.angle;
     
-    // If bike angle is significantly different from ground angle, snap toward it
-    final angleDiff = groundAngle - body.angle;
-    var normalizedDiff = angleDiff;
-    while (normalizedDiff > math.pi) normalizedDiff -= 2 * math.pi;
-    while (normalizedDiff < -math.pi) normalizedDiff += 2 * math.pi;
+    while (angleDiff > math.pi) angleDiff -= 2 * math.pi;
+    while (angleDiff < -math.pi) angleDiff += 2 * math.pi;
     
-    // Apply snap force (this fights against player control)
-    // The snap is stronger the more crooked the landing
-    if (normalizedDiff.abs() > 0.1) {
-      final snapTorque = normalizedDiff * BikeConfig.groundSnapSpeed;
-      body.angularVelocity += snapTorque * 0.016; // Approximate dt
+    if (angleDiff.abs() > 0.05) {
+      final snapTorque = angleDiff * BikeConfig.groundSnapSpeed;
+      body.angularVelocity += snapTorque * 0.016;
     }
-  }
-
-  // ─────────────────────────────────────────────────────────────
-  // MICRO GRAVITY - Magnetic pull to track
-  // ─────────────────────────────────────────────────────────────
-  void _applyMicroGravity() {
-    if (!_frontWheelGrounded && !_rearWheelGrounded) return;
     
-    // Apply force toward ground point
+    // Micro-gravity pull toward ground
     final bikePos = body.position;
     final toGround = _groundPoint - bikePos;
-    final distance = toGround.length;
-    
-    if (distance > 0.1) {
-      final pullForce = toGround.normalized() * BikeConfig.microGravityStrength;
-      body.applyForce(pullForce);
+    if (toGround.length > 0.1) {
+      body.applyForce(toGround.normalized() * BikeConfig.microGravityStrength);
     }
   }
 
   // ─────────────────────────────────────────────────────────────
-  // DRIVE FORCE - Instant speed with hill adjustment
+  // DRIVE FORCE
   // ─────────────────────────────────────────────────────────────
   void _applyDriveForce() {
     if (!_isGasPressed) return;
-    if (!_rearWheelGrounded) return; // Need traction
+    if (!_rearWheelGrounded) return;
     
-    // Calculate speed based on slope
     final bikeAngle = body.angle;
-    final slopeFactor = math.cos(bikeAngle); // 1.0 = flat, 0 = vertical
+    final slopeFactor = math.cos(bikeAngle);
     
     double targetSpeed;
     if (slopeFactor > 0) {
-      // Going uphill or flat
       targetSpeed = BikeConfig.maxSpeed * (0.5 + 0.5 * slopeFactor);
     } else {
-      // Going downhill (bike pointing down)
-      targetSpeed = BikeConfig.maxSpeed * BikeConfig.downhillSpeedFactor;
+      targetSpeed = BikeConfig.maxSpeed * 1.3;
     }
     
-    // Instant velocity set (BR style)
     final currentVel = body.linearVelocity;
     body.linearVelocity = Vector2(
       targetSpeed * math.cos(bikeAngle),
-      currentVel.y, // Preserve Y velocity (gravity, jumps)
+      currentVel.y,
     );
+  }
+  
+  // ─────────────────────────────────────────────────────────────
+  // BRAKE FORCE
+  // ─────────────────────────────────────────────────────────────
+  void _applyBrakeForce() {
+    if (!_isBrakePressed) return;
+    if (!_frontWheelGrounded && !_rearWheelGrounded) return;
+    
+    final currentVel = body.linearVelocity;
+    final speed = currentVel.length;
+    
+    if (speed < 0.5) {
+      body.linearVelocity = Vector2.zero();
+      return;
+    }
+    
+    // Decelerate in opposite direction of movement
+    final decel = currentVel.normalized() * (-BikeConfig.brakeDeceleration * 0.016);
+    body.linearVelocity = currentVel + decel;
   }
 
   Vector2 get bodyPosition => body.position.clone();
-  
+  Vector2 get frontWheelPosition => _frontWheelWorldPos.clone();
+  Vector2 get rearWheelPosition => _rearWheelWorldPos.clone();
   bool get isGrounded => _frontWheelGrounded || _rearWheelGrounded;
   bool get isCrashed => _isCrashed;
 
@@ -308,9 +355,9 @@ class Bike extends BodyComponent {
       Paint()..color = Colors.blueAccent,
     );
     
-    // Rider area (lighter blue)
+    // Rider
     canvas.drawRect(
-      const Rect.fromLTRB(0.5, -1.2, 1.5, -0.4),
+      const Rect.fromLTRB(0.3, -1.0, 1.2, -0.3),
       Paint()..color = Colors.lightBlueAccent,
     );
     
@@ -321,43 +368,88 @@ class Bike extends BodyComponent {
       Paint()..color = Colors.orange,
     );
     
-    // Wheels (visual only)
+    // Wheels (visual with compression)
     final wheelPaint = Paint()
       ..color = Colors.white
       ..style = PaintingStyle.stroke
-      ..strokeWidth = 0.15;
+      ..strokeWidth = 0.12;
     
     // Front wheel
+    final frontWheelLocal = _worldToLocal(_frontWheelWorldPos, body.position, body.angle);
     canvas.drawCircle(
-      Offset(BikeConfig.wheelBase / 2, BikeConfig.wheelRadius),
+      Offset(frontWheelLocal.x, frontWheelLocal.y),
       BikeConfig.wheelRadius,
       wheelPaint,
     );
     
     // Rear wheel
+    final rearWheelLocal = _worldToLocal(_rearWheelWorldPos, body.position, body.angle);
     canvas.drawCircle(
-      Offset(-BikeConfig.wheelBase / 2, BikeConfig.wheelRadius),
+      Offset(rearWheelLocal.x, rearWheelLocal.y),
       BikeConfig.wheelRadius,
       wheelPaint,
     );
     
-    // Debug: show ground contact
-    if (_frontWheelGrounded || _rearWheelGrounded) {
-      final debugPaint = Paint()
-        ..color = Colors.green.withOpacity(0.5)
-        ..style = PaintingStyle.fill;
-      canvas.drawCircle(Offset.zero, 0.3, debugPaint);
+    // Debug: grounded indicator
+    if (isGrounded) {
+      canvas.drawCircle(Offset.zero, 0.2, Paint()..color = Colors.green);
     }
     
-    // Debug: show crash
+    // Debug: crashed
     if (_isCrashed) {
-      final crashPaint = Paint()
-        ..color = Colors.red.withOpacity(0.8)
-        ..style = PaintingStyle.fill;
       canvas.drawRect(
-        Rect.fromLTRB(-3, -2, 3, 2),
-        crashPaint,
+        Rect.fromLTRB(-2, -1.5, 2, 1.5),
+        Paint()..color = Colors.red.withOpacity(0.7),
       );
     }
+  }
+  
+  Vector2 _worldToLocal(Vector2 world, Vector2 bodyPos, double angle) {
+    final dx = world.x - bodyPos.x;
+    final dy = world.y - bodyPos.y;
+    final cos = math.cos(-angle);
+    final sin = math.sin(-angle);
+    return Vector2(dx * cos - dy * sin, dx * sin + dy * cos);
+  }
+}
+
+// ─────────────────────────────────────────────────────────────
+// RAYCAST CALLBACK FOR WHEELS
+// ─────────────────────────────────────���───────────────────────
+class _WheelRaycastCallback extends RayCastCallback {
+  bool hit = false;
+  double compression = 0.0;
+  Vector2 wheelPos = Vector2.zero();
+  Vector2 normal = Vector2(0, -1);
+  Vector2 contactPoint = Vector2.zero();
+  double impactVelocity = 0.0;
+  
+  final Vector2 _startPoint;
+  final Vector2 _rayDir;
+  final double _rayLength;
+  
+  _WheelRaycastCallback(this._startPoint, this._rayDir, this._rayLength);
+  
+  @override
+  double reportFixture(Fixture fixture, Vector2 point, Vector2 normal, double fraction) {
+    // Skip if it's the bike itself
+    if (fixture.body.userData is Bike) return -1;
+    
+    hit = true;
+    contactPoint = point.clone();
+    this.normal = normal.clone();
+    
+    // Calculate compression
+    final distance = (point - _startPoint).length;
+    final restDistance = BikeConfig.wheelRadius + BikeConfig.suspensionRestLength;
+    compression = (restDistance - distance + BikeConfig.wheelRadius).clamp(0.0, BikeConfig.suspensionMaxCompression);
+    
+    // Wheel position (on surface)
+    wheelPos = point + normal * BikeConfig.wheelRadius;
+    
+    // Estimate impact velocity (simplified)
+    impactVelocity = 0.0; // Would need body velocity at wheel point
+    
+    return fraction; // Continue to find closest
   }
 }
