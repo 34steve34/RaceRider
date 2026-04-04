@@ -258,7 +258,7 @@ class Bike extends BodyComponent {
     
     if (distance > 0.1) {
       final pullForce = toGround.normalized() * BikeConfig.microGravityStrength;
-      body.applyForce(pullForce, body.worldCenter);
+      body.applyForce(pullForce);
     }
   }
 
