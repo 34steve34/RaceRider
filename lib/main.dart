@@ -79,7 +79,7 @@ class RaceRiderGame extends Forge2DGame
   @override
   void onTapDown(TapDownEvent event) {
     final screenWidth = camera.viewport.size.x;
-    final tapX = event.globalPosition.x;
+    final tapX = event.canvasPosition.x;
     
     if (tapX < screenWidth / 2) {
       isBrakePressed = true;
