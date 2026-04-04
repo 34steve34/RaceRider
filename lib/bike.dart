@@ -25,11 +25,11 @@ class BikeConfig {
   static const double headRadius = 0.35;
   
   // Suspension
-  static const double suspensionRestLength = 0.3;
-  static const double suspensionMaxCompression = 0.5;
-  static const double suspensionStiffness = 800.0;
-  static const double suspensionDamping = 50.0;
-  static const double breakImpactVelocity = 20.0;
+  static const double suspensionRestLength = 0.4;
+  static const double suspensionMaxCompression = 0.6;
+  static const double suspensionStiffness = 2500.0;
+  static const double suspensionDamping = 80.0;
+  static const double breakImpactVelocity = 25.0;
   
   // Physics
   static const double bikeMass = 2.0;
@@ -147,8 +147,9 @@ class Bike extends BodyComponent {
     final chassisAngle = body.angle;
     
     // Calculate wheel attachment points in world space
-    final frontAttachLocal = Vector2(BikeConfig.wheelBase / 2, BikeConfig.chassisHeight);
-    final rearAttachLocal = Vector2(-BikeConfig.wheelBase / 2, BikeConfig.chassisHeight);
+    // Wheels are below the chassis center
+    final frontAttachLocal = Vector2(BikeConfig.wheelBase / 2, BikeConfig.chassisHeight + BikeConfig.suspensionRestLength);
+    final rearAttachLocal = Vector2(-BikeConfig.wheelBase / 2, BikeConfig.chassisHeight + BikeConfig.suspensionRestLength);
     
     final frontAttachWorld = _localToWorld(frontAttachLocal, chassisPos, chassisAngle);
     final rearAttachWorld = _localToWorld(rearAttachLocal, chassisPos, chassisAngle);
@@ -157,7 +158,7 @@ class Bike extends BodyComponent {
     _frontWheelGrounded = false;
     _rearWheelGrounded = false;
     
-    final rayLength = BikeConfig.wheelRadius + BikeConfig.suspensionRestLength + BikeConfig.suspensionMaxCompression;
+    final rayLength = BikeConfig.wheelRadius + BikeConfig.suspensionRestLength + BikeConfig.suspensionMaxCompression + 1.0;
     
     // Front wheel raycast
     final frontResult = _raycastWheel(frontAttachWorld, chassisAngle, rayLength);
@@ -173,7 +174,9 @@ class Bike extends BodyComponent {
       _applySuspensionForce(frontAttachWorld, _frontWheelWorldPos, _frontWheelCompression, true);
     } else {
       _frontWheelCompression = 0.0;
-      _frontWheelWorldPos = frontAttachWorld + Vector2(0, BikeConfig.wheelRadius + BikeConfig.suspensionRestLength);
+      // Wheel position when not grounded
+      final wheelOffsetLocal = Vector2(BikeConfig.wheelBase / 2, BikeConfig.chassisHeight + BikeConfig.suspensionRestLength + BikeConfig.wheelRadius);
+      _frontWheelWorldPos = _localToWorld(wheelOffsetLocal, chassisPos, chassisAngle);
     }
     
     // Rear wheel raycast
@@ -190,7 +193,8 @@ class Bike extends BodyComponent {
       _applySuspensionForce(rearAttachWorld, _rearWheelWorldPos, _rearWheelCompression, false);
     } else {
       _rearWheelCompression = 0.0;
-      _rearWheelWorldPos = rearAttachWorld + Vector2(0, BikeConfig.wheelRadius + BikeConfig.suspensionRestLength);
+      final wheelOffsetLocal = Vector2(-BikeConfig.wheelBase / 2, BikeConfig.chassisHeight + BikeConfig.suspensionRestLength + BikeConfig.wheelRadius);
+      _rearWheelWorldPos = _localToWorld(wheelOffsetLocal, chassisPos, chassisAngle);
     }
     
     // Check for break impact
@@ -200,11 +204,8 @@ class Bike extends BodyComponent {
   }
   
   Map<String, dynamic>? _raycastWheel(Vector2 attachPoint, double chassisAngle, double rayLength) {
-    // Ray direction: down relative to bike rotation
-    final rayDir = Vector2(
-      math.sin(chassisAngle),
-      math.cos(chassisAngle),
-    );
+    // Ray direction: straight down in world space (not relative to bike)
+    final rayDir = Vector2(0, 1);
     
     final rayEnd = attachPoint + rayDir * rayLength;
     
@@ -227,13 +228,18 @@ class Bike extends BodyComponent {
   void _applySuspensionForce(Vector2 attachPoint, Vector2 wheelPos, double compression, bool isFront) {
     if (compression <= 0) return;
     
-    // Suspension force pushes chassis up
+    // Suspension force pushes chassis up relative to ground normal
     final springForce = compression * BikeConfig.suspensionStiffness;
-    final dampingForce = body.linearVelocity.y * BikeConfig.suspensionDamping;
+    
+    // Damping based on vertical velocity
+    final vel = body.linearVelocity;
+    final velAlongNormal = vel.dot(-_groundNormal);
+    final dampingForce = velAlongNormal * BikeConfig.suspensionDamping;
     
     final totalForce = springForce - dampingForce;
     final forceDir = -_groundNormal; // Push away from ground
     
+    // Apply at wheel position for proper torque
     body.applyForce(forceDir * totalForce);
   }
   
@@ -262,7 +268,10 @@ class Bike extends BodyComponent {
         ? BikeConfig.maxAngularVelocity 
         : BikeConfig.airAngularVelocity;
     
-    final desiredAngularVelocity = (angleDiff * 4.0).clamp(-maxRotSpeed, maxRotSpeed);
+    // Direct angular velocity control - puppet physics
+    final desiredAngularVelocity = (angleDiff * 5.0).clamp(-maxRotSpeed, maxRotSpeed);
+    
+    // Set angular velocity directly
     body.angularVelocity = desiredAngularVelocity;
   }
 
