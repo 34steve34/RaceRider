@@ -146,22 +146,26 @@ class Bike extends BodyComponent {
     final chassisPos = body.position;
     final chassisAngle = body.angle;
     
-    // Calculate wheel attachment points in world space
-    // Wheels are below the chassis center
-    final frontAttachLocal = Vector2(BikeConfig.wheelBase / 2, BikeConfig.chassisHeight + BikeConfig.suspensionRestLength);
-    final rearAttachLocal = Vector2(-BikeConfig.wheelBase / 2, BikeConfig.chassisHeight + BikeConfig.suspensionRestLength);
+    // Start the suspension exactly at the edge of the chassis
+    final frontAttachLocal = Vector2(BikeConfig.wheelBase / 2, BikeConfig.chassisHeight);
+    final rearAttachLocal = Vector2(-BikeConfig.wheelBase / 2, BikeConfig.chassisHeight);
     
     final frontAttachWorld = _localToWorld(frontAttachLocal, chassisPos, chassisAngle);
     final rearAttachWorld = _localToWorld(rearAttachLocal, chassisPos, chassisAngle);
     
-    // Raycast down from each wheel to find ground
     _frontWheelGrounded = false;
     _rearWheelGrounded = false;
     
-    final rayLength = BikeConfig.wheelRadius + BikeConfig.suspensionRestLength + BikeConfig.suspensionMaxCompression + 1.0;
+    // Total reach of the leg is the suspension + the wheel itself
+    final rayLength = BikeConfig.suspensionRestLength + BikeConfig.suspensionMaxCompression + BikeConfig.wheelRadius;
+    
+    // Calculate "down" relative to the bike's current rotation (crucial for the loop)
+    final cosA = math.cos(chassisAngle);
+    final sinA = math.sin(chassisAngle);
+    final rayDir = Vector2(-sinA, cosA); 
     
     // Front wheel raycast
-    final frontResult = _raycastWheel(frontAttachWorld, chassisAngle, rayLength);
+    final frontResult = _raycastWheel(frontAttachWorld, rayDir, rayLength);
     if (frontResult != null) {
       _frontWheelGrounded = true;
       _frontWheelCompression = frontResult['compression'] as double;
@@ -170,17 +174,14 @@ class Bike extends BodyComponent {
       _groundPoint = frontResult['contactPoint'] as Vector2;
       _impactVelocity = frontResult['impactVelocity'] as double;
       
-      // Apply suspension force
       _applySuspensionForce(frontAttachWorld, _frontWheelWorldPos, _frontWheelCompression, true);
     } else {
       _frontWheelCompression = 0.0;
-      // Wheel position when not grounded
-      final wheelOffsetLocal = Vector2(BikeConfig.wheelBase / 2, BikeConfig.chassisHeight + BikeConfig.suspensionRestLength + BikeConfig.wheelRadius);
-      _frontWheelWorldPos = _localToWorld(wheelOffsetLocal, chassisPos, chassisAngle);
+      _frontWheelWorldPos = frontAttachWorld + (rayDir * (BikeConfig.suspensionRestLength + BikeConfig.wheelRadius));
     }
     
     // Rear wheel raycast
-    final rearResult = _raycastWheel(rearAttachWorld, chassisAngle, rayLength);
+    final rearResult = _raycastWheel(rearAttachWorld, rayDir, rayLength);
     if (rearResult != null) {
       _rearWheelGrounded = true;
       _rearWheelCompression = rearResult['compression'] as double;
@@ -193,23 +194,16 @@ class Bike extends BodyComponent {
       _applySuspensionForce(rearAttachWorld, _rearWheelWorldPos, _rearWheelCompression, false);
     } else {
       _rearWheelCompression = 0.0;
-      final wheelOffsetLocal = Vector2(-BikeConfig.wheelBase / 2, BikeConfig.chassisHeight + BikeConfig.suspensionRestLength + BikeConfig.wheelRadius);
-      _rearWheelWorldPos = _localToWorld(wheelOffsetLocal, chassisPos, chassisAngle);
+      _rearWheelWorldPos = rearAttachWorld + (rayDir * (BikeConfig.suspensionRestLength + BikeConfig.wheelRadius));
     }
     
-    // Check for break impact
     if (_impactVelocity > BikeConfig.breakImpactVelocity) {
       _isCrashed = true;
     }
   }
   
-  Map<String, dynamic>? _raycastWheel(Vector2 attachPoint, double chassisAngle, double rayLength) {
-    // Ray direction: straight down in world space (not relative to bike)
-    final rayDir = Vector2(0, 1);
-    
-    final rayEnd = attachPoint + rayDir * rayLength;
-    
-    // Perform raycast
+  Map<String, dynamic>? _raycastWheel(Vector2 attachPoint, Vector2 rayDir, double rayLength) {
+    final rayEnd = attachPoint + (rayDir * rayLength);
     final callback = _WheelRaycastCallback(attachPoint, rayDir, rayLength);
     world.physicsWorld.raycast(callback, attachPoint, rayEnd);
     
@@ -228,19 +222,22 @@ class Bike extends BodyComponent {
   void _applySuspensionForce(Vector2 attachPoint, Vector2 wheelPos, double compression, bool isFront) {
     if (compression <= 0) return;
     
-    // Suspension force pushes chassis up relative to ground normal
+    // Spring force pushes OUT from the compression
     final springForce = compression * BikeConfig.suspensionStiffness;
     
     // Damping based on vertical velocity
     final vel = body.linearVelocity;
-    final velAlongNormal = vel.dot(-_groundNormal);
+    // We want velocity relative to the ground normal, so we remove the negative sign here too
+    final velAlongNormal = vel.dot(_groundNormal); 
     final dampingForce = velAlongNormal * BikeConfig.suspensionDamping;
     
     final totalForce = springForce - dampingForce;
-    final forceDir = -_groundNormal; // Push away from ground
     
-    // Apply at wheel position for proper torque
-    body.applyForce(forceDir * totalForce);
+    // Push AWAY from the ground (along the normal)
+    final forceDir = _groundNormal; 
+    
+    // Apply the force at the attachment point so the bike can pitch and rotate naturally!
+    body.applyForce(forceDir * totalForce, point: attachPoint);
   }
   
   Vector2 _localToWorld(Vector2 local, Vector2 worldPos, double angle) {
@@ -424,7 +421,7 @@ class Bike extends BodyComponent {
 
 // ─────────────────────────────────────────────────────────────
 // RAYCAST CALLBACK FOR WHEELS
-// ─────────────────────────────────────���───────────────────────
+// ─────────────────────────────────────────────────────────────
 class _WheelRaycastCallback extends RayCastCallback {
   bool hit = false;
   double compression = 0.0;
@@ -441,24 +438,24 @@ class _WheelRaycastCallback extends RayCastCallback {
   
   @override
   double reportFixture(Fixture fixture, Vector2 point, Vector2 normal, double fraction) {
-    // Skip if it's the bike itself
     if (fixture.body.userData is Bike) return -1;
     
     hit = true;
     contactPoint = point.clone();
     this.normal = normal.clone();
     
-    // Calculate compression
+    // Total distance from the chassis edge to the ground
     final distance = (point - _startPoint).length;
-    final restDistance = BikeConfig.wheelRadius + BikeConfig.suspensionRestLength;
-    compression = (restDistance - distance + BikeConfig.wheelRadius).clamp(0.0, BikeConfig.suspensionMaxCompression);
     
-    // Wheel position (on surface)
+    // The length of the leg when perfectly at rest
+    final restDistance = BikeConfig.suspensionRestLength + BikeConfig.wheelRadius;
+    
+    // If distance is shorter than restDistance, the suspension is compressed!
+    compression = (restDistance - distance).clamp(0.0, BikeConfig.suspensionMaxCompression);
+    
     wheelPos = point + normal * BikeConfig.wheelRadius;
+    impactVelocity = 0.0; 
     
-    // Estimate impact velocity (simplified)
-    impactVelocity = 0.0; // Would need body velocity at wheel point
-    
-    return fraction; // Continue to find closest
+    return fraction; 
   }
 }
