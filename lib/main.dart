@@ -16,7 +16,7 @@ void main() {
 }
 
 class RaceRiderGame extends Forge2DGame 
-    with HasKeyboardHandlerComponents, HasDragDetector, HasTappDetector {
+    with HasKeyboardHandlerComponents, TapCallbacks {
   Bike? playerBike;
   double phoneTiltAngle = 0.0;
   bool isGasPressed = false;
@@ -77,27 +77,25 @@ class RaceRiderGame extends Forge2DGame
   // TOUCH CONTROLS - Left side = brake, Right side = gas
   // ─────────────────────────────────────────────────────────────
   @override
-  void onTapDown(int pointerId, TapDownInfo info) {
+  void onTapDown(TapDownEvent event) {
     final screenWidth = camera.viewport.size.x;
-    final tapX = info.eventPosition.global.x;
+    final tapX = event.globalPosition.x;
     
     if (tapX < screenWidth / 2) {
-      // Left side = brake
       isBrakePressed = true;
     } else {
-      // Right side = gas
       isGasPressed = true;
     }
   }
   
   @override
-  void onTapUp(int pointerId, TapUpInfo info) {
+  void onTapUp(TapUpEvent event) {
     isGasPressed = false;
     isBrakePressed = false;
   }
   
   @override
-  void onTapCancel(int pointerId) {
+  void onTapCancel(TapCancelEvent event) {
     isGasPressed = false;
     isBrakePressed = false;
   }
