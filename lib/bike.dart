@@ -176,10 +176,11 @@ class Bike extends BodyComponent {
   
   void _extractGroundInfo(Contact contact) {
     // Get the world manifold to find contact normal
-    final manifold = contact.getWorldManifold();
-    if (manifold.points.isNotEmpty) {
-      _groundNormal.setFrom(manifold.normal);
-      _groundPoint.setFrom(manifold.points[0]);
+    final worldManifold = WorldManifold();
+    contact.getWorldManifold(worldManifold);
+    if (worldManifold.points.isNotEmpty) {
+      _groundNormal.setFrom(worldManifold.normal);
+      _groundPoint.setFrom(worldManifold.points[0]);
     }
   }
   
@@ -257,7 +258,7 @@ class Bike extends BodyComponent {
     
     if (distance > 0.1) {
       final pullForce = toGround.normalized() * BikeConfig.microGravityStrength;
-      body.applyForceToCenter(pullForce);
+      body.applyForce(pullForce, body.worldCenter);
     }
   }
 
