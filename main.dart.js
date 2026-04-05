@@ -37893,7 +37893,7 @@ s=s[1]
 l=new A.h(new Float32Array(2))
 l.W(-r*(p-n)+m,r*(q-o)+s)
 s=l.V(c)
-this.ax.un(c.B(0,b*4000-s*120),a)},
+this.ax.un(c.B(0,b*1e4-s*120),a)},
 AX(){var s,r=this.x1,q=this.ax
 q===$&&A.d()
 s=r-q.f.e
@@ -38038,9 +38038,9 @@ k=new A.hg(k,new Float32Array(2))
 k.f2(m)
 k.aR()
 n=A.aa(A.ex(null),null,!1,n)
-o=new A.jm("RaceRider v2.1.3",p,o,k,B.as,0,new A.b1(n,0,0,l),null,new A.bb([]),new A.bb([]),t.BA)
+o=new A.jm("RaceRider v2.1.4",p,o,k,B.as,0,new A.b1(n,0,0,l),null,new A.bb([]),new A.bb([]),t.BA)
 o.As(null,null,null,null,0,d,null,null,null)
-d=A.MZ(p.oQ("RaceRider v2.1.3"))
+d=A.MZ(p.oQ("RaceRider v2.1.4"))
 o.p3=d
 f=d.b
 d=f.d
