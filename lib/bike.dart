@@ -4,29 +4,30 @@ import 'package:flutter/material.dart';
 import 'dart:math' as math;
 
 // ─────────────────────────────────────────────────────────────
-// BIKE CONFIG - "BIKE RACE" CLONE SPECS
+// BIKE CONFIG - "HOT PINK" BR EDITION
 // ─────────────────────────────────────────────────────────────
 class BikeConfig {
-  static const double cruiseSpeed = 5.0;     // The "forever" speed
-  static const double maxSpeed = 45.0;
-  static const double acceleration = 40.0;
+  static const double cruiseSpeed = 5.0;
+  static const double maxSpeed = 48.0;
+  static const double acceleration = 45.0;
   
   static const double wheelRadius = 0.6;
   static const double wheelBase = 2.8;
-  static const double chassisWidth = 2.0;
-  static const double chassisHeight = 0.4;
+  static const double chassisWidth = 2.2;
+  static const double chassisHeight = 0.5;
   
-  static const double suspensionRestLength = 0.6; 
-  static const double suspensionStiffness = 10000.0; // Stronger push-back
-  static const double suspensionDamping = 120.0;
+  // BR Style: High stiffness, low damping for "bouncy" feel
+  static const double suspensionRestLength = 0.8; 
+  static const double suspensionStiffness = 8000.0; 
+  static const double suspensionDamping = 40.0; // Lowered to allow the bounce
   
   static const double bikeMass = 2.0;
-  static const double stickyForce = 10.0;    // Minimal sticky for traction
-  static const double brakeForce = 60.0;
+  static const double worldGravity = 22.0;
+  static const double stickyForce = 8.0; 
 }
 
 // ─────────────────────────────────────────────────────────────
-// BIKE COMPONENT (ROYAL PURPLE VERSION)
+// BIKE COMPONENT (HOT PINK VERSION)
 // ─────────────────────────────────────────────────────────────
 class Bike extends BodyComponent {
   final Vector2 initialPosition;
@@ -34,7 +35,7 @@ class Bike extends BodyComponent {
   double _targetAngle = 0.0;
   bool _isGasPressed = false;
   bool _isBrakePressed = false;
-  bool _isLockedAtZero = false; // For the "stay stopped" logic
+  bool _isLockedAtZero = false;
   
   bool _frontWheelGrounded = false;
   bool _rearWheelGrounded = false;
@@ -57,12 +58,11 @@ class Bike extends BodyComponent {
       userData: this,
       position: initialPosition,
       type: BodyType.dynamic,
-      gravityOverride: Vector2(0, 25), // Heavier gravity for faster drops
+      gravityOverride: Vector2(0, BikeConfig.worldGravity),
     );
     
-    // Friction set to 0 to allow that "infinite glide" feel
     final body = world.createBody(bodyDef)
-      ..createFixture(FixtureDef(chassisShape, density: BikeConfig.bikeMass, friction: 0.0));
+      ..createFixture(FixtureDef(chassisShape, density: BikeConfig.bikeMass, friction: 0.1));
     
     return body;
   }
@@ -72,7 +72,6 @@ class Bike extends BodyComponent {
     _isGasPressed = isGas;
     _isBrakePressed = isBrake;
 
-    // Reset lock if gas is hit
     if (_isGasPressed) _isLockedAtZero = false;
     
     _updateWheelPhysics();
@@ -85,8 +84,8 @@ class Bike extends BodyComponent {
     final chassisPos = body.position;
     final chassisAngle = body.angle;
     
-    final fAttachLocal = Vector2(BikeConfig.wheelBase / 2, BikeConfig.chassisHeight);
-    final rAttachLocal = Vector2(-BikeConfig.wheelBase / 2, BikeConfig.chassisHeight);
+    final fAttachLocal = Vector2(BikeConfig.wheelBase / 2, 0); // Center-line attachment
+    final rAttachLocal = Vector2(-BikeConfig.wheelBase / 2, 0);
     
     final fAttachWorld = _localToWorld(fAttachLocal, chassisPos, chassisAngle);
     final rAttachWorld = _localToWorld(rAttachLocal, chassisPos, chassisAngle);
@@ -94,7 +93,7 @@ class Bike extends BodyComponent {
     final cosA = math.cos(chassisAngle);
     final sinA = math.sin(chassisAngle);
     final rayDir = Vector2(-sinA, cosA); 
-    final springDir = Vector2(sinA, -cosA); 
+    final springDir = Vector2(sinA, -cosA); // Local Up
     
     final rayLength = BikeConfig.suspensionRestLength + BikeConfig.wheelRadius;
     
@@ -128,13 +127,22 @@ class Bike extends BodyComponent {
   }
 
   void _applySuspensionForce(Vector2 attachPoint, double compression, Vector2 springDir) {
+    // If it's even slightly compressed, push back HARD
     if (compression <= 0) return;
+
+    // Calculate spring force
     final springForce = compression * BikeConfig.suspensionStiffness;
+    
+    // Get velocity relative to the suspension axis
     final vel = body.linearVelocityFromWorldPoint(attachPoint);
     final damping = vel.dot(springDir) * BikeConfig.suspensionDamping;
     
-    // suspension push
-    body.applyForce(springDir * (springForce - damping), point: attachPoint);
+    // Apply total force
+    final totalForce = springForce - damping;
+    
+    // In BR, suspension is an unstoppable force. 
+    // We apply it at the attachment point to allow the bike to pitch/tilt.
+    body.applyForce(springDir * totalForce, point: attachPoint);
   }
 
   void _applyRotationControl() {
@@ -142,8 +150,8 @@ class Bike extends BodyComponent {
     while (angleDiff > math.pi) angleDiff -= 2 * math.pi;
     while (angleDiff < -math.pi) angleDiff += 2 * math.pi;
     
-    // High torque (350) to allow wheelies and flips over ground friction
-    final torque = (angleDiff * 350.0) - (body.angularVelocity * 20.0);
+    // Increased power (450) and lowered damping (10) for "snappier" flips
+    final torque = (angleDiff * 450.0) - (body.angularVelocity * 10.0);
     body.applyTorque(torque);
   }
 
@@ -154,10 +162,9 @@ class Bike extends BodyComponent {
     while (angleDiff > math.pi) angleDiff -= 2 * math.pi;
     while (angleDiff < -math.pi) angleDiff += 2 * math.pi;
     
-    // Weak snap, easily overridden by player
-    body.applyTorque(angleDiff * 30.0);
+    body.applyTorque(angleDiff * 50.0);
     
-    // Sticky force to keep tires down
+    // Stick to ground
     final force = (_groundPoint - body.position).normalized() * BikeConfig.stickyForce;
     body.applyForce(force);
   }
@@ -169,23 +176,20 @@ class Bike extends BodyComponent {
     final forwardDir = Vector2(math.cos(body.angle), math.sin(body.angle));
     
     if (_isBrakePressed) {
-      // Slow down to a stop
       if (currentVel.length > 0.5) {
         body.applyForce(currentVel.normalized() * -BikeConfig.brakeForce * body.mass);
       } else {
         body.linearVelocity = Vector2.zero();
-        _isLockedAtZero = true; // Lock the motor
+        _isLockedAtZero = true;
       }
       return;
     }
 
     if (_isLockedAtZero) return;
 
-    // Determine target speed: Gas vs Idle Glide
     double targetSpeed = _isGasPressed ? BikeConfig.maxSpeed : BikeConfig.cruiseSpeed;
-    
-    // If we are slower than target, accelerate. If faster (from a hill), let physics take over.
     final speedAlongForward = currentVel.dot(forwardDir);
+    
     if (speedAlongForward < targetSpeed) {
       body.applyForce(forwardDir * BikeConfig.acceleration * body.mass);
     }
@@ -220,18 +224,18 @@ class Bike extends BodyComponent {
   }
 
   bool get isGrounded => _frontWheelGrounded || _rearWheelGrounded;
-  bool get isCrashed => false; // Add crash logic here later if head hits ground
+  bool get isCrashed => false; 
 
   @override
   void render(Canvas canvas) {
-    // Chassis - Royal Purple
-    final paint = Paint()..color = const Color(0xFF7851A9);
+    // Chassis - Hot Pink
+    final paint = Paint()..color = const Color(0xFFFF69B4);
     canvas.drawRect(Rect.fromLTRB(-BikeConfig.chassisWidth, -BikeConfig.chassisHeight, BikeConfig.chassisWidth, BikeConfig.chassisHeight), paint);
     
-    // Rider - Gold
-    canvas.drawRect(const Rect.fromLTRB(0.3, -1.0, 1.2, -0.3), Paint()..color = const Color(0xFFFFD700));
+    // Rider - White
+    canvas.drawRect(const Rect.fromLTRB(0.3, -1.1, 1.1, -0.4), Paint()..color = Colors.white);
     
-    final wheelPaint = Paint()..color = Colors.white..style = PaintingStyle.stroke..strokeWidth = 0.12;
+    final wheelPaint = Paint()..color = Colors.white..style = PaintingStyle.stroke..strokeWidth = 0.15;
     final fL = _worldToLocal(_frontWheelWorldPos, body.position, body.angle);
     final rL = _worldToLocal(_rearWheelWorldPos, body.position, body.angle);
     
