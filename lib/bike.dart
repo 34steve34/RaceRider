@@ -17,7 +17,7 @@ class BikeConfig {
   static const double chassisHeight = 0.4;
   
   static const double suspensionRestLength = 0.6; 
-  static const double suspensionStiffness = 4000.0; // Stronger push-back
+  static const double suspensionStiffness = 10000.0; // Stronger push-back
   static const double suspensionDamping = 120.0;
   
   static const double bikeMass = 2.0;

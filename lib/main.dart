@@ -9,7 +9,7 @@ import 'dart:math' as math;
 import 'track.dart';
 import 'bike.dart';
 
-const String gameVersion = "v2.1.3";
+const String gameVersion = "v2.1.4";
 
 void main() {
   runApp(GameWidget(game: RaceRiderGame()));
