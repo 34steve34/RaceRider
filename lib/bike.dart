@@ -18,8 +18,8 @@ class BikeConfig {
   
   // BR Style: High stiffness, low damping for "bouncy" feel
   static const double suspensionRestLength = 0.8; 
-  static const double suspensionStiffness = 8000.0; 
-  static const double suspensionDamping = 40.0; 
+  static const double suspensionStiffness = 5000.0; 
+  static const double suspensionDamping = 80.0; 
   
   static const double bikeMass = 2.0;
   static const double worldGravity = 22.0;
