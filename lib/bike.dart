@@ -19,11 +19,12 @@ class BikeConfig {
   // BR Style: High stiffness, low damping for "bouncy" feel
   static const double suspensionRestLength = 0.8; 
   static const double suspensionStiffness = 8000.0; 
-  static const double suspensionDamping = 40.0; // Lowered to allow the bounce
+  static const double suspensionDamping = 40.0; 
   
   static const double bikeMass = 2.0;
   static const double worldGravity = 22.0;
   static const double stickyForce = 8.0; 
+  static const double brakeForce = 80.0; // <-- Restored missing variable!
 }
 
 // ─────────────────────────────────────────────────────────────
@@ -84,7 +85,7 @@ class Bike extends BodyComponent {
     final chassisPos = body.position;
     final chassisAngle = body.angle;
     
-    final fAttachLocal = Vector2(BikeConfig.wheelBase / 2, 0); // Center-line attachment
+    final fAttachLocal = Vector2(BikeConfig.wheelBase / 2, 0); 
     final rAttachLocal = Vector2(-BikeConfig.wheelBase / 2, 0);
     
     final fAttachWorld = _localToWorld(fAttachLocal, chassisPos, chassisAngle);
@@ -127,21 +128,13 @@ class Bike extends BodyComponent {
   }
 
   void _applySuspensionForce(Vector2 attachPoint, double compression, Vector2 springDir) {
-    // If it's even slightly compressed, push back HARD
     if (compression <= 0) return;
 
-    // Calculate spring force
     final springForce = compression * BikeConfig.suspensionStiffness;
-    
-    // Get velocity relative to the suspension axis
     final vel = body.linearVelocityFromWorldPoint(attachPoint);
     final damping = vel.dot(springDir) * BikeConfig.suspensionDamping;
-    
-    // Apply total force
     final totalForce = springForce - damping;
     
-    // In BR, suspension is an unstoppable force. 
-    // We apply it at the attachment point to allow the bike to pitch/tilt.
     body.applyForce(springDir * totalForce, point: attachPoint);
   }
 
@@ -150,7 +143,6 @@ class Bike extends BodyComponent {
     while (angleDiff > math.pi) angleDiff -= 2 * math.pi;
     while (angleDiff < -math.pi) angleDiff += 2 * math.pi;
     
-    // Increased power (450) and lowered damping (10) for "snappier" flips
     final torque = (angleDiff * 450.0) - (body.angularVelocity * 10.0);
     body.applyTorque(torque);
   }
@@ -164,7 +156,6 @@ class Bike extends BodyComponent {
     
     body.applyTorque(angleDiff * 50.0);
     
-    // Stick to ground
     final force = (_groundPoint - body.position).normalized() * BikeConfig.stickyForce;
     body.applyForce(force);
   }
