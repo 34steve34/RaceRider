@@ -56,7 +56,7 @@ class Bike extends BodyComponent {
 
   Bike({required this.initialPosition});
 
-  // Getter used by main.dart
+  // Getter required by main.dart
   Vector2 get bodyPosition => body.position;
 
   @override
@@ -174,8 +174,8 @@ class Bike extends BodyComponent {
   void _applySuspensionForce(Vector2 attachPoint, double compression, Vector2 springDir) {
     final springForce = compression * BikeConfig.suspensionStiffness;
     
-    // Fixed: Standard way to get velocity at a specific world point in Forge2D
-    final attachVel = body.getLinearVelocityFromWorldPoint(attachPoint);
+    // CHANGED: Fixed naming convention for forge2d 0.14.2+1
+    final attachVel = body.linearVelocityFromWorldPoint(attachPoint);
     
     final velAlongStrut = attachVel.dot(springDir); 
     final dampingForce = velAlongStrut * BikeConfig.suspensionDamping;
@@ -252,9 +252,6 @@ class Bike extends BodyComponent {
   }
 }
 
-// ─────────────────────────────────────────────────────────────
-// RAYCAST CALLBACK
-// ─────────────────────────────────────────────────────────────
 class _WheelRaycastCallback extends RayCastCallback {
   bool hit = false;
   double compression = 0.0;
