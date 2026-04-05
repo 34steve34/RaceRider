@@ -37910,7 +37910,7 @@ q=r-s.f.e
 while(q>3.141592653589793)q-=6.283185307179586
 while(q<-3.141592653589793)q+=6.283185307179586
 s.uq(q*50)
-p=o.ae.I(0,o.ax.d.a).wq().B(0,8)
+p=o.ae.I(0,o.ax.d.a).wq().B(0,2)
 o.ax.mZ(p)},
 AT(){var s,r,q,p,o,n=this
 if(!(n.y2||n.aw))return
@@ -38038,9 +38038,9 @@ k=new A.hg(k,new Float32Array(2))
 k.f2(m)
 k.aR()
 n=A.aa(A.ex(null),null,!1,n)
-o=new A.jm("RaceRider v2.1.5",p,o,k,B.as,0,new A.b1(n,0,0,l),null,new A.bb([]),new A.bb([]),t.BA)
+o=new A.jm("RaceRider v2.1.6",p,o,k,B.as,0,new A.b1(n,0,0,l),null,new A.bb([]),new A.bb([]),t.BA)
 o.As(null,null,null,null,0,d,null,null,null)
-d=A.MZ(p.oQ("RaceRider v2.1.5"))
+d=A.MZ(p.oQ("RaceRider v2.1.6"))
 o.p3=d
 f=d.b
 d=f.d
