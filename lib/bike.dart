@@ -61,7 +61,6 @@ class Bike extends BodyComponent {
       userData: this,
       position: initialPosition,
       type: BodyType.dynamic,
-      gravityScale: BikeConfig.worldGravity / 9.8,
     );
     
     final body = world.createBody(bodyDef);
