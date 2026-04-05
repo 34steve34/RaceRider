@@ -9,7 +9,7 @@ import 'dart:math' as math;
 import 'track.dart';
 import 'bike.dart';
 
-const String gameVersion = "v2.1.6";
+const String gameVersion = "v2.1.7";
 
 void main() {
   runApp(GameWidget(game: RaceRiderGame()));
@@ -30,7 +30,8 @@ class RaceRiderGame extends Forge2DGame
     
     world.add(TrackComponent());
     
-    playerBike = Bike(initialPosition: Vector2(-15, -5));
+    // Start bike at a visible position
+    playerBike = Bike(initialPosition: Vector2(0, 5));
     await world.add(playerBike!);
 
     camera.viewport.add(
@@ -47,7 +48,9 @@ class RaceRiderGame extends Forge2DGame
       ),
     );
 
-    camera.viewfinder.zoom = 12.0;
+    // Center camera on bike
+    camera.viewfinder.position = Vector2(0, 5);
+    camera.viewfinder.zoom = 10.0;
     
     _startAccelerometer();
   }

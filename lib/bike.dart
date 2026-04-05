@@ -62,10 +62,18 @@ class Bike extends BodyComponent {
       gravityOverride: Vector2(0, BikeConfig.worldGravity),
     );
     
-    final body = world.createBody(bodyDef)
-      ..createFixture(FixtureDef(chassisShape, density: BikeConfig.bikeMass, friction: 0.1));
+    final body = world.createBody(bodyDef);
+    body.createFixture(FixtureDef(chassisShape, density: BikeConfig.bikeMass, friction: 0.1));
     
     return body;
+  }
+
+  @override
+  void onAdd() {
+    super.onAdd();
+    // Initialize wheel positions
+    _frontWheelWorldPos = Vector2(initialPosition.x + BikeConfig.wheelBase / 2, initialPosition.y);
+    _rearWheelWorldPos = Vector2(initialPosition.x - BikeConfig.wheelBase / 2, initialPosition.y);
   }
 
   void updateControl(double phoneTiltAngle, bool isGas, bool isBrake) {
@@ -271,6 +279,11 @@ class Bike extends BodyComponent {
 
   @override
   void render(Canvas canvas) {
+    super.render(canvas); // Let BodyComponent handle coordinate transformation
+    
+    // Debug: Draw world position
+    canvas.drawCircle(Offset.zero, 0.5, Paint()..color = Colors.red);
+    
     // Chassis - Hot Pink
     final paint = Paint()..color = const Color(0xFFFF69B4);
     canvas.drawRect(Rect.fromLTRB(-BikeConfig.chassisWidth, -BikeConfig.chassisHeight, BikeConfig.chassisWidth, BikeConfig.chassisHeight), paint);
