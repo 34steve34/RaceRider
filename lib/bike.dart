@@ -53,9 +53,11 @@ class Bike extends BodyComponent {
   Vector2 _groundPoint = Vector2.zero();
   
   bool _isCrashed = false;
-  double _impactVelocity = 0.0;
 
   Bike({required this.initialPosition});
+
+  // Getter used by main.dart
+  Vector2 get bodyPosition => body.position;
 
   @override
   Body createBody() {
@@ -171,7 +173,10 @@ class Bike extends BodyComponent {
   
   void _applySuspensionForce(Vector2 attachPoint, double compression, Vector2 springDir) {
     final springForce = compression * BikeConfig.suspensionStiffness;
+    
+    // Fixed: Standard way to get velocity at a specific world point in Forge2D
     final attachVel = body.getLinearVelocityFromWorldPoint(attachPoint);
+    
     final velAlongStrut = attachVel.dot(springDir); 
     final dampingForce = velAlongStrut * BikeConfig.suspensionDamping;
     
@@ -231,6 +236,7 @@ class Bike extends BodyComponent {
   }
 
   bool get isGrounded => _frontWheelGrounded || _rearWheelGrounded;
+  bool get isCrashed => _isCrashed;
 
   @override
   void render(Canvas canvas) {
