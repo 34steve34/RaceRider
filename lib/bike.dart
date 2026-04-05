@@ -76,9 +76,57 @@ class Bike extends BodyComponent {
     if (_isGasPressed) _isLockedAtZero = false;
     
     _updateWheelPhysics();
+    _checkChassisCollision(); // <-- NEW: Check if chassis hits ground
     _applyRotationControl();
     _applyGroundSnap();
     _applyBikeRaceMotor(); 
+  }
+  
+  void _checkChassisCollision() {
+    // Check if chassis corners hit ground
+    final halfW = BikeConfig.chassisWidth;
+    final halfH = BikeConfig.chassisHeight;
+    
+    final corners = [
+      Vector2(-halfW, -halfH),
+      Vector2(halfW, -halfH),
+      Vector2(-halfW, halfH),
+      Vector2(halfW, halfH),
+    ];
+    
+    for (final corner in corners) {
+      final worldPos = _localToWorld(corner, body.position, body.angle);
+      final callback = _ChassisRaycastCallback(worldPos);
+      world.physicsWorld.raycast(callback, worldPos, worldPos + Vector2(0, 1) * 2.0);
+      
+      if (callback.hit && callback.dist < 0.3) {
+        final vel = body.linearVelocity;
+        if (vel.y > 15.0) {
+          // TODO: Trigger death
+        }
+      }
+    }
+    
+    // Check fork end points (wheel attachment) for ground collision
+    final fAttachLocal = Vector2(BikeConfig.wheelBase / 2, 0);
+    final rAttachLocal = Vector2(-BikeConfig.wheelBase / 2, 0);
+    
+    final fAttachWorld = _localToWorld(fAttachLocal, body.position, body.angle);
+    final rAttachWorld = _localToWorld(rAttachLocal, body.position, body.angle);
+    
+    // Check front fork end
+    final fForkCallback = _ChassisRaycastCallback(fAttachWorld);
+    world.physicsWorld.raycast(fForkCallback, fAttachWorld, fAttachWorld + Vector2(0, 1) * 1.0);
+    
+    // Check rear fork end
+    final rForkCallback = _ChassisRaycastCallback(rAttachWorld);
+    world.physicsWorld.raycast(rForkCallback, rAttachWorld, rAttachWorld + Vector2(0, 1) * 1.0);
+    
+    // If fork end is below ground (dist < 0), that's death
+    if ((fForkCallback.hit && fForkCallback.dist < 0) || 
+        (rForkCallback.hit && rForkCallback.dist < 0)) {
+      // TODO: Trigger death - fork hit ground
+    }
   }
   
   void _updateWheelPhysics() {
@@ -143,8 +191,12 @@ class Bike extends BodyComponent {
     while (angleDiff > math.pi) angleDiff -= 2 * math.pi;
     while (angleDiff < -math.pi) angleDiff += 2 * math.pi;
     
-    final torque = (angleDiff * 450.0) - (body.angularVelocity * 10.0);
-    body.applyTorque(torque);
+    // Direct angular velocity control - puppet physics
+    final maxRotSpeed = isGrounded ? 10.0 : 8.0;
+    final desiredAngularVelocity = (angleDiff * 8.0).clamp(-maxRotSpeed, maxRotSpeed);
+    
+    // Set angular velocity directly (overrides physics)
+    body.angularVelocity = desiredAngularVelocity;
   }
 
   void _applyGroundSnap() {
@@ -252,6 +304,22 @@ class _WheelRaycastCallback extends RayCastCallback {
     point = p.clone();
     normal = n.clone();
     dist = fraction * maxLen;
+    return fraction;
+  }
+}
+
+class _ChassisRaycastCallback extends RayCastCallback {
+  bool hit = false;
+  double dist = 0.0;
+  final Vector2 start;
+
+  _ChassisRaycastCallback(this.start);
+
+  @override
+  double reportFixture(Fixture fixture, Vector2 p, Vector2 n, double fraction) {
+    if (fixture.body.userData is Bike) return -1;
+    hit = true;
+    dist = fraction * 2.0; // 2.0 is ray length
     return fraction;
   }
 }
