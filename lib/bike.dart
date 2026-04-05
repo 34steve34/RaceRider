@@ -68,14 +68,6 @@ class Bike extends BodyComponent {
     return body;
   }
 
-  @override
-  void onAdd() {
-    super.onAdd();
-    // Initialize wheel positions
-    _frontWheelWorldPos = Vector2(initialPosition.x + BikeConfig.wheelBase / 2, initialPosition.y);
-    _rearWheelWorldPos = Vector2(initialPosition.x - BikeConfig.wheelBase / 2, initialPosition.y);
-  }
-
   void updateControl(double phoneTiltAngle, bool isGas, bool isBrake) {
     _targetAngle = phoneTiltAngle;
     _isGasPressed = isGas;
