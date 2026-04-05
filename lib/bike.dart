@@ -48,10 +48,12 @@ class Bike extends BodyComponent {
 
   Bike({required this.initialPosition});
 
-  Vector2 get bodyPosition => body.position;
+  Vector2 get bodyPosition => body?.position ?? initialPosition;
 
   @override
   Body createBody() {
+    print('Bike.createBody() called with position: $initialPosition');
+    
     final chassisShape = PolygonShape()
       ..setAsBoxXY(BikeConfig.chassisWidth, BikeConfig.chassisHeight);
     
@@ -59,16 +61,19 @@ class Bike extends BodyComponent {
       userData: this,
       position: initialPosition,
       type: BodyType.dynamic,
-      gravityOverride: Vector2(0, BikeConfig.worldGravity),
+      gravityScale: BikeConfig.worldGravity / 9.8,
     );
     
     final body = world.createBody(bodyDef);
     body.createFixture(FixtureDef(chassisShape, density: BikeConfig.bikeMass, friction: 0.1));
     
+    print('Bike body created: ${body != null}');
     return body;
   }
 
   void updateControl(double phoneTiltAngle, bool isGas, bool isBrake) {
+    if (body == null) return; // Body not initialized yet
+    
     _targetAngle = phoneTiltAngle;
     _isGasPressed = isGas;
     _isBrakePressed = isBrake;
@@ -76,7 +81,7 @@ class Bike extends BodyComponent {
     if (_isGasPressed) _isLockedAtZero = false;
     
     _updateWheelPhysics();
-    _checkChassisCollision(); // <-- NEW: Check if chassis hits ground
+    _checkChassisCollision();
     _applyRotationControl();
     _applyGroundSnap();
     _applyBikeRaceMotor(); 

@@ -26,13 +26,17 @@ class RaceRiderGame extends Forge2DGame
 
   @override
   Future<void> onLoad() async {
+    print('RaceRiderGame.onLoad()');
     await super.onLoad();
+    print('super.onLoad() done');
     
     world.add(TrackComponent());
+    print('Track added');
     
     // Start bike at a visible position
     playerBike = Bike(initialPosition: Vector2(0, 5));
     await world.add(playerBike!);
+    print('Bike added, position: ${playerBike?.bodyPosition}');
 
     camera.viewport.add(
       TextComponent(
@@ -48,9 +52,11 @@ class RaceRiderGame extends Forge2DGame
       ),
     );
 
-    // Center camera on bike
-    camera.viewfinder.position = Vector2(0, 5);
+    // Center camera on bike (Forge2D uses inverted Y)
+    camera.viewfinder.position = Vector2(0, -5);
     camera.viewfinder.zoom = 10.0;
+    
+    print('Camera set, zoom: ${camera.viewfinder.zoom}');
     
     _startAccelerometer();
   }
