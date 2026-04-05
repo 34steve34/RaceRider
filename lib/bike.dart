@@ -23,7 +23,7 @@ class BikeConfig {
   
   static const double bikeMass = 2.0;
   static const double worldGravity = 22.0;
-  static const double stickyForce = 8.0; 
+  static const double stickyForce = 2.0; // was 8.0
   static const double brakeForce = 80.0; // <-- Restored missing variable!
 }
 
