@@ -10,29 +10,28 @@ import 'package:sensors_plus/sensors_plus.dart';
 import 'track.dart';
 import 'bike.dart';
 
-const String gameVersion = "v2.3.5";
+const String gameVersion = "v2.3.6";
 
 void main() async {
-  // Lock to landscape
   WidgetsFlutterBinding.ensureInitialized();
+  // Lock orientation for PWA/Mobile
   await SystemChrome.setPreferredOrientations([
     DeviceOrientation.landscapeLeft,
     DeviceOrientation.landscapeRight,
   ]);
-  
   runApp(GameWidget(game: RaceRiderGame()));
 }
 
 class RaceRiderGame extends Forge2DGame 
     with HasKeyboardHandlerComponents, TapCallbacks {
   Bike? playerBike;
-  double phoneTiltAngle = 0.0; 
+  double phoneTiltAngle = 0.0;
   bool isGasPressed = false;
   bool isBrakePressed = false;
   
   StreamSubscription<AccelerometerEvent>? _accelSubscription;
 
-  // 42.0 gravity is the classic Bike Race sweet spot
+  // 42.0 gravity is the "Bike Race" sweet spot for snappiness
   RaceRiderGame() : super(gravity: Vector2(0, 42.0));
 
   @override
@@ -41,12 +40,12 @@ class RaceRiderGame extends Forge2DGame
     
     await world.add(TrackComponent());
     
-    playerBike = Bike(initialPosition: Vector2(0, -5));
+    playerBike = Bike(initialPosition: Vector2(-10, -5));
     await world.add(playerBike!);
 
-    // MOBILE SENSOR FIX
+    // Fix for sensors_plus ^4.0.0 API
     _accelSubscription = accelerometerEvents.listen((AccelerometerEvent event) {
-      // Sensitivity: 4.0 is snappy, 6.0 is smoother
+      // Sensitivity: divisor 4.5 makes it responsive but not twitchy
       phoneTiltAngle = (event.y / 4.5).clamp(-1.0, 1.0);
     });
 
@@ -75,8 +74,6 @@ class RaceRiderGame extends Forge2DGame
     if (playerBike == null) return;
 
     playerBike!.updateControl(phoneTiltAngle, isGasPressed, isBrakePressed);
-    
-    // Follow the bike but look slightly ahead
     camera.viewfinder.position = playerBike!.body.position + Vector2(10, -2);
   }
   
@@ -90,10 +87,7 @@ class RaceRiderGame extends Forge2DGame
   }
   
   @override
-  void onTapUp(TapUpEvent event) {
-    isGasPressed = false;
-    isBrakePressed = false;
-  }
+  void onTapUp(TapUpEvent event) => isGasPressed = isBrakePressed = false;
 
   @override
   KeyEventResult onKeyEvent(KeyEvent event, Set<LogicalKeyboardKey> keysPressed) {
@@ -104,7 +98,6 @@ class RaceRiderGame extends Forge2DGame
     } else {
       phoneTiltAngle = 0.0;
     }
-    
     isGasPressed = keysPressed.contains(LogicalKeyboardKey.space);
     isBrakePressed = keysPressed.contains(LogicalKeyboardKey.shiftLeft);
     return KeyEventResult.handled;
