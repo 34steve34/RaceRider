@@ -1,8 +1,9 @@
 import 'package:flame/components.dart';
 import 'package:flame_forge2d/flame_forge2d.dart';
 import 'package:flutter/material.dart';
+import 'package:forge2d/src/dynamics/world.dart' as forge2d;
 
-class Bike extends Component with HasGameRef<Forge2DGame> {
+class Bike extends BodyComponent {
   final Vector2 initialPosition;
   late Body chassis;
   late Body frontWheel;
@@ -20,10 +21,9 @@ class Bike extends Component with HasGameRef<Forge2DGame> {
   Bike({required this.initialPosition});
 
   @override
-  Future<void> onLoad() async {
-    // Access the actual physics world
-    final physicsWorld = gameRef.physicsWorld;
-
+  Body createBody() {
+    final forge2d.World physicsWorld = world;
+    
     // 1. CHASSIS - The main frame
     chassis = physicsWorld.createBody(BodyDef(
       position: initialPosition, 
@@ -46,21 +46,22 @@ class Bike extends Component with HasGameRef<Forge2DGame> {
     // 3. JOINTS - Suspension springs
     frontJoint = _makeJoint(physicsWorld, chassis, frontWheel, Vector2(wheelBase / 2, 0.8));
     rearJoint = _makeJoint(physicsWorld, chassis, rearWheel, Vector2(-wheelBase / 2, 0.8));
+    
+    return chassis;
   }
 
-  Body _makeWheel(World world, Vector2 pos) {
+  Body _makeWheel(forge2d.World world, Vector2 pos) {
     return world.createBody(BodyDef(position: pos, type: BodyType.dynamic))
       ..createFixture(FixtureDef(CircleShape()..radius = wheelRadius, friction: 0.9, density: 1.2));
   }
 
-  WheelJoint _makeJoint(World world, Body bodyA, Body bodyB, Vector2 anchor) {
+  WheelJoint _makeJoint(forge2d.World world, Body bodyA, Body bodyB, Vector2 anchor) {
     final def = WheelJointDef()
       ..initialize(bodyA, bodyB, anchor, Vector2(0, 1))
       ..frequencyHz = hz
       ..dampingRatio = damping
       ..maxMotorTorque = maxTorque
       ..enableMotor = false;
-    // We pass the def to the physicsWorld's createJoint
     return world.createJoint(def) as WheelJoint;
   }
 
@@ -70,8 +71,8 @@ class Bike extends Component with HasGameRef<Forge2DGame> {
 
     if (isGas) {
       rearJoint.enableMotor(true);
-      rearJoint.setMotorSpeed(motorSpeed);
-      rearJoint.setMaxMotorTorque(maxTorque);
+      rearJoint.motorSpeed = motorSpeed;
+      rearJoint.maxMotorTorque = maxTorque;
     } else {
       // FREE ROLL: Disabling the motor allows the bike to roll back on hills
       rearJoint.enableMotor(false);
@@ -79,8 +80,8 @@ class Bike extends Component with HasGameRef<Forge2DGame> {
 
     if (isBrake) {
       rearJoint.enableMotor(true);
-      rearJoint.setMotorSpeed(0);
-      rearJoint.setMaxMotorTorque(maxTorque * 5); // Stronger holding power
+      rearJoint.motorSpeed = 0;
+      rearJoint.maxMotorTorque = maxTorque * 5; // Stronger holding power
     }
   }
 
