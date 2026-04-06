@@ -8,7 +8,7 @@ class TrackComponent extends BodyComponent {
     final body = world.createBody(BodyDef(type: BodyType.static));
     final points = _generateTrackPoints();
     
-    // Each segment is an individual EdgeShape for better physics stability
+    // Breaking the track into individual edges prevents loop collision bugs
     for (int i = 0; i < points.length - 1; i++) {
       final shape = EdgeShape()..set(points[i], points[i + 1]);
       body.createFixture(FixtureDef(shape, friction: 0.8));
@@ -19,21 +19,18 @@ class TrackComponent extends BodyComponent {
   List<Vector2> _generateTrackPoints() {
     final List<Vector2> p = [];
 
-    // 1. Starting Ground
     p.add(Vector2(-50, 5));
     p.add(Vector2(50, 5));
-
-    // 2. Approach to Loop
     p.add(Vector2(80, 5));
-    p.add(Vector2(100, 4.5)); 
+    p.add(Vector2(100, 4.2)); 
 
-    // 3. The Loop (Radius 14, Opening at the bottom)
-    const double centerX = 125;
-    const double centerY = -10;
-    const double radius = 14;
-    const int segments = 50;
+    // The Loop (Radius 15 for a nice wide BR-style loop)
+    const double centerX = 130;
+    const double centerY = -12;
+    const double radius = 15;
+    const int segments = 60;
     
-    // Angle math to leave an entrance gap at the bottom center (pi/2)
+    // Starts at bottom-right (0.4pi) and wraps around to bottom-left (2.6pi)
     for (int i = 0; i <= segments; i++) {
       double angle = (0.4 * pi) - (i / segments) * (1.8 * pi);
       p.add(Vector2(
@@ -42,9 +39,8 @@ class TrackComponent extends BodyComponent {
       ));
     }
 
-    // 4. Exit Ground
-    p.add(Vector2(150, 5));
-    p.add(Vector2(300, 5));
+    p.add(Vector2(160, 5));
+    p.add(Vector2(400, 5));
 
     return p;
   }
@@ -52,17 +48,10 @@ class TrackComponent extends BodyComponent {
   @override
   void render(Canvas canvas) {
     final points = _generateTrackPoints();
-    final paint = Paint()
-      ..color = Colors.greenAccent
-      ..strokeWidth = 0.2
-      ..style = PaintingStyle.stroke;
+    final paint = Paint()..color = Colors.greenAccent..strokeWidth = 0.2..style = PaintingStyle.stroke;
 
     for (int i = 0; i < points.length - 1; i++) {
-      canvas.drawLine(
-        Offset(points[i].x, points[i].y), 
-        Offset(points[i+1].x, points[i+1].y), 
-        paint
-      );
+      canvas.drawLine(Offset(points[i].x, points[i].y), Offset(points[i+1].x, points[i+1].y), paint);
     }
   }
 }
