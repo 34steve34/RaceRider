@@ -9,7 +9,7 @@ import 'dart:math' as math;
 import 'track.dart';
 import 'bike.dart';
 
-const String gameVersion = "v2.1.8";
+const String gameVersion = "v2.1.9";
 
 void main() {
   runApp(GameWidget(game: RaceRiderGame()));
@@ -34,7 +34,7 @@ class RaceRiderGame extends Forge2DGame
     print('Track added');
     
     // Start bike at a visible position above the track
-    playerBike = Bike(initialPosition: Vector2(0, 3));
+    playerBike = Bike(initialPosition: Vector2(0, -10));
     await world.add(playerBike!);
     print('Bike added, position: ${playerBike?.bodyPosition}');
 
