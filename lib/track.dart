@@ -8,42 +8,44 @@ class TrackComponent extends BodyComponent {
     final body = world.createBody(BodyDef(type: BodyType.static));
     final List<Vector2> points = [];
 
-    // 1. Start Flat
+    // 1. Start Ground
     points.add(Vector2(-100, 5));
     points.add(Vector2(60, 5));
 
-    // 2. ENTRY RAMP (Leads physically into the loop radius)
+    // 2. Entry Ramp (Transitions ground into loop entry height)
     points.add(Vector2(85, 4.5));
     points.add(Vector2(100, 2.0));
     
-    // 3. THE LOOP (Continuous path)
+    // 3. THE LOOP (One continuous path)
     const double centerX = 120;
     const double centerY = -12;
     const double radius = 14;
     const int segments = 50;
     
-    // Sweep from 0.75pi to -1.15pi leaves a 0.1pi gap at the bottom
+    // Sweep from bottom-right (0.75pi) around to bottom-left (-1.15pi)
+    // This creates an entrance at the bottom and an exit on the other side
     for (int i = 0; i <= segments; i++) {
       double angle = (0.75 * pi) - (i / segments) * (1.9 * pi); 
       points.add(Vector2(centerX + radius * cos(angle), centerY + radius * sin(angle)));
     }
 
-    // 4. EXIT RAMP (Leads physically out of the loop)
+    // 4. Exit Ramp (Transitions loop back to ground height)
     points.add(Vector2(140, 2.0));
     points.add(Vector2(155, 4.5));
     points.add(Vector2(170, 5));
     points.add(Vector2(1000, 5));
 
+    // Create the physical edge fixtures
     for (int i = 0; i < points.length - 1; i++) {
-      body.createFixture(FixtureDef(EdgeShape()..set(points[i], points[i + 1]), friction: 0.6));
+      final shape = EdgeShape()..set(points[i], points[i + 1]);
+      body.createFixture(FixtureDef(shape, friction: 0.6));
     }
     return body;
   }
 
   @override
   void render(Canvas canvas) {
-    // Redraw the path logic for visual confirmation
+    // The physics path handles collisions; visual rendering can follow the same points
     final paint = Paint()..color = Colors.greenAccent..strokeWidth = 0.2..style = PaintingStyle.stroke;
-    // (Actual rendering would iterate points as before)
   }
 }

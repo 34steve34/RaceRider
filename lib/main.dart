@@ -12,7 +12,7 @@ import 'bike.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  // LOCK TO LANDSCAPE
+  // FORCE LANDSCAPE
   await SystemChrome.setPreferredOrientations([
     DeviceOrientation.landscapeLeft,
     DeviceOrientation.landscapeRight,
@@ -39,7 +39,6 @@ class RaceRiderGame extends Forge2DGame
     await world.add(playerBike!);
 
     _accel = accelerometerEvents.listen((event) {
-      // Sensitivity check: 5.0 is standard for mobile racers
       phoneTiltAngle = (event.y / 5.0).clamp(-1.0, 1.0);
     });
     
@@ -51,6 +50,7 @@ class RaceRiderGame extends Forge2DGame
     super.update(dt);
     if (playerBike != null) {
       playerBike!.updateControl(phoneTiltAngle, isGasPressed, isBrakePressed);
+      // Camera follows the chassis body
       camera.viewfinder.position = playerBike!.chassis.position + Vector2(8, -2);
     }
   }
@@ -62,9 +62,7 @@ class RaceRiderGame extends Forge2DGame
   }
 
   @override
-  void onTapUp(TapUpEvent event) {
-    isGasPressed = isBrakePressed = false;
-  }
+  void onTapUp(TapUpEvent event) => isGasPressed = isBrakePressed = false;
 
   @override
   void onRemove() {
