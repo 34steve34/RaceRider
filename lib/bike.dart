@@ -234,11 +234,15 @@ class Bike extends BodyComponent {
 
     if (_isLockedAtZero) return;
 
+    // Rear wheel drive - only apply force if rear wheel is grounded
+    if (!_rearWheelGrounded) return;
+
     double targetSpeed = _isGasPressed ? BikeConfig.maxSpeed : BikeConfig.cruiseSpeed;
     final speedAlongForward = currentVel.dot(forwardDir);
     
     if (speedAlongForward < targetSpeed) {
-      body.applyForce(forwardDir * BikeConfig.acceleration * body.mass);
+      // Apply force at rear wheel position for rear-wheel drive
+      body.applyForce(forwardDir * BikeConfig.acceleration * body.mass, point: _rearWheelWorldPos);
     }
   }
 
