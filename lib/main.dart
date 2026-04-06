@@ -10,9 +10,16 @@ import 'package:sensors_plus/sensors_plus.dart';
 import 'track.dart';
 import 'bike.dart';
 
-const String gameVersion = "v2.3.4";
+const String gameVersion = "v2.3.5";
 
-void main() {
+void main() async {
+  // Lock to landscape
+  WidgetsFlutterBinding.ensureInitialized();
+  await SystemChrome.setPreferredOrientations([
+    DeviceOrientation.landscapeLeft,
+    DeviceOrientation.landscapeRight,
+  ]);
+  
   runApp(GameWidget(game: RaceRiderGame()));
 }
 
@@ -25,7 +32,7 @@ class RaceRiderGame extends Forge2DGame
   
   StreamSubscription<AccelerometerEvent>? _accelSubscription;
 
-  // High gravity (42) for that classic "glued to the track" feel
+  // 42.0 gravity is the classic Bike Race sweet spot
   RaceRiderGame() : super(gravity: Vector2(0, 42.0));
 
   @override
@@ -37,11 +44,10 @@ class RaceRiderGame extends Forge2DGame
     playerBike = Bike(initialPosition: Vector2(0, -5));
     await world.add(playerBike!);
 
-    // MOBILE TILT FIX: Listening to accelerometer for sensors_plus ^4.0.0
+    // MOBILE SENSOR FIX
     _accelSubscription = accelerometerEvents.listen((AccelerometerEvent event) {
-      // In landscape, event.y typically captures the 'steering' tilt.
-      // Adjust the 4.0 divisor to change sensitivity.
-      phoneTiltAngle = (event.y / 4.0).clamp(-1.0, 1.0);
+      // Sensitivity: 4.0 is snappy, 6.0 is smoother
+      phoneTiltAngle = (event.y / 4.5).clamp(-1.0, 1.0);
     });
 
     camera.viewport.add(
@@ -49,7 +55,7 @@ class RaceRiderGame extends Forge2DGame
         text: 'RaceRider $gameVersion',
         position: Vector2(20, 20),
         textRenderer: TextPaint(
-          style: const TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold),
+          style: const TextStyle(color: Colors.white, fontSize: 16),
         ),
       ),
     );
@@ -69,7 +75,9 @@ class RaceRiderGame extends Forge2DGame
     if (playerBike == null) return;
 
     playerBike!.updateControl(phoneTiltAngle, isGasPressed, isBrakePressed);
-    camera.viewfinder.position = playerBike!.body.position + Vector2(8, -2);
+    
+    // Follow the bike but look slightly ahead
+    camera.viewfinder.position = playerBike!.body.position + Vector2(10, -2);
   }
   
   @override
