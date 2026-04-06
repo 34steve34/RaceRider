@@ -1,77 +1,77 @@
 import 'package:flame/components.dart';
 import 'package:flame_forge2d/flame_forge2d.dart';
 import 'package:flutter/material.dart';
-import 'dart:math' as math;
 
-class Bike extends BodyComponent {
+class Bike extends GroupComponent {
   final Vector2 initialPosition;
-  
+  late Body chassis;
+  late Body frontWheel;
+  late Body rearWheel;
+  late WheelJoint rearJoint;
+  late WheelJoint frontJoint;
+
+  // Suspension Tuning
   static const double wheelBase = 2.8;
   static const double wheelRadius = 0.5;
-  static const double headHeight = 1.3;
-  static const double tiltSpeed = 6.2; 
-  static const double acceleration = 65.0; 
+  static const double hz = 15.0;     // High stiffness for "Bike Race" feel
+  static const double damping = 0.8; // High damping to stop the "jiggle"
+  
+  static const double motorSpeed = -50.0; // Clockwise rotation
+  static const double maxTorque = 25.0;   // Reduced to make wheelies "subtle"
 
   Bike({required this.initialPosition});
 
   @override
-  Body createBody() {
-    final bodyDef = BodyDef(
-      position: initialPosition,
-      type: BodyType.dynamic,
-      angularDamping: 2.2,
-    );
+  Future<void> onLoad() async {
+    final world = (parent as Forge2DWorld);
 
-    final body = world.createBody(bodyDef);
+    // 1. CHASSIS (The Frame)
+    final chassisDef = BodyDef(position: initialPosition, type: BodyType.dynamic, angularDamping: 1.5);
+    chassis = world.createBody(chassisDef);
+    // Head hitbox (Only the top circle collides for death)
+    chassis.createFixture(FixtureDef(CircleShape()..radius = 0.4, density: 1.0)..setUserData('head'));
 
-    // 1. REAR WHEEL
-    final rearShape = CircleShape()..radius = wheelRadius;
-    rearShape.position.setValues(-wheelBase / 2, 0.5);
-    body.createFixture(FixtureDef(rearShape, friction: 1.0, density: 1.0));
+    // 2. WHEELS
+    frontWheel = _makeWheel(world, initialPosition + Vector2(wheelBase / 2, 0.8));
+    rearWheel = _makeWheel(world, initialPosition + Vector2(-wheelBase / 2, 0.8));
 
-    // 2. FRONT WHEEL
-    final frontShape = CircleShape()..radius = wheelRadius;
-    frontShape.position.setValues(wheelBase / 2, 0.5);
-    body.createFixture(FixtureDef(frontShape, friction: 0.1, density: 1.0));
-
-    // 3. THE HEAD (Death point)
-    final headShape = CircleShape()..radius = 0.4;
-    headShape.position.setValues(0, -headHeight);
-    body.createFixture(FixtureDef(headShape, density: 0.5));
-
-    return body;
+    // 3. JOINTS (The Suspension Springs)
+    frontJoint = _makeJoint(world, chassis, frontWheel, Vector2(wheelBase / 2, 0.8));
+    rearJoint = _makeJoint(world, chassis, rearWheel, Vector2(-wheelBase / 2, 0.8));
   }
 
-  void updateControl(double tiltInput, bool isGas, bool isBrake) {
-    if (tiltInput != 0) {
-      body.angularVelocity = tiltInput * tiltSpeed;
-    }
+  Body _makeWheel(Forge2DWorld world, Vector2 pos) {
+    return world.createBody(BodyDef(position: pos, type: BodyType.dynamic))
+      ..createFixture(FixtureDef(CircleShape()..radius = wheelRadius, friction: 0.9, density: 1.2));
+  }
 
+  WheelJoint _makeJoint(Forge2DWorld world, Body bodyA, Body bodyB, Vector2 anchor) {
+    final def = WheelJointDef()
+      ..initialize(bodyA, bodyB, anchor, Vector2(0, 1))
+      ..frequencyHz = hz
+      ..dampingRatio = damping
+      ..maxMotorTorque = maxTorque
+      ..enableMotor = false; // Start disabled so we can roll
+    return world.createJoint(def) as WheelJoint;
+  }
+
+  void updateControl(double tilt, bool isGas, bool isBrake) {
+    // TILT
+    chassis.angularVelocity = tilt * 6.5;
+
+    // MOTOR (GAS) - Enables motor to move forward. If false, it rolls freely.
     if (isGas) {
-      final forwardDir = Vector2(math.cos(body.angle), math.sin(body.angle));
-      // Applying force at rear wheel position
-      final forcePoint = body.worldPoint(Vector2(-wheelBase / 2, 0.5));
-      body.applyForce(forwardDir * acceleration * body.mass, point: forcePoint);
+      rearJoint.enableMotor(true);
+      rearJoint.setMotorSpeed(motorSpeed);
+    } else {
+      rearJoint.enableMotor(false); // <--- THIS allows the roll-back on hills
     }
 
+    // BRAKE
     if (isBrake) {
-      body.linearVelocity.scale(0.96);
+      rearJoint.enableMotor(true);
+      rearJoint.setMotorSpeed(0);
+      rearJoint.setMaxMotorTorque(maxTorque * 4); // Stronger holding power
     }
-  }
-
-  @override
-  void render(Canvas canvas) {
-    final paint = Paint()..color = const Color(0xFFFF69B4)..strokeWidth = 0.15..style = PaintingStyle.stroke;
-    
-    // Chassis Lines (The track passes through these)
-    canvas.drawLine(const Offset(0, -headHeight), const Offset(wheelBase/2, 0.5), paint);
-    canvas.drawLine(const Offset(0, -headHeight), const Offset(-wheelBase/2, 0.5), paint);
-    canvas.drawLine(const Offset(-wheelBase/2, 0.5), const Offset(wheelBase/2, 0.5), paint);
-    
-    canvas.drawCircle(const Offset(0, -headHeight), 0.4, Paint()..color = Colors.white);
-    
-    final wheelPaint = Paint()..color = Colors.white..style = PaintingStyle.stroke..strokeWidth = 0.1;
-    canvas.drawCircle(const Offset(wheelBase/2, 0.5), wheelRadius, wheelPaint);
-    canvas.drawCircle(const Offset(-wheelBase/2, 0.5), wheelRadius, wheelPaint);
   }
 }
