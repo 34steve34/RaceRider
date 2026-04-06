@@ -34,7 +34,7 @@ class RaceRiderGame extends Forge2DGame
     print('Track added');
     
     // Start bike at a visible position
-    playerBike = Bike(initialPosition: Vector2(0, 5));
+    playerBike = Bike(initialPosition: Vector2(0, 1));
     await world.add(playerBike!);
     print('Bike added, position: ${playerBike?.bodyPosition}');
 
