@@ -8,7 +8,7 @@ import 'package:flutter/services.dart';
 import 'track.dart';
 import 'bike.dart';
 
-const String gameVersion = "v2.3.0";
+const String gameVersion = "v2.3.1";
 
 void main() {
   runApp(GameWidget(game: RaceRiderGame()));
@@ -17,23 +17,25 @@ void main() {
 class RaceRiderGame extends Forge2DGame 
     with HasKeyboardHandlerComponents, TapCallbacks {
   Bike? playerBike;
-  double tiltInput = 0.0; // -1.0 to 1.0
+  double phoneTiltAngle = 0.0; 
   bool isGasPressed = false;
   bool isBrakePressed = false;
   
-  RaceRiderGame() : super(gravity: Vector2(0, 35.0)); // High gravity is key
+  // High gravity (40.0) makes the bike feel grounded and snappy
+  RaceRiderGame() : super(gravity: Vector2(0, 40.0));
 
   @override
   Future<void> onLoad() async {
     await super.onLoad();
     
-    // Add Track
+    // Add the track
     await world.add(TrackComponent());
     
-    // Start bike at a visible position
+    // Spawn bike above the start line
     playerBike = Bike(initialPosition: Vector2(0, -5));
     await world.add(playerBike!);
 
+    // UI Overlay for versioning
     camera.viewport.add(
       TextComponent(
         text: 'RaceRider $gameVersion',
@@ -44,7 +46,7 @@ class RaceRiderGame extends Forge2DGame
       ),
     );
 
-    camera.viewfinder.zoom = 12.0;
+    camera.viewfinder.zoom = 10.0;
   }
 
   @override
@@ -52,14 +54,16 @@ class RaceRiderGame extends Forge2DGame
     super.update(dt);
     if (playerBike == null) return;
 
-    playerBike!.updateControl(tiltInput, isGasPressed, isBrakePressed);
+    // Pass inputs to the bike
+    playerBike!.updateControl(phoneTiltAngle, isGasPressed, isBrakePressed);
 
-    // Follow bike
-    camera.viewfinder.position = playerBike!.body.position + Vector2(5, 0);
+    // Camera follow logic
+    camera.viewfinder.position = playerBike!.body.position + Vector2(8, -2);
   }
   
   @override
   void onTapDown(TapDownEvent event) {
+    // Simple split-screen controls
     if (event.canvasPosition.x < camera.viewport.size.x / 2) {
       isBrakePressed = true;
     } else {
@@ -75,12 +79,13 @@ class RaceRiderGame extends Forge2DGame
 
   @override
   KeyEventResult onKeyEvent(KeyEvent event, Set<LogicalKeyboardKey> keysPressed) {
+    // Desktop testing controls
     if (keysPressed.contains(LogicalKeyboardKey.arrowLeft)) {
-      tiltInput = -1.0;
+      phoneTiltAngle = -1.0;
     } else if (keysPressed.contains(LogicalKeyboardKey.arrowRight)) {
-      tiltInput = 1.0;
+      phoneTiltAngle = 1.0;
     } else {
-      tiltInput = 0.0;
+      phoneTiltAngle = 0.0;
     }
     
     isGasPressed = keysPressed.contains(LogicalKeyboardKey.space);
