@@ -71,7 +71,7 @@ class RaceRiderGame extends Forge2DGame
     super.update(dt);
 
     final bike = playerBike;
-    if (bike == null) return;
+    if (bike == null || !bike.isLoaded) return;
 
     bike.updateControl(phoneTiltAngle, isGasPressed, isBrakePressed);
 

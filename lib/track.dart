@@ -65,14 +65,12 @@ class TrackComponent extends BodyComponent {
       Vector2(105, -2.0),
       Vector2(108, -4.0),
       Vector2(110, -6.0),
-      Vector2(entryX, entryY),  // exact loop entry coordinate
 
       // ── THE LOOP ───────────────────────────────────────────
       ...loop,
 
       // ── EXIT RAMP ──────────────────────────────────────────
       // First point uses exact same math as loop exit — guaranteed match
-      Vector2(exitX, exitY),    // exact loop exit coordinate
       Vector2(exitX + 4,  -6.0),
       Vector2(exitX + 7,  -4.0),
       Vector2(exitX + 10, -2.0),
