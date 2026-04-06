@@ -20,7 +20,8 @@ void main() async {
   runApp(GameWidget(game: RaceRiderGame()));
 }
 
-class RaceRiderGame extends Forge2DGame with HasKeyboardHandlerComponents, TapCallbacks {
+class RaceRiderGame extends Forge2DGame 
+    with HasKeyboardHandlerComponents, TapCallbacks {
   Bike? playerBike;
   double phoneTiltAngle = 0.0;
   bool isGasPressed = false;
@@ -38,6 +39,7 @@ class RaceRiderGame extends Forge2DGame with HasKeyboardHandlerComponents, TapCa
     await world.add(playerBike!);
 
     _accel = accelerometerEvents.listen((event) {
+      // Sensitivity check: 5.0 is standard for mobile racers
       phoneTiltAngle = (event.y / 5.0).clamp(-1.0, 1.0);
     });
     
@@ -49,7 +51,6 @@ class RaceRiderGame extends Forge2DGame with HasKeyboardHandlerComponents, TapCa
     super.update(dt);
     if (playerBike != null) {
       playerBike!.updateControl(phoneTiltAngle, isGasPressed, isBrakePressed);
-      // Camera follows the chassis
       camera.viewfinder.position = playerBike!.chassis.position + Vector2(8, -2);
     }
   }

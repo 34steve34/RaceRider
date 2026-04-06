@@ -8,28 +8,27 @@ class TrackComponent extends BodyComponent {
     final body = world.createBody(BodyDef(type: BodyType.static));
     final List<Vector2> points = [];
 
-    // 1. Starting Ground
+    // 1. Start Flat
     points.add(Vector2(-100, 5));
     points.add(Vector2(60, 5));
 
-    // 2. The Entry Ramp (Leads into the loop)
+    // 2. ENTRY RAMP (Leads physically into the loop radius)
     points.add(Vector2(85, 4.5));
     points.add(Vector2(100, 2.0));
-
-    // 3. THE LOOP (Calculated to be open)
+    
+    // 3. THE LOOP (Continuous path)
     const double centerX = 120;
     const double centerY = -12;
     const double radius = 14;
     const int segments = 50;
     
-    // We sweep from 0.75pi (approx 5 o'clock) to -1.25pi
-    // This leaves a physical gap between the start and end of the circle
+    // Sweep from 0.75pi to -1.15pi leaves a 0.1pi gap at the bottom
     for (int i = 0; i <= segments; i++) {
       double angle = (0.75 * pi) - (i / segments) * (1.9 * pi); 
       points.add(Vector2(centerX + radius * cos(angle), centerY + radius * sin(angle)));
     }
 
-    // 4. The Exit Ramp
+    // 4. EXIT RAMP (Leads physically out of the loop)
     points.add(Vector2(140, 2.0));
     points.add(Vector2(155, 4.5));
     points.add(Vector2(170, 5));
@@ -43,8 +42,8 @@ class TrackComponent extends BodyComponent {
 
   @override
   void render(Canvas canvas) {
-    // Basic render of the path for feedback
+    // Redraw the path logic for visual confirmation
     final paint = Paint()..color = Colors.greenAccent..strokeWidth = 0.2..style = PaintingStyle.stroke;
-    // (Actual path rendering would iterate points, simplified for this block)
+    // (Actual rendering would iterate points as before)
   }
 }
