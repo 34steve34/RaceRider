@@ -12,7 +12,7 @@ import 'bike.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  // FORCE LANDSCAPE
+  // LOCK TO LANDSCAPE
   await SystemChrome.setPreferredOrientations([
     DeviceOrientation.landscapeLeft,
     DeviceOrientation.landscapeRight,
@@ -35,7 +35,8 @@ class RaceRiderGame extends Forge2DGame
     await super.onLoad();
     await world.add(TrackComponent());
     
-    playerBike = Bike(initialPosition: Vector2(-20, -5));
+    // Position bike further back to build speed for the loop
+    playerBike = Bike(initialPosition: Vector2(-30, -5));
     await world.add(playerBike!);
 
     _accel = accelerometerEvents.listen((event) {
@@ -48,9 +49,8 @@ class RaceRiderGame extends Forge2DGame
   @override
   void update(double dt) {
     super.update(dt);
-    if (playerBike != null) {
+    if (playerBike != null && playerBike!.isLoaded) {
       playerBike!.updateControl(phoneTiltAngle, isGasPressed, isBrakePressed);
-      // Camera follows the chassis body
       camera.viewfinder.position = playerBike!.chassis.position + Vector2(8, -2);
     }
   }

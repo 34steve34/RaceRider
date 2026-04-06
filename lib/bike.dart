@@ -1,9 +1,9 @@
 import 'package:flame/components.dart';
 import 'package:flame_forge2d/flame_forge2d.dart';
+import 'package:forge2d/forge2d.dart' as f2d; // Prefix to avoid ambiguity
 import 'package:flutter/material.dart';
-import 'package:forge2d/src/dynamics/world.dart' as forge2d;
 
-class Bike extends BodyComponent {
+class Bike extends Component with HasGameRef<Forge2DGame> {
   final Vector2 initialPosition;
   late Body chassis;
   late Body frontWheel;
@@ -13,84 +13,81 @@ class Bike extends BodyComponent {
 
   static const double wheelBase = 2.8;
   static const double wheelRadius = 0.5;
-  static const double hz = 20.0;     // Stiff "Bike Race" suspension
+  static const double hz = 18.0; 
   static const double damping = 0.8; 
-  static const double motorSpeed = -55.0; 
-  static const double maxTorque = 22.0;   // Low torque for subtle wheelies
 
   Bike({required this.initialPosition});
 
   @override
-  Body createBody() {
-    final forge2d.World physicsWorld = world;
+  Future<void> onLoad() async {
+    // FIX 1: Access the underlying physics World object
+    final f2d.World physicsWorld = gameRef.world.physicsWorld;
+
+    // 1. CHASSIS
+    final chassisDef = BodyDef()
+      ..position = initialPosition
+      ..type = BodyType.dynamic
+      ..angularDamping = 1.8;
+    chassis = physicsWorld.createBody(chassisDef);
     
-    // 1. CHASSIS - The main frame
-    chassis = physicsWorld.createBody(BodyDef(
-      position: initialPosition, 
-      type: BodyType.dynamic, 
-      angularDamping: 1.8
-    ));
-    
-    // Head hitbox - Death zone
     final headFix = chassis.createFixture(FixtureDef(
-      CircleShape()..radius = 0.4, 
-      density: 1.0, 
-      friction: 0.5
+      f2d.CircleShape()..radius = 0.4, 
+      density: 1.0
     ));
-    headFix.userData = 'head';
+    headFixture.userData = 'head';
 
     // 2. WHEELS
     frontWheel = _makeWheel(physicsWorld, initialPosition + Vector2(wheelBase / 2, 0.8));
     rearWheel = _makeWheel(physicsWorld, initialPosition + Vector2(-wheelBase / 2, 0.8));
 
-    // 3. JOINTS - Suspension springs
+    // 3. JOINTS (The Suspension)
     frontJoint = _makeJoint(physicsWorld, chassis, frontWheel, Vector2(wheelBase / 2, 0.8));
     rearJoint = _makeJoint(physicsWorld, chassis, rearWheel, Vector2(-wheelBase / 2, 0.8));
-    
-    return chassis;
   }
 
-  Body _makeWheel(forge2d.World world, Vector2 pos) {
-    return world.createBody(BodyDef(position: pos, type: BodyType.dynamic))
-      ..createFixture(FixtureDef(CircleShape()..radius = wheelRadius, friction: 0.9, density: 1.2));
+  Body _makeWheel(f2d.World world, Vector2 pos) {
+    final shape = f2d.CircleShape()..radius = wheelRadius;
+    return world.createBody(BodyDef()
+      ..position = pos
+      ..type = BodyType.dynamic)
+      ..createFixture(FixtureDef(shape)..friction = 0.9..density = 1.2);
   }
 
-  WheelJoint _makeJoint(forge2d.World world, Body bodyA, Body bodyB, Vector2 anchor) {
+  WheelJoint _makeJoint(f2d.World world, Body bodyA, Body bodyB, Vector2 anchor) {
     final def = WheelJointDef()
       ..initialize(bodyA, bodyB, anchor, Vector2(0, 1))
       ..frequencyHz = hz
       ..dampingRatio = damping
-      ..maxMotorTorque = maxTorque
+      ..maxMotorTorque = 25.0
       ..enableMotor = false;
+    // FIX 2: Pass the def directly to the physics world's createJoint
     return world.createJoint(def) as WheelJoint;
   }
 
   void updateControl(double tilt, bool isGas, bool isBrake) {
-    // Direct angular velocity for the 'Puppet' feel
     chassis.angularVelocity = tilt * 6.5;
 
     if (isGas) {
       rearJoint.enableMotor(true);
-      rearJoint.motorSpeed = motorSpeed;
-      rearJoint.maxMotorTorque = maxTorque;
+      // FIX 3: Use methods instead of setters
+      rearJoint.setMotorSpeed(-55.0);
+      rearJoint.setMaxMotorTorque(25.0);
     } else {
-      // FREE ROLL: Disabling the motor allows the bike to roll back on hills
+      // Disabling motor allows the bike to roll backwards on hills
       rearJoint.enableMotor(false);
     }
 
     if (isBrake) {
       rearJoint.enableMotor(true);
-      rearJoint.motorSpeed = 0;
-      rearJoint.maxMotorTorque = maxTorque * 5; // Stronger holding power
+      rearJoint.setMotorSpeed(0);
+      rearJoint.setMaxMotorTorque(125.0);
     }
   }
 
   @override
   void render(Canvas canvas) {
-    // We draw the visual chassis lines relative to the chassis body position
-    final paint = Paint()..color = const Color(0xFFFF69B4)..strokeWidth = 0.15..style = PaintingStyle.stroke;
-    
-    // Draw visual head (white circle)
-    canvas.drawCircle(Offset.zero, 0.4, paint..style = PaintingStyle.fill..color = Colors.white);
+    final paint = Paint()..color = Colors.white..style = PaintingStyle.fill;
+    // Visual for the head hitbox
+    canvas.drawCircle(Offset.zero, 0.4, paint);
   }
 }
