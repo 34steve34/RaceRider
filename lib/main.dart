@@ -8,7 +8,7 @@ import 'package:flutter/services.dart';
 import 'track.dart';
 import 'bike.dart';
 
-const String gameVersion = "v2.3.1";
+const String gameVersion = "v2.3.2";
 
 void main() {
   runApp(GameWidget(game: RaceRiderGame()));
@@ -21,21 +21,20 @@ class RaceRiderGame extends Forge2DGame
   bool isGasPressed = false;
   bool isBrakePressed = false;
   
-  // High gravity (40.0) makes the bike feel grounded and snappy
+  // High gravity (40.0) is essential for the snappy 2012 mobile feel
   RaceRiderGame() : super(gravity: Vector2(0, 40.0));
 
   @override
   Future<void> onLoad() async {
     await super.onLoad();
     
-    // Add the track
+    // Add the track to the world
     await world.add(TrackComponent());
     
-    // Spawn bike above the start line
+    // Spawn bike at the start line
     playerBike = Bike(initialPosition: Vector2(0, -5));
     await world.add(playerBike!);
 
-    // UI Overlay for versioning
     camera.viewport.add(
       TextComponent(
         text: 'RaceRider $gameVersion',
@@ -54,16 +53,16 @@ class RaceRiderGame extends Forge2DGame
     super.update(dt);
     if (playerBike == null) return;
 
-    // Pass inputs to the bike
+    // Send controls to the bike
     playerBike!.updateControl(phoneTiltAngle, isGasPressed, isBrakePressed);
 
-    // Camera follow logic
+    // Dynamic camera follow
     camera.viewfinder.position = playerBike!.body.position + Vector2(8, -2);
   }
   
   @override
   void onTapDown(TapDownEvent event) {
-    // Simple split-screen controls
+    // Left side = Brake, Right side = Gas
     if (event.canvasPosition.x < camera.viewport.size.x / 2) {
       isBrakePressed = true;
     } else {
@@ -79,7 +78,7 @@ class RaceRiderGame extends Forge2DGame
 
   @override
   KeyEventResult onKeyEvent(KeyEvent event, Set<LogicalKeyboardKey> keysPressed) {
-    // Desktop testing controls
+    // Arrow keys for testing rotation on desktop
     if (keysPressed.contains(LogicalKeyboardKey.arrowLeft)) {
       phoneTiltAngle = -1.0;
     } else if (keysPressed.contains(LogicalKeyboardKey.arrowRight)) {

@@ -8,7 +8,7 @@ class TrackComponent extends BodyComponent {
     final body = world.createBody(BodyDef(type: BodyType.static));
     final points = _generateTrackPoints();
     
-    // We use individual EdgeShapes to ensure loop transitions are smooth
+    // Each segment is an individual EdgeShape for better physics stability
     for (int i = 0; i < points.length - 1; i++) {
       final shape = EdgeShape()..set(points[i], points[i + 1]);
       body.createFixture(FixtureDef(shape, friction: 0.8));
@@ -19,11 +19,11 @@ class TrackComponent extends BodyComponent {
   List<Vector2> _generateTrackPoints() {
     final List<Vector2> p = [];
 
-    // 1. Flat Start
+    // 1. Starting Ground
     p.add(Vector2(-50, 5));
     p.add(Vector2(50, 5));
 
-    // 2. Approach
+    // 2. Approach to Loop
     p.add(Vector2(80, 5));
     p.add(Vector2(100, 4.5)); 
 
@@ -33,7 +33,7 @@ class TrackComponent extends BodyComponent {
     const double radius = 14;
     const int segments = 50;
     
-    // We rotate from 0.4pi to 2.6pi to create a clear entrance gap
+    // Angle math to leave an entrance gap at the bottom center (pi/2)
     for (int i = 0; i <= segments; i++) {
       double angle = (0.4 * pi) - (i / segments) * (1.8 * pi);
       p.add(Vector2(
@@ -42,7 +42,7 @@ class TrackComponent extends BodyComponent {
       ));
     }
 
-    // 4. Flat Exit
+    // 4. Exit Ground
     p.add(Vector2(150, 5));
     p.add(Vector2(300, 5));
 

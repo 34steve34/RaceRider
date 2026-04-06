@@ -26,17 +26,17 @@ class Bike extends BodyComponent {
 
     final body = world.createBody(bodyDef);
 
-    // 1. Rear Wheel Fixture
+    // 1. REAR WHEEL: High friction for drive
     final rearShape = CircleShape()..radius = wheelRadius;
     rearShape.position.setValues(-wheelBase / 2, 0.5);
     body.createFixture(FixtureDef(rearShape, friction: 1.0, density: 1.0));
 
-    // 2. Front Wheel Fixture (Lower friction for smoother loops)
+    // 2. FRONT WHEEL: Lower friction so it doesn't 'hook' on loops
     final frontShape = CircleShape()..radius = wheelRadius;
     frontShape.position.setValues(wheelBase / 2, 0.5);
     body.createFixture(FixtureDef(frontShape, friction: 0.2, density: 1.0));
 
-    // 3. The Head (The crash sensor/point)
+    // 3. THE HEAD: This is the death-point. It is a physical circle.
     final headShape = CircleShape()..radius = 0.3;
     headShape.position.setValues(0, -headHeight);
     body.createFixture(FixtureDef(headShape, density: 0.5));
@@ -45,19 +45,20 @@ class Bike extends BodyComponent {
   }
 
   void updateControl(double tiltInput, bool isGas, bool isBrake) {
-    // TILT: Direct angular velocity for that "Classic" feel
+    // ROTATION: Direct angular velocity for the "Puppet" feel
     if (tiltInput != 0) {
       body.angularVelocity = tiltInput * tiltSpeed;
     }
 
-    // GAS: Apply force at the rear wheel to allow for small wheelies
+    // ACCELERATION: Force is applied at the rear wheel position
     if (isGas) {
       final forwardDir = Vector2(math.cos(body.angle), math.sin(body.angle));
-      final forcePoint = body.getWorldPoint(Vector2(-wheelBase / 2, 0.5));
+      // FIXED: Correct Forge2D method is worldPoint()
+      final forcePoint = body.worldPoint(Vector2(-wheelBase / 2, 0.5));
       body.applyForce(forwardDir * acceleration * body.mass, point: forcePoint);
     }
 
-    // BRAKE: Simple linear drag
+    // BRAKING: Linear dampening
     if (isBrake) {
       body.linearVelocity.scale(0.95);
     }
@@ -70,15 +71,15 @@ class Bike extends BodyComponent {
       ..strokeWidth = 0.15
       ..style = PaintingStyle.stroke;
     
-    // Draw the chassis lines (Visual only - no hitboxes here)
+    // VISUAL CHASSIS: No hitboxes here, allows track to pass through bike
     canvas.drawLine(const Offset(0, -headHeight), const Offset(wheelBase/2, 0.5), paint);
     canvas.drawLine(const Offset(0, -headHeight), const Offset(-wheelBase/2, 0.5), paint);
     canvas.drawLine(const Offset(-wheelBase/2, 0.5), const Offset(wheelBase/2, 0.5), paint);
     
-    // Render the Head
+    // The Head Circle
     canvas.drawCircle(const Offset(0, -headHeight), 0.3, Paint()..color = Colors.white);
     
-    // Render the Wheels
+    // The Wheels
     final wheelPaint = Paint()..color = Colors.white..style = PaintingStyle.stroke..strokeWidth = 0.1;
     canvas.drawCircle(const Offset(wheelBase/2, 0.5), wheelRadius, wheelPaint);
     canvas.drawCircle(const Offset(-wheelBase/2, 0.5), wheelRadius, wheelPaint);
