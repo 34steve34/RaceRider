@@ -4,12 +4,11 @@ import 'package:flame/events.dart';
 import 'package:flame_forge2d/flame_forge2d.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'dart:math' as math;
 
 import 'track.dart';
 import 'bike.dart';
 
-const String gameVersion = "v2.2.0";
+const String gameVersion = "v2.3.0";
 
 void main() {
   runApp(GameWidget(game: RaceRiderGame()));
@@ -18,79 +17,50 @@ void main() {
 class RaceRiderGame extends Forge2DGame 
     with HasKeyboardHandlerComponents, TapCallbacks {
   Bike? playerBike;
-  double phoneTiltAngle = 0.0;
+  double tiltInput = 0.0; // -1.0 to 1.0
   bool isGasPressed = false;
   bool isBrakePressed = false;
   
-  RaceRiderGame() : super(gravity: Vector2(0, 15.0));
+  RaceRiderGame() : super(gravity: Vector2(0, 35.0)); // High gravity is key
 
   @override
   Future<void> onLoad() async {
-    print('RaceRiderGame.onLoad()');
     await super.onLoad();
-    print('super.onLoad() done');
     
-    world.add(TrackComponent());
-    print('Track added');
+    // Add Track
+    await world.add(TrackComponent());
     
-    // Start bike at a visible position above the track
-    playerBike = Bike(initialPosition: Vector2(0, -10));
+    // Start bike at a visible position
+    playerBike = Bike(initialPosition: Vector2(0, -5));
     await world.add(playerBike!);
-    print('Bike added, position: ${playerBike?.bodyPosition}');
 
     camera.viewport.add(
       TextComponent(
         text: 'RaceRider $gameVersion',
         position: Vector2(20, 20),
         textRenderer: TextPaint(
-          style: const TextStyle(
-            color: Colors.white, 
-            fontSize: 18, 
-            fontWeight: FontWeight.bold
-          ),
+          style: const TextStyle(color: Colors.white, fontSize: 18),
         ),
       ),
     );
 
-    // Center camera on bike (Forge2D uses inverted Y)
-    camera.viewfinder.position = Vector2(0, -5);
-    camera.viewfinder.zoom = 10.0;
-    
-    print('Camera set, zoom: ${camera.viewfinder.zoom}');
-    
-    _startAccelerometer();
-  }
-
-  void _startAccelerometer() {
-    // Accelerometer for phone tilt (mobile only)
-    // On web/desktop, this won't work but keyboard will
+    camera.viewfinder.zoom = 12.0;
   }
 
   @override
   void update(double dt) {
     super.update(dt);
+    if (playerBike == null) return;
 
-    final bike = playerBike;
-    if (bike == null || !bike.isLoaded) return;
+    playerBike!.updateControl(tiltInput, isGasPressed, isBrakePressed);
 
-    bike.updateControl(phoneTiltAngle, isGasPressed, isBrakePressed);
-
-    final bikePos = bike.bodyPosition;
-    camera.viewfinder.position = Vector2(
-      bikePos.x + 8.0,
-      bikePos.y,
-    );
+    // Follow bike
+    camera.viewfinder.position = playerBike!.body.position + Vector2(5, 0);
   }
   
-  // ─────────────────────────────────────────────────────────────
-  // TOUCH CONTROLS - Left side = brake, Right side = gas
-  // ─────────────────────────────────────────────────────────────
   @override
   void onTapDown(TapDownEvent event) {
-    final screenWidth = camera.viewport.size.x;
-    final tapX = event.canvasPosition.x;
-    
-    if (tapX < screenWidth / 2) {
+    if (event.canvasPosition.x < camera.viewport.size.x / 2) {
       isBrakePressed = true;
     } else {
       isGasPressed = true;
@@ -102,31 +72,19 @@ class RaceRiderGame extends Forge2DGame
     isGasPressed = false;
     isBrakePressed = false;
   }
-  
-  @override
-  void onTapCancel(TapCancelEvent event) {
-    isGasPressed = false;
-    isBrakePressed = false;
-  }
 
-  // ─────────────────────────────────────────────────────────────
-  // KEYBOARD CONTROLS - For desktop testing
-  // ─────────────────────────────────────────────────────────────
   @override
   KeyEventResult onKeyEvent(KeyEvent event, Set<LogicalKeyboardKey> keysPressed) {
-    // Arrow keys for tilt
     if (keysPressed.contains(LogicalKeyboardKey.arrowLeft)) {
-      phoneTiltAngle = -0.5;
+      tiltInput = -1.0;
     } else if (keysPressed.contains(LogicalKeyboardKey.arrowRight)) {
-      phoneTiltAngle = 0.5;
+      tiltInput = 1.0;
     } else {
-      phoneTiltAngle = 0.0;
+      tiltInput = 0.0;
     }
     
-    // Space = gas, Shift = brake
     isGasPressed = keysPressed.contains(LogicalKeyboardKey.space);
-    isBrakePressed = keysPressed.contains(LogicalKeyboardKey.shiftLeft) || 
-                     keysPressed.contains(LogicalKeyboardKey.shiftRight);
+    isBrakePressed = keysPressed.contains(LogicalKeyboardKey.shiftLeft);
 
     return KeyEventResult.handled;
   }
