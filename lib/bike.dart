@@ -20,7 +20,6 @@ class Bike extends Component with HasGameRef<Forge2DGame> {
 
   @override
   Future<void> onLoad() async {
-    // FIX 1: Access the underlying physics World object
     final f2d.World physicsWorld = gameRef.world.physicsWorld;
 
     // 1. CHASSIS
