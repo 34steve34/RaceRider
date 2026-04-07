@@ -17,7 +17,28 @@ void main() async {
     DeviceOrientation.landscapeLeft,
     DeviceOrientation.landscapeRight,
   ]);
-  runApp(GameWidget(game: RaceRiderGame()));
+  runApp(
+    GameWidget(
+      game: RaceRiderGame(),
+      overlayBuilderMap: {
+        'version': (context, game) => const Align(
+              alignment: Alignment.topLeft,
+              child: Padding(
+                padding: EdgeInsets.all(8),
+                child: Text(
+                  'RaceRider v1.0.0',
+                  style: TextStyle(
+                    color: Color(0xB3FFFFFF),
+                    fontSize: 13,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+              ),
+            ),
+      },
+      initialActiveOverlays: const ['version'],
+    ),
+  );
 }
 
 class RaceRiderGame extends Forge2DGame 

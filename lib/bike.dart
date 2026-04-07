@@ -1,60 +1,85 @@
 import 'package:flame/components.dart';
 import 'package:flame_forge2d/flame_forge2d.dart';
-import 'package:forge2d/forge2d.dart' as f2d; // Prefix to avoid ambiguity
-import 'package:flutter/material.dart';
+import 'package:forge2d/forge2d.dart' as f2d;
+
+/// Chassis body — rendered by [BodyComponent] like the track.
+class _ChassisPart extends BodyComponent {
+  _ChassisPart({required this.initialPosition});
+
+  final Vector2 initialPosition;
+
+  @override
+  Body createBody() {
+    final body = world.createBody(BodyDef()
+      ..position = initialPosition
+      ..type = BodyType.dynamic
+      ..angularDamping = 1.8);
+    final head = body.createFixture(FixtureDef(
+      CircleShape()..radius = 0.4,
+      density: 1.0,
+    ));
+    head.userData = 'head';
+    return body;
+  }
+}
+
+class _WheelPart extends BodyComponent {
+  _WheelPart({required this.position});
+
+  final Vector2 position;
+
+  @override
+  Body createBody() {
+    final shape = CircleShape()..radius = Bike.wheelRadius;
+    return world.createBody(BodyDef()
+      ..position = position
+      ..type = BodyType.dynamic)
+      ..createFixture(FixtureDef(shape)..friction = 0.9..density = 1.2);
+  }
+}
 
 class Bike extends Component with HasGameRef<Forge2DGame> {
   final Vector2 initialPosition;
-  late Body chassis;
-  late Body frontWheel;
-  late Body rearWheel;
+  late final _ChassisPart _chassis;
+  late final _WheelPart _frontWheelComp;
+  late final _WheelPart _rearWheelComp;
+
   late WheelJoint rearJoint;
   late WheelJoint frontJoint;
 
   static const double wheelBase = 2.8;
   static const double wheelRadius = 0.5;
-  static const double hz = 18.0; 
-  static const double damping = 0.8; 
+  static const double hz = 18.0;
+  static const double damping = 0.8;
 
   Bike({required this.initialPosition});
 
+  Body get chassis => _chassis.body;
+  Body get frontWheel => _frontWheelComp.body;
+  Body get rearWheel => _rearWheelComp.body;
+
   @override
   Future<void> onLoad() async {
-    final f2d.World physicsWorld = gameRef.world.physicsWorld;
+    final frontPos = initialPosition + Vector2(wheelBase / 2, 0.8);
+    final rearPos = initialPosition + Vector2(-wheelBase / 2, 0.8);
+    _chassis = _ChassisPart(initialPosition: initialPosition);
+    _frontWheelComp = _WheelPart(position: frontPos);
+    _rearWheelComp = _WheelPart(position: rearPos);
 
-    // 1. CHASSIS
-    final chassisDef = BodyDef()
-      ..position = initialPosition
-      ..type = BodyType.dynamic
-      ..angularDamping = 1.8;
-    chassis = physicsWorld.createBody(chassisDef);
-    
-    final headFix = chassis.createFixture(FixtureDef(
-      f2d.CircleShape()..radius = 0.4,
-      density: 1.0,
-    ));
-    headFix.userData = 'head';
+    await add(_chassis);
+    await add(_frontWheelComp);
+    await add(_rearWheelComp);
 
-    // 2. WHEELS
-    frontWheel = _makeWheel(physicsWorld, initialPosition + Vector2(wheelBase / 2, 0.8));
-    rearWheel = _makeWheel(physicsWorld, initialPosition + Vector2(-wheelBase / 2, 0.8));
-
-    // 3. JOINTS (The Suspension)
-    frontJoint = _makeJoint(physicsWorld, chassis, frontWheel, Vector2(wheelBase / 2, 0.8));
-    rearJoint = _makeJoint(physicsWorld, chassis, rearWheel, Vector2(-wheelBase / 2, 0.8));
+    final pw = gameRef.world.physicsWorld;
+    final frontAnchor = initialPosition + Vector2(wheelBase / 2, 0.8);
+    final rearAnchor = initialPosition + Vector2(-wheelBase / 2, 0.8);
+    frontJoint = _makeJoint(pw, _chassis.body, _frontWheelComp.body, frontAnchor);
+    rearJoint = _makeJoint(pw, _chassis.body, _rearWheelComp.body, rearAnchor);
   }
 
-  Body _makeWheel(f2d.World world, Vector2 pos) {
-    final shape = f2d.CircleShape()..radius = wheelRadius;
-    return world.createBody(BodyDef()
-      ..position = pos
-      ..type = BodyType.dynamic)
-      ..createFixture(FixtureDef(shape)..friction = 0.9..density = 1.2);
-  }
-
-  WheelJoint _makeJoint(f2d.World world, Body bodyA, Body bodyB, Vector2 anchor) {
+  WheelJoint _makeJoint(f2d.World world, Body bodyA, Body bodyB, Vector2 anchorWorld) {
     final def = WheelJointDef()
-      ..initialize(bodyA, bodyB, anchor, Vector2(0, 1))
+      ..initialize(bodyA, bodyB, anchorWorld, Vector2(0, 1))
       ..frequencyHz = hz
       ..dampingRatio = damping
       ..maxMotorTorque = 25.0
@@ -72,7 +97,6 @@ class Bike extends Component with HasGameRef<Forge2DGame> {
       rearJoint.motorSpeed = -55.0;
       rearJoint.setMaxMotorTorque(25.0);
     } else {
-      // Disabling motor allows the bike to roll backwards on hills
       rearJoint.enableMotor(false);
     }
 
@@ -81,12 +105,5 @@ class Bike extends Component with HasGameRef<Forge2DGame> {
       rearJoint.motorSpeed = 0;
       rearJoint.setMaxMotorTorque(125.0);
     }
-  }
-
-  @override
-  void render(Canvas canvas) {
-    final paint = Paint()..color = Colors.white..style = PaintingStyle.fill;
-    // Visual for the head hitbox
-    canvas.drawCircle(Offset.zero, 0.4, paint);
   }
 }
