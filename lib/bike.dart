@@ -1,11 +1,10 @@
 import 'package:flame/components.dart';
 import 'package:flame_forge2d/flame_forge2d.dart';
 import 'package:forge2d/forge2d.dart' as f2d;
+import 'package:flutter/material.dart';
 
-/// Chassis body — rendered by [BodyComponent] like the track.
 class _ChassisPart extends BodyComponent {
   _ChassisPart({required this.initialPosition});
-
   final Vector2 initialPosition;
 
   @override
@@ -25,16 +24,17 @@ class _ChassisPart extends BodyComponent {
 
 class _WheelPart extends BodyComponent {
   _WheelPart({required this.position});
-
   final Vector2 position;
 
   @override
   Body createBody() {
-    final shape = CircleShape()..radius = Bike.wheelRadius;
     return world.createBody(BodyDef()
       ..position = position
       ..type = BodyType.dynamic)
-      ..createFixture(FixtureDef(shape)..friction = 0.9..density = 1.2);
+      ..createFixture(FixtureDef(CircleShape()..radius = Bike.wheelRadius)
+        ..friction = 0.9
+        ..density = 1.2
+        ..restitution = 0.1);
   }
 }
 
@@ -49,19 +49,18 @@ class Bike extends Component with HasGameRef<Forge2DGame> {
 
   static const double wheelBase = 2.8;
   static const double wheelRadius = 0.5;
-  static const double hz = 18.0;
+  static const double hz = 18.0; 
   static const double damping = 0.8;
 
   Bike({required this.initialPosition});
 
   Body get chassis => _chassis.body;
-  Body get frontWheel => _frontWheelComp.body;
-  Body get rearWheel => _rearWheelComp.body;
 
   @override
   Future<void> onLoad() async {
     final frontPos = initialPosition + Vector2(wheelBase / 2, 0.8);
     final rearPos = initialPosition + Vector2(-wheelBase / 2, 0.8);
+
     _chassis = _ChassisPart(initialPosition: initialPosition);
     _frontWheelComp = _WheelPart(position: frontPos);
     _rearWheelComp = _WheelPart(position: rearPos);
@@ -71,18 +70,16 @@ class Bike extends Component with HasGameRef<Forge2DGame> {
     await add(_rearWheelComp);
 
     final pw = gameRef.world.physicsWorld;
-    final frontAnchor = initialPosition + Vector2(wheelBase / 2, 0.8);
-    final rearAnchor = initialPosition + Vector2(-wheelBase / 2, 0.8);
-    frontJoint = _makeJoint(pw, _chassis.body, _frontWheelComp.body, frontAnchor);
-    rearJoint = _makeJoint(pw, _chassis.body, _rearWheelComp.body, rearAnchor);
+    frontJoint = _makeJoint(pw, _chassis.body, _frontWheelComp.body, frontPos);
+    rearJoint = _makeJoint(pw, _chassis.body, _rearWheelComp.body, rearPos);
   }
 
-  WheelJoint _makeJoint(f2d.World world, Body bodyA, Body bodyB, Vector2 anchorWorld) {
+  WheelJoint _makeJoint(f2d.World world, Body bodyA, Body bodyB, Vector2 anchor) {
     final def = WheelJointDef()
-      ..initialize(bodyA, bodyB, anchorWorld, Vector2(0, 1))
+      ..initialize(bodyA, bodyB, anchor, Vector2(0, 1))
       ..frequencyHz = hz
       ..dampingRatio = damping
-      ..maxMotorTorque = 25.0
+      ..maxMotorTorque = 5.0 // Very low torque when motor is off for free rolling
       ..enableMotor = false;
     final joint = f2d.WheelJoint(def);
     world.createJoint(joint);
@@ -90,20 +87,28 @@ class Bike extends Component with HasGameRef<Forge2DGame> {
   }
 
   void updateControl(double tilt, bool isGas, bool isBrake) {
-    chassis.angularVelocity = tilt * 6.5;
+    // TILT - Puppeteering the chassis
+    chassis.angularVelocity = tilt * 7.0;
 
     if (isGas) {
-      rearJoint.enableMotor(true);
-      rearJoint.motorSpeed = -55.0;
-      rearJoint.setMaxMotorTorque(25.0);
+      rearJoint.enableMotor = true;
+      rearJoint.motorSpeed = 55.0; // CHANGED: Positive for forward motion
+      rearJoint.setMaxMotorTorque(30.0); // Subtle wheelie torque
     } else {
-      rearJoint.enableMotor(false);
+      // Disabling motor ensures the bike rolls back on hills
+      rearJoint.enableMotor = false;
     }
 
     if (isBrake) {
-      rearJoint.enableMotor(true);
+      rearJoint.enableMotor = true;
       rearJoint.motorSpeed = 0;
-      rearJoint.setMaxMotorTorque(125.0);
+      rearJoint.setMaxMotorTorque(150.0);
     }
+  }
+
+  @override
+  void render(Canvas canvas) {
+    // Current "3 Dots" view: Drawing the head hitbox
+    canvas.drawCircle(Offset.zero, 0.4, Paint()..color = Colors.white);
   }
 }

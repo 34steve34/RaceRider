@@ -12,33 +12,11 @@ import 'bike.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  // LOCK TO LANDSCAPE
   await SystemChrome.setPreferredOrientations([
     DeviceOrientation.landscapeLeft,
     DeviceOrientation.landscapeRight,
   ]);
-  runApp(
-    GameWidget(
-      game: RaceRiderGame(),
-      overlayBuilderMap: {
-        'version': (context, game) => const Align(
-              alignment: Alignment.topLeft,
-              child: Padding(
-                padding: EdgeInsets.all(8),
-                child: Text(
-                  'RaceRider v1.0.0',
-                  style: TextStyle(
-                    color: Color(0xB3FFFFFF),
-                    fontSize: 13,
-                    fontWeight: FontWeight.w500,
-                  ),
-                ),
-              ),
-            ),
-      },
-      initialActiveOverlays: const ['version'],
-    ),
-  );
+  runApp(GameWidget(game: RaceRiderGame()));
 }
 
 class RaceRiderGame extends Forge2DGame 
@@ -47,6 +25,7 @@ class RaceRiderGame extends Forge2DGame
   double phoneTiltAngle = 0.0;
   bool isGasPressed = false;
   bool isBrakePressed = false;
+  bool gameStarted = false;
   StreamSubscription? _accel;
 
   RaceRiderGame() : super(gravity: Vector2(0, 42.0));
@@ -55,16 +34,19 @@ class RaceRiderGame extends Forge2DGame
   Future<void> onLoad() async {
     await super.onLoad();
     await world.add(TrackComponent());
-    
-    // Position bike further back to build speed for the loop
     playerBike = Bike(initialPosition: Vector2(-30, -5));
     await world.add(playerBike!);
+    camera.viewfinder.zoom = 10.0;
+  }
 
+  // Initializing sensors on first tap to satisfy browser security requirements
+  void _startSensors() {
+    if (gameStarted) return;
     _accel = accelerometerEvents.listen((event) {
+      // Sensitivity: divisor 5.0 is standard for landscape steering
       phoneTiltAngle = (event.y / 5.0).clamp(-1.0, 1.0);
     });
-    
-    camera.viewfinder.zoom = 10.0;
+    gameStarted = true;
   }
 
   @override
@@ -78,8 +60,12 @@ class RaceRiderGame extends Forge2DGame
 
   @override
   void onTapDown(TapDownEvent event) {
-    if (event.canvasPosition.x < camera.viewport.size.x / 2) isBrakePressed = true;
-    else isGasPressed = true;
+    _startSensors(); // Ensure sensors start on interaction
+    if (event.canvasPosition.x < camera.viewport.size.x / 2) {
+      isBrakePressed = true;
+    } else {
+      isGasPressed = true;
+    }
   }
 
   @override
