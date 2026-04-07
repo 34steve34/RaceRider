@@ -31,10 +31,10 @@ class Bike extends Component with HasGameRef<Forge2DGame> {
     chassis = physicsWorld.createBody(chassisDef);
     
     final headFix = chassis.createFixture(FixtureDef(
-      f2d.CircleShape()..radius = 0.4, 
-      density: 1.0
+      f2d.CircleShape()..radius = 0.4,
+      density: 1.0,
     ));
-    headFixture.userData = 'head';
+    headFix.userData = 'head';
 
     // 2. WHEELS
     frontWheel = _makeWheel(physicsWorld, initialPosition + Vector2(wheelBase / 2, 0.8));
@@ -60,8 +60,9 @@ class Bike extends Component with HasGameRef<Forge2DGame> {
       ..dampingRatio = damping
       ..maxMotorTorque = 25.0
       ..enableMotor = false;
-    // FIX 2: Pass the def directly to the physics world's createJoint
-    return world.createJoint(def) as WheelJoint;
+    final joint = f2d.WheelJoint(def);
+    world.createJoint(joint);
+    return joint;
   }
 
   void updateControl(double tilt, bool isGas, bool isBrake) {
@@ -69,8 +70,7 @@ class Bike extends Component with HasGameRef<Forge2DGame> {
 
     if (isGas) {
       rearJoint.enableMotor(true);
-      // FIX 3: Use methods instead of setters
-      rearJoint.setMotorSpeed(-55.0);
+      rearJoint.motorSpeed = -55.0;
       rearJoint.setMaxMotorTorque(25.0);
     } else {
       // Disabling motor allows the bike to roll backwards on hills
@@ -79,7 +79,7 @@ class Bike extends Component with HasGameRef<Forge2DGame> {
 
     if (isBrake) {
       rearJoint.enableMotor(true);
-      rearJoint.setMotorSpeed(0);
+      rearJoint.motorSpeed = 0;
       rearJoint.setMaxMotorTorque(125.0);
     }
   }
