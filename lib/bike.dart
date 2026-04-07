@@ -13,16 +13,18 @@ class _Part extends BodyComponent {
     final bodyDef = BodyDef()
       ..position = pos
       ..type = BodyType.dynamic;
-    
+    if (!isWheel) {
+      bodyDef.angularDamping = 1.8;
+    }
+
     final body = world.createBody(bodyDef);
     final shape = CircleShape()..radius = isWheel ? Bike.wheelRadius : 0.4;
-    
+
     body.createFixture(FixtureDef(shape)
       ..density = 1.0
       ..friction = isWheel ? 0.9 : 0.5
       ..restitution = 0.1);
 
-    if (!isWheel) body.angularDamping = 1.8;
     return body;
   }
 }
@@ -83,7 +85,7 @@ class Bike extends Component with HasGameRef<Forge2DGame> {
     // GAS
     if (isGas) {
       rearJoint.enableMotor(true);
-      rearJoint.setMotorSpeed(55.0); // Positive = Forward
+      rearJoint.motorSpeed = 55.0; // Positive = Forward
       rearJoint.setMaxMotorTorque(25.0); // Subtle wheelie torque
     } else {
       rearJoint.enableMotor(false); // Free roll backwards on hills
@@ -92,7 +94,7 @@ class Bike extends Component with HasGameRef<Forge2DGame> {
     // BRAKE
     if (isBrake) {
       rearJoint.enableMotor(true);
-      rearJoint.setMotorSpeed(0);
+      rearJoint.motorSpeed = 0;
       rearJoint.setMaxMotorTorque(150.0);
     }
   }
