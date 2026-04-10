@@ -7,11 +7,11 @@ environment:
   sdk: '>=3.0.0 <4.0.0'
 
 dependencies:
-  flutter:
+ flutter:
     sdk: flutter
-  flame: any
-  flame_forge2d: ^0.19.2
-  sensors_plus: ^4.0.0
+  flame: ^1.18.0  # Or latest
+  flame_forge2d: ^0.17.0 # Or latest
+  sensors_plus: ^6.1.1 # Or latest
 
 dev_dependencies:
   flutter_test:
