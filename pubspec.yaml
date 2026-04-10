@@ -1,5 +1,5 @@
 name: racerider
-description: A 2D physics racer built with Flame and Forge2D.
+description: A new Flutter project.
 publish_to: 'none'
 version: 1.0.0+1
 
@@ -7,15 +7,16 @@ environment:
   sdk: '>=3.0.0 <4.0.0'
 
 dependencies:
- flutter:
+  flutter:
     sdk: flutter
-  flame: ^1.18.0  # Or latest
-  flame_forge2d: ^0.17.0 # Or latest
-  sensors_plus: ^6.1.1 # Or latest
+  flame: ^1.18.0
+  flame_forge2d: ^0.17.0
+  sensors_plus: ^6.1.1
 
 dev_dependencies:
   flutter_test:
     sdk: flutter
+  flutter_lints: ^3.0.0
 
 flutter:
   uses-material-design: true
