@@ -15,9 +15,9 @@ class RaceRiderGame extends Forge2DGame with TapCallbacks {
   
   double rawTilt = 0;
   double smoothedTilt = 0;
+  
   bool isGas = false;
-
-  // I removed the debugMode override, so your colors will return to normal!
+  bool isBrake = false;
 
   RaceRiderGame() : super(gravity: Vector2(0, 20), zoom: 15);
 
@@ -34,18 +34,33 @@ class RaceRiderGame extends Forge2DGame with TapCallbacks {
   void update(double dt) {
     super.update(dt);
     
+    // Normalize the tilt to a max of -1.0 to 1.0
     double normalizedTilt = (rawTilt / 10).clamp(-1.0, 1.0);
     smoothedTilt += (normalizedTilt - smoothedTilt) * 0.2;
     
-    player.updateControl(smoothedTilt, isGas);
+    // Pass the tilt, gas, and brake state to the bike
+    player.updateControl(smoothedTilt, isGas, isBrake);
     
+    // Camera follows slightly ahead of the bike
     camera.viewfinder.position = player.chassis.body.position + Vector2(5, 0);
   }
 
   @override
-  void onTapDown(TapDownEvent event) => isGas = true;
+  void onTapDown(TapDownEvent event) {
+    // Check if the tap is on the right or left half of the screen
+    if (event.localPosition.x > size.x / 2) {
+      isGas = true;
+    } else {
+      isBrake = true;
+    }
+  }
+
   @override
-  void onTapUp(TapUpEvent event) => isGas = false;
+  void onTapUp(TapUpEvent event) {
+    // Release both when the screen is no longer touched
+    isGas = false;
+    isBrake = false;
+  }
 }
 
 class Bike extends Component with HasGameRef<Forge2DGame> {
@@ -74,17 +89,21 @@ class Bike extends Component with HasGameRef<Forge2DGame> {
       ..initialize(a, b, anchor, Vector2(0, 1))
       ..frequencyHz = 15 
       ..dampingRatio = 0.7
-      // MASSIVE BOOST to the grip power so the wheels don't slip under acceleration
       ..maxMotorTorque = 100); 
   }
 
-  void updateControl(double tilt, bool gas) {
-    // MASSIVE BOOST to tilt torque. It now has the power to overcome air resistance.
+  void updateControl(double tilt, bool gas, bool brake) {
     chassis.body.applyTorque(tilt * 150);
 
-    jointR.enableMotor(gas);
-    // MASSIVE BOOST to speed. The bike will now haul ass when you touch the right side.
-    jointR.motorSpeed = gas ? 50 : 0; 
+    if (brake) {
+      // HARD BRAKE: Lock the motor speed to 0
+      jointR.enableMotor(true);
+      jointR.motorSpeed = 0; 
+    } else {
+      // GAS or COAST
+      jointR.enableMotor(gas);
+      jointR.motorSpeed = gas ? 50 : 0; 
+    }
   }
 }
 
@@ -101,16 +120,18 @@ class Part extends BodyComponent {
     
     final bodyDef = BodyDef(type: BodyType.dynamic, position: pos);
     
-    // Lowered the air resistance from 6.0 down to 2.0 so it actually lets you spin
     if (!isWheel) bodyDef.angularDamping = 2.0; 
     
+    // 50% Lighter Wheels: Chassis = 1.5, Wheels = 0.75
+    final double partDensity = isWheel ? 0.75 : 1.5;
+    
     return world.createBody(bodyDef)
-      ..createFixture(FixtureDef(shape, density: 1.5, friction: 0.9, restitution: 0.1));
+      ..createFixture(FixtureDef(shape, density: partDensity, friction: 0.9, restitution: 0.1));
   }
 
   @override
   void render(Canvas canvas) {
-    final color = isWheel ? const Color(0xFFFFFFFF) : const Color(0xFFFF69B4); // White and Pink
+    final color = isWheel ? const Color(0xFFFFFFFF) : const Color(0xFFFF69B4); 
     if (isWheel) {
       canvas.drawCircle(Offset.zero, 0.5, Paint()..color = color);
     } else {
