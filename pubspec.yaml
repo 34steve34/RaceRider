@@ -12,16 +12,9 @@ dependencies:
   flame: ^1.18.0
   flame_forge2d: ^0.17.0
   sensors_plus: ^6.1.1
-  vector_math: ^2.1.4
 
-dev_dependencies:
-  flutter_test:
-    sdk: flutter
-  flutter_lints: ^3.0.0
+dependency_overrides:
+  vector_math: 2.1.4
 
 flutter:
   uses-material-design: true
-  
-
-dependency_overrides:
-  vector_math: ^2.1.4
