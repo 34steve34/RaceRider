@@ -36374,7 +36374,7 @@ n=q.ax
 n===$&&A.c()
 n=n.at
 n===$&&A.c()
-n.FW(r*150)
+n.FW(r*800)
 r=q.cx
 if(o){r===$&&A.c()
 r.v5(!0)
@@ -36471,7 +36471,7 @@ no(){var s,r,q,p=this.rx
 if(p){s=A.Mf()
 s.b=0.5}else{s=A.NL()
 s.xs(1.2,0.3,new A.h(new Float64Array(2)),0)}r=A.M7(this.RG,B.y)
-if(!p)r.w=2
+if(!p)r.w=15
 q=p?0.75:1.5
 p=this.gcC().k3.go.np(r)
 p.uE(A.SQ(s,q,0.9,0.1))
