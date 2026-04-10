@@ -27,7 +27,7 @@ class RaceRiderGame extends Forge2DGame with TapCallbacks {
     player = Bike(Vector2(0, -2));
     await add(player); 
     
-    accelerometerEvents.listen((event) => rawTilt = -event.y);
+    accelerometerEvents.listen((event) => rawTilt = event.y);
   }
 
   @override
@@ -93,7 +93,7 @@ class Bike extends Component with HasGameRef<Forge2DGame> {
   }
 
   void updateControl(double tilt, bool gas, bool brake) {
-    chassis.body.applyTorque(tilt * 800);
+    chassis.body.applyTorque(tilt * 300);
 
     if (brake) {
       // HARD BRAKE: Lock the motor speed to 0
