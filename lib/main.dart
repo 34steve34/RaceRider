@@ -17,9 +17,7 @@ class RaceRiderGame extends Forge2DGame with TapCallbacks {
   double smoothedTilt = 0;
   bool isGas = false;
 
-  // 🔴 MAGIC DEBUG MODE: Draws neon outlines around actual physics bodies
-  @override
-  bool get debugMode => true; 
+  // I removed the debugMode override, so your colors will return to normal!
 
   RaceRiderGame() : super(gravity: Vector2(0, 20), zoom: 15);
 
@@ -36,15 +34,11 @@ class RaceRiderGame extends Forge2DGame with TapCallbacks {
   void update(double dt) {
     super.update(dt);
     
-    // 1. NORMALIZE: Turn raw 9.8 gravity into a strict -1.0 to 1.0 limit
     double normalizedTilt = (rawTilt / 10).clamp(-1.0, 1.0);
-    
-    // 2. SMOOTH: Glide the rotation instead of jerking it
     smoothedTilt += (normalizedTilt - smoothedTilt) * 0.2;
     
     player.updateControl(smoothedTilt, isGas);
     
-    // Camera follows slightly ahead of the bike
     camera.viewfinder.position = player.chassis.body.position + Vector2(5, 0);
   }
 
@@ -78,18 +72,19 @@ class Bike extends Component with HasGameRef<Forge2DGame> {
   WheelJoint _makeJoint(Body a, Body b, Vector2 anchor) {
     return WheelJoint(WheelJointDef()
       ..initialize(a, b, anchor, Vector2(0, 1))
-      ..frequencyHz = 15 // Tighter springs to stop wheels from separating
+      ..frequencyHz = 15 
       ..dampingRatio = 0.7
-      ..maxMotorTorque = 25); // Lower torque to stop burnouts
+      // MASSIVE BOOST to the grip power so the wheels don't slip under acceleration
+      ..maxMotorTorque = 100); 
   }
 
   void updateControl(double tilt, bool gas) {
-    // Sane torque limit so the bike doesn't become a helicopter
-    chassis.body.applyTorque(tilt * 20);
+    // MASSIVE BOOST to tilt torque. It now has the power to overcome air resistance.
+    chassis.body.applyTorque(tilt * 150);
 
     jointR.enableMotor(gas);
-    // Sane speed limit so you don't instantly fly off the track
-    jointR.motorSpeed = gas ? 25 : 0; 
+    // MASSIVE BOOST to speed. The bike will now haul ass when you touch the right side.
+    jointR.motorSpeed = gas ? 50 : 0; 
   }
 }
 
@@ -106,8 +101,8 @@ class Part extends BodyComponent {
     
     final bodyDef = BodyDef(type: BodyType.dynamic, position: pos);
     
-    // Air resistance so the bike stops spinning when you stop tilting
-    if (!isWheel) bodyDef.angularDamping = 6.0; 
+    // Lowered the air resistance from 6.0 down to 2.0 so it actually lets you spin
+    if (!isWheel) bodyDef.angularDamping = 2.0; 
     
     return world.createBody(bodyDef)
       ..createFixture(FixtureDef(shape, density: 1.5, friction: 0.9, restitution: 0.1));
@@ -115,8 +110,7 @@ class Part extends BodyComponent {
 
   @override
   void render(Canvas canvas) {
-    // We can leave this here, but debugMode will draw over it anyway
-    final color = isWheel ? const Color(0xFFFFFFFF) : const Color(0xFFFF69B4);
+    final color = isWheel ? const Color(0xFFFFFFFF) : const Color(0xFFFF69B4); // White and Pink
     if (isWheel) {
       canvas.drawCircle(Offset.zero, 0.5, Paint()..color = color);
     } else {
@@ -126,14 +120,13 @@ class Part extends BodyComponent {
 }
 
 class Track extends BodyComponent {
-  // Made the track much longer so you have room to test
   final List<Vector2> pts = [
     Vector2(-50, 5), 
     Vector2(20, 5), 
     Vector2(35, -2), 
     Vector2(50, 5),
     Vector2(100, 5),
-    Vector2(300, 5) // Huge runway
+    Vector2(300, 5) 
   ];
 
   @override
