@@ -93,7 +93,7 @@ class Bike extends Component with HasGameRef<Forge2DGame> {
   }
 
   void updateControl(double tilt, bool gas, bool brake) {
-    chassis.body.applyTorque(tilt * 150);
+    chassis.body.applyTorque(tilt * 800);
 
     if (brake) {
       // HARD BRAKE: Lock the motor speed to 0
@@ -120,7 +120,7 @@ class Part extends BodyComponent {
     
     final bodyDef = BodyDef(type: BodyType.dynamic, position: pos);
     
-    if (!isWheel) bodyDef.angularDamping = 2.0; 
+    if (!isWheel) bodyDef.angularDamping = 15.0; 
     
     // 50% Lighter Wheels: Chassis = 1.5, Wheels = 0.75
     final double partDensity = isWheel ? 0.75 : 1.5;
