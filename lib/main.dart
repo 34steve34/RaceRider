@@ -1,96 +1,109 @@
-import 'package:flutter/material.dart' hide Column; 
+import 'dart:async';
+import 'dart:math';
+import 'package:flutter/material.dart' hide Column;
 import 'package:flame/game.dart';
 import 'package:flame/events.dart';
-// Hide everything related to vectors from these so they don't clash
-import 'package:flame_forge2d/flame_forge2d.dart' hide Vector2, World; 
+import 'package:flame_forge2d/flame_forge2d.dart'; 
 import 'package:sensors_plus/sensors_plus.dart';
-// This is the ONLY place Vector2 will come from
-import 'package:vector_math/vector_math.dart'; 
 
 void main() {
-  runApp(
-    MaterialApp(
-      debugShowCheckedModeBanner: false,
-      home: Scaffold(
-        body: Container(
-          color: const Color(0xFF111111),
-          child: GameWidget(
-            game: ResetRacingGame(),
-          ),
-        ),
-      ),
-    ),
-  );
+  runApp(GameWidget(game: RaceRiderGame()));
 }
 
-class ResetRacingGame extends Forge2DGame with TapCallbacks {
-  ResetRacingGame() : super(gravity: Vector2(0, 15), zoom: 20);
-
-  late PlayerBox player;
+class RaceRiderGame extends Forge2DGame with TapCallbacks {
+  late Bike player;
   double tiltX = 0;
+  bool isGas = false;
+
+  RaceRiderGame() : super(gravity: Vector2(0, 20), zoom: 15);
 
   @override
   Future<void> onLoad() async {
-    await add(GroundLine());
-    player = PlayerBox(Vector2(0, -5));
+    await add(Track());
+    player = Bike(Vector2(0, 0));
     await add(player);
-
-    accelerometerEvents.listen((AccelerometerEvent event) {
-      tiltX = event.x; 
-    });
+    
+    accelerometerEvents.listen((event) => tiltX = event.x);
   }
 
   @override
   void update(double dt) {
     super.update(dt);
-    player.body.applyForce(Vector2(-tiltX * 80, 0));
+    player.updateControl(-tiltX / 5, isGas);
+    camera.viewfinder.position = player.chassis.body.position;
   }
 
   @override
-  void onTapDown(TapDownEvent event) {
-    if (event.localPosition.x > size.x / 2) {
-      player.body.applyLinearImpulse(Vector2(5, -15));
+  void onTapDown(TapDownEvent event) => isGas = true;
+  @override
+  void onTapUp(TapUpEvent event) => isGas = false;
+}
+
+class Bike extends Component with HasGameRef<Forge2DGame> {
+  final Vector2 pos;
+  late Part chassis, frontW, rearW;
+  late WheelJoint jointF, jointR;
+
+  Bike(this.pos);
+
+  @override
+  Future<void> onLoad() async {
+    chassis = Part(pos, isWheel: false);
+    frontW = Part(pos + Vector2(1.5, 0.8), isWheel: true);
+    rearW = Part(pos + Vector2(-1.5, 0.8), isWheel: true);
+
+    await addAll([chassis, frontW, rearW]);
+
+    jointF = _makeJoint(chassis.body, frontW.body, frontW.body.position);
+    jointR = _makeJoint(chassis.body, rearW.body, rearW.body.position);
+    gameRef.world.physicsWorld.createJoint(jointF);
+    gameRef.world.physicsWorld.createJoint(jointR);
+  }
+
+  WheelJoint _makeJoint(Body a, Body b, Vector2 anchor) {
+    return WheelJoint(WheelJointDef()
+      ..initialize(a, b, anchor, Vector2(0, 1))
+      ..frequencyHz = 10..dampingRatio = 0.7..maxMotorTorque = 20);
+  }
+
+  void updateControl(double tilt, bool gas) {
+    chassis.body.angularVelocity = tilt * 5;
+    jointR.enableMotor(gas);
+    jointR.motorSpeed = gas ? 40 : 0;
+  }
+}
+
+class Part extends BodyComponent {
+  final Vector2 pos;
+  final bool isWheel;
+  Part(this.pos, {this.isWheel = false});
+
+  @override
+  Body createBody() {
+    final shape = isWheel ? (CircleShape()..radius = 0.5) : (PolygonShape()..setAsBox(1.2, 0.3, Vector2.zero(), 0));
+    return world.createBody(BodyDef(type: BodyType.dynamic, position: pos))
+      ..createFixture(FixtureDef(shape, density: 1, friction: 0.8));
+  }
+
+  @override
+  void render(Canvas canvas) {
+    final color = isWheel ? Colors.white : Colors.pinkAccent;
+    if (isWheel) {
+      canvas.drawCircle(Offset.zero, 0.5, Paint()..color = color);
     } else {
-      player.body.linearVelocity.x *= 0.1;
+      canvas.drawRect(Rect.fromLTWH(-1.2, -0.3, 2.4, 0.6), Paint()..color = color);
     }
   }
 }
 
-class PlayerBox extends BodyComponent {
-  final Vector2 startPos;
-  PlayerBox(this.startPos);
-
+class Track extends BodyComponent {
   @override
   Body createBody() {
-    final shape = PolygonShape()..setAsBox(1.0, 1.0, Vector2.zero(), 0);
-    final fixtureDef = FixtureDef(shape, friction: 0.5, restitution: 0.4);
-    final bodyDef = BodyDef(type: BodyType.dynamic, position: startPos);
-    return world.createBody(bodyDef)..createFixture(fixtureDef);
-  }
-
-  @override
-  void render(Canvas canvas) {
-    canvas.drawRect(
-      const Rect.fromLTWH(-1, -1, 2, 2), 
-      Paint()..color = const Color(0xFF2196F3),
-    );
-  }
-}
-
-class GroundLine extends BodyComponent {
-  @override
-  Body createBody() {
-    final shape = EdgeShape()..set(Vector2(-50, 5), Vector2(50, 5));
-    return world.createBody(BodyDef(type: BodyType.static))
-      ..createFixture(FixtureDef(shape));
-  }
-
-  @override
-  void render(Canvas canvas) {
-    canvas.drawLine(
-      const Offset(-50, 5),
-      const Offset(50, 5),
-      Paint()..color = const Color(0xFFFFFFFF)..strokeWidth = 0.2,
-    );
+    final body = world.createBody(BodyDef(type: BodyType.static));
+    final List<Vector2> pts = [Vector2(-50, 5), Vector2(20, 5), Vector2(40, 2), Vector2(100, 5)];
+    for (var i = 0; i < pts.length - 1; i++) {
+      body.createFixture(FixtureDef(EdgeShape()..set(pts[i], pts[i+1]), friction: 0.6));
+    }
+    return body;
   }
 }
