@@ -1,14 +1,24 @@
+import 'package:flutter/material.dart';
+import 'package:flame/game.dart'; // <--- THIS WAS LIKELY MISSING
 import 'package:flame/events.dart';
 import 'package:flame_forge2d/flame_forge2d.dart';
-import 'package:flutter/material.dart';
 import 'package:sensors_plus/sensors_plus.dart';
 
 void main() {
-  runApp(GameWidget(game: ResetRacingGame()));
+  // We use the GameWidget from flame/game.dart
+  runApp(
+    MaterialApp(
+      home: Scaffold(
+        body: GameWidget(
+          game: ResetRacingGame(),
+        ),
+      ),
+    ),
+  );
 }
 
 class ResetRacingGame extends Forge2DGame with TapCallbacks {
-  // 1. Set a fixed zoom so we don't see "tiny dots"
+  // Zoom 20 ensures 1 physics meter = 20 pixels. No more tiny dots.
   ResetRacingGame() : super(gravity: Vector2(0, 15), zoom: 20);
 
   late PlayerBox player;
@@ -16,63 +26,66 @@ class ResetRacingGame extends Forge2DGame with TapCallbacks {
 
   @override
   Future<void> onLoad() async {
-    // 2. Add the Ground
+    // Add ground at the bottom of the screen
     add(GroundLine());
     
-    // 3. Add the Player
+    // Start player in the middle-top
     player = PlayerBox(Vector2(0, -5));
     add(player);
 
-    // 4. Listen to Accelerometer
+    // Listen for tilt
     accelerometerEvents.listen((AccelerometerEvent event) {
-      tiltX = event.x; // Sensitivity logic
+      tiltX = event.x; 
     });
   }
 
   @override
   void update(double dt) {
     super.update(dt);
-    // Apply tilt force to the player
-    player.body.applyForce(Vector2(-tiltX * 50, 0));
+    // Apply tilt force
+    player.body.applyForce(Vector2(-tiltX * 40, 0));
   }
 
   @override
   void onTapDown(TapDownEvent event) {
-    final screenWidth = size.x;
-    if (event.localPosition.x > screenWidth / 2) {
-      // Right side: Gas (Jump/Boost for now to test)
-      player.body.applyLinearImpulse(Vector2(5, -10));
+    if (event.localPosition.x > size.x / 2) {
+      // Right Side: Gas/Jump
+      player.body.applyLinearImpulse(Vector2(5, -15));
     } else {
-      // Left side: Brake
-      player.body.linearVelocity.x *= 0.5;
+      // Left Side: Brake
+      player.body.linearVelocity.x *= 0.2;
     }
   }
 }
 
 class PlayerBox extends BodyComponent {
-  final Vector2 startPosition;
-  PlayerBox(this.startPosition);
+  final Vector2 startPos;
+  PlayerBox(this.startPos);
 
   @override
   Body createBody() {
     final shape = PolygonShape()..setAsBox(1.0, 1.0, Vector2.zero(), 0);
-    final fixtureDef = FixtureDef(shape, friction: 0.3, restitution: 0.5); // Restitution = Bounce
-    final bodyDef = BodyDef(type: BodyType.dynamic, position: startPosition);
+    final fixtureDef = FixtureDef(shape, friction: 0.3, restitution: 0.4);
+    final bodyDef = BodyDef(type: BodyType.dynamic, position: startPos);
     return world.createBody(bodyDef)..createFixture(fixtureDef);
   }
 
   @override
   void render(Canvas canvas) {
-    // Draw a simple blue square so we can actually SEE it
-    canvas.drawRect(const Rect.fromLTWH(-1, -1, 2, 2), Paint()..color = Colors.blue);
+    // A visible 2x2 meter blue square
+    canvas.drawRect(
+      Rect.fromLTWH(-1, -1, 2, 2), 
+      Paint()..color = Colors.blue
+    );
   }
 }
 
 class GroundLine extends BodyComponent {
   @override
   Body createBody() {
+    // A long line 5 meters down from center
     final shape = EdgeShape()..set(Vector2(-100, 5), Vector2(100, 5));
-    final bodyDef = BodyDef(type: BodyType.static);
-    return world.createBody(bodyDef)..createFixture(FixtureDef(shape));
+    return world.createBody(BodyDef(type: BodyType.static))
+      ..createFixture(FixtureDef(shape));
   }
 }
