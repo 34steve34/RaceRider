@@ -27,6 +27,7 @@ class RaceRiderGame extends Forge2DGame with TapCallbacks {
     player = Bike(Vector2(0, -2));
     await add(player); 
     
+    // NOTE: Add a minus sign here if the controls feel inverted!
     accelerometerEvents.listen((event) => rawTilt = event.y);
   }
 
@@ -68,6 +69,9 @@ class Bike extends Component with HasGameRef<Forge2DGame> {
   late Part chassis, frontW, rearW;
   late WheelJoint jointF, jointR;
 
+  // 🔴 NEW: The absolute speed limit for how fast the bike can flip
+  final double maxRotationSpeed = 8.0; 
+
   Bike(this.pos);
 
   @override
@@ -93,8 +97,20 @@ class Bike extends Component with HasGameRef<Forge2DGame> {
   }
 
   void updateControl(double tilt, bool gas, bool brake) {
-    chassis.body.applyTorque(tilt * 300);
+    // 1. ARCADE ROTATION: Direct Angle Targeting
+    // tilt is -1.0 to 1.0. We multiply by 3.0 to give about ~170 degrees of max lean each way.
+    double targetAngle = tilt * 3.0; 
+    
+    // Calculate the difference between where the bike is, and where your phone wants it to be
+    double angleError = targetAngle - chassis.body.angle;
+    
+    // Calculate how fast the bike WANTS to spin to catch up to the phone
+    double desiredSpeed = angleError * 12.0;
 
+    // Clamp that speed so it never exceeds the bike's physical limit
+    chassis.body.angularVelocity = desiredSpeed.clamp(-maxRotationSpeed, maxRotationSpeed);
+
+    // 2. MOTOR LOGIC
     if (brake) {
       // HARD BRAKE: Lock the motor speed to 0
       jointR.enableMotor(true);
@@ -120,9 +136,10 @@ class Part extends BodyComponent {
     
     final bodyDef = BodyDef(type: BodyType.dynamic, position: pos);
     
-    if (!isWheel) bodyDef.angularDamping = 15.0; 
+    // Lowered back to 2.0 because the direct angle targeting handles the air control perfectly now
+    if (!isWheel) bodyDef.angularDamping = 2.0; 
     
-    // 50% Lighter Wheels: Chassis = 1.5, Wheels = 0.75
+    // 🔴 NEW: 50% Lighter Wheels (Chassis = 1.5, Wheels = 0.75)
     final double partDensity = isWheel ? 0.75 : 1.5;
     
     return world.createBody(bodyDef)
