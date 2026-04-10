@@ -1,117 +1,78 @@
-import 'dart:async';
-import 'package:flame/components.dart';
-import 'package:flame/game.dart';
 import 'package:flame/events.dart';
 import 'package:flame_forge2d/flame_forge2d.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:sensors_plus/sensors_plus.dart';
 
-import 'track.dart';
-import 'bike.dart';
-
-void main() async {
-  WidgetsFlutterBinding.ensureInitialized();
-  // LOCK TO LANDSCAPE
-  await SystemChrome.setPreferredOrientations([
-    DeviceOrientation.landscapeLeft,
-    DeviceOrientation.landscapeRight,
-  ]);
-  runApp(
-    GameWidget(
-      game: RaceRiderGame(),
-      overlayBuilderMap: {
-        'version': (context, game) => const Align(
-              alignment: Alignment.topLeft,
-              child: Padding(
-                padding: EdgeInsets.all(8),
-                child: Text(
-                  'RaceRider v3.0.7',
-                  style: TextStyle(color: Color(0xB3FFFFFF), fontSize: 13),
-                ),
-              ),
-            ),
-      },
-      initialActiveOverlays: const ['version'],
-    ),
-  );
+void main() {
+  runApp(GameWidget(game: ResetRacingGame()));
 }
 
-class RaceRiderGame extends Forge2DGame 
-    with HasKeyboardHandlerComponents, TapCallbacks {
-  Bike? playerBike;
-  double phoneTiltAngle = 0.0;
-  bool isGasPressed = false;
-  bool isBrakePressed = false;
-  bool sensorsInitialized = false;
-  StreamSubscription? _accel;
+class ResetRacingGame extends Forge2DGame with TapCallbacks {
+  // 1. Set a fixed zoom so we don't see "tiny dots"
+  ResetRacingGame() : super(gravity: Vector2(0, 15), zoom: 20);
 
-  RaceRiderGame() : super(gravity: Vector2(0, 42.0));
+  late PlayerBox player;
+  double tiltX = 0;
 
   @override
   Future<void> onLoad() async {
-    await super.onLoad();
-    await world.add(TrackComponent());
+    // 2. Add the Ground
+    add(GroundLine());
     
-    // Spawn point further back to test rolling/momentum
-    playerBike = Bike(initialPosition: Vector2(-30, -5));
-    await world.add(playerBike!);
-    
-    camera.viewfinder.zoom = 10.0;
-  }
+    // 3. Add the Player
+    player = PlayerBox(Vector2(0, -5));
+    add(player);
 
-  // Mobile browsers require a user interaction (tap) to allow sensor access
-  void _startSensors() {
-    if (sensorsInitialized) return;
-    _accel = accelerometerEvents.listen((event) {
-      // Sensitivity: divisor 5.0 is standard. 
-      // If it feels inverted, change '+' to '-' in the clamp.
-      phoneTiltAngle = (event.y / 5.0).clamp(-1.0, 1.0);
+    // 4. Listen to Accelerometer
+    accelerometerEvents.listen((AccelerometerEvent event) {
+      tiltX = event.x; // Sensitivity logic
     });
-    sensorsInitialized = true;
   }
 
   @override
   void update(double dt) {
     super.update(dt);
-    if (playerBike != null && playerBike!.isLoaded) {
-      playerBike!.updateControl(phoneTiltAngle, isGasPressed, isBrakePressed);
-      camera.viewfinder.position = playerBike!.chassisBody.position + Vector2(8, -2);
-    }
+    // Apply tilt force to the player
+    player.body.applyForce(Vector2(-tiltX * 50, 0));
   }
 
   @override
   void onTapDown(TapDownEvent event) {
-    _startSensors(); 
-    if (event.canvasPosition.x < camera.viewport.size.x / 2) {
-      isBrakePressed = true;
+    final screenWidth = size.x;
+    if (event.localPosition.x > screenWidth / 2) {
+      // Right side: Gas (Jump/Boost for now to test)
+      player.body.applyLinearImpulse(Vector2(5, -10));
     } else {
-      isGasPressed = true;
+      // Left side: Brake
+      player.body.linearVelocity.x *= 0.5;
     }
   }
+}
+
+class PlayerBox extends BodyComponent {
+  final Vector2 startPosition;
+  PlayerBox(this.startPosition);
 
   @override
-  void onTapUp(TapUpEvent event) {
-    isGasPressed = isBrakePressed = false;
+  Body createBody() {
+    final shape = PolygonShape()..setAsBox(1.0, 1.0, Vector2.zero(), 0);
+    final fixtureDef = FixtureDef(shape, friction: 0.3, restitution: 0.5); // Restitution = Bounce
+    final bodyDef = BodyDef(type: BodyType.dynamic, position: startPosition);
+    return world.createBody(bodyDef)..createFixture(fixtureDef);
   }
 
   @override
-  void onRemove() {
-    _accel?.cancel();
-    super.onRemove();
+  void render(Canvas canvas) {
+    // Draw a simple blue square so we can actually SEE it
+    canvas.drawRect(const Rect.fromLTWH(-1, -1, 2, 2), Paint()..color = Colors.blue);
   }
+}
 
+class GroundLine extends BodyComponent {
   @override
-  KeyEventResult onKeyEvent(KeyEvent event, Set<LogicalKeyboardKey> keysPressed) {
-    if (keysPressed.contains(LogicalKeyboardKey.arrowLeft)) {
-      phoneTiltAngle = -1.0;
-    } else if (keysPressed.contains(LogicalKeyboardKey.arrowRight)) {
-      phoneTiltAngle = 1.0;
-    } else {
-      phoneTiltAngle = 0.0;
-    }
-    isGasPressed = keysPressed.contains(LogicalKeyboardKey.space);
-    isBrakePressed = keysPressed.contains(LogicalKeyboardKey.shiftLeft);
-    return KeyEventResult.handled;
+  Body createBody() {
+    final shape = EdgeShape()..set(Vector2(-100, 5), Vector2(100, 5));
+    final bodyDef = BodyDef(type: BodyType.static);
+    return world.createBody(bodyDef)..createFixture(FixtureDef(shape));
   }
 }
