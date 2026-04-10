@@ -25,7 +25,7 @@ class RaceRiderGame extends Forge2DGame with TapCallbacks {
     player = Bike(Vector2(0, 0));
     await add(player);
     
-    accelerometerEvents.listen((event) => tiltX = event.x);
+    accelerometerEvents.listen((event) => tiltX = event.y);
   }
 
   @override
