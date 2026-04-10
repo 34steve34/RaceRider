@@ -1,11 +1,12 @@
 import 'dart:async';
 import 'package:flutter/material.dart' hide Column;
-import 'package:flame/game.dart';
-import 'package:flame/components.dart'; // Added to fix 'Component' and 'HasGameRef'
+// Hide Flame's vectors and world to prevent the clash
+import 'package:flame/game.dart' hide Vector2, World;
+import 'package:flame/components.dart' hide Vector2, World;
 import 'package:flame/events.dart';
-import 'package:flame_forge2d/flame_forge2d.dart' hide Vector2, World; 
+// Let Forge2D provide the correct 32-bit Vector2 and World automatically
+import 'package:flame_forge2d/flame_forge2d.dart'; 
 import 'package:sensors_plus/sensors_plus.dart';
-import 'package:vector_math/vector_math.dart'; // Re-added for explicit Vector2 support
 
 void main() {
   runApp(GameWidget(game: RaceRiderGame()));
@@ -40,7 +41,6 @@ class RaceRiderGame extends Forge2DGame with TapCallbacks {
   void onTapUp(TapUpEvent event) => isGas = false;
 }
 
-// Fixed: Component and HasGameRef now available via flame/components.dart
 class Bike extends Component with HasGameRef<Forge2DGame> {
   final Vector2 pos;
   late Part chassis, frontW, rearW;
@@ -54,7 +54,6 @@ class Bike extends Component with HasGameRef<Forge2DGame> {
     frontW = Part(pos + Vector2(1.5, 0.8), isWheel: true);
     rearW = Part(pos + Vector2(-1.5, 0.8), isWheel: true);
 
-    // Using world.add since these are BodyComponents
     await gameRef.world.addAll([chassis, frontW, rearW]);
 
     jointF = _makeJoint(chassis.body, frontW.body, frontW.body.position);
@@ -121,7 +120,6 @@ class Track extends BodyComponent {
   
   @override
   void render(Canvas canvas) {
-    // Ground is static, so we draw relative to world
     final paint = Paint()..color = const Color(0xFF00FF99)..strokeWidth = 0.2;
     canvas.drawLine(const Offset(-50, 5), const Offset(20, 5), paint);
     canvas.drawLine(const Offset(20, 5), const Offset(40, 2), paint);
