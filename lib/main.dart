@@ -13,7 +13,6 @@ void main() {
 class RaceRiderGame extends Forge2DGame with TapCallbacks {
   late Bike player;
   
-  // Smoothing variables
   double rawTilt = 0;
   double smoothedTilt = 0;
   bool isGas = false;
@@ -22,11 +21,12 @@ class RaceRiderGame extends Forge2DGame with TapCallbacks {
 
   @override
   Future<void> onLoad() async {
-    await add(Track());
-    player = Bike(Vector2(0, 0));
-    await add(player);
+    // CRITICAL FIX: Track must be added to the 'world', not the base game
+    await world.add(Track());
     
-    // Read the landscape Y axis
+    player = Bike(Vector2(0, -2));
+    await add(player); 
+    
     accelerometerEvents.listen((event) => rawTilt = -event.y);
   }
 
@@ -34,13 +34,9 @@ class RaceRiderGame extends Forge2DGame with TapCallbacks {
   void update(double dt) {
     super.update(dt);
     
-    // Low-Pass Filter: Blends 85% of the old tilt with 15% of the new tilt
-    // This completely removes hand-shake and makes the rotation buttery smooth
     smoothedTilt += (rawTilt - smoothedTilt) * 0.15;
-    
     player.updateControl(smoothedTilt, isGas);
     
-    // Camera follows the chassis with a slight offset so you can see ahead
     camera.viewfinder.position = player.chassis.body.position + Vector2(5, 0);
   }
 
@@ -74,20 +70,16 @@ class Bike extends Component with HasGameRef<Forge2DGame> {
   WheelJoint _makeJoint(Body a, Body b, Vector2 anchor) {
     return WheelJoint(WheelJointDef()
       ..initialize(a, b, anchor, Vector2(0, 1))
-      ..frequencyHz = 12 // Stiffer suspension
+      ..frequencyHz = 10 
       ..dampingRatio = 0.8
-      ..maxMotorTorque = 40); // Max torque for fast acceleration
+      ..maxMotorTorque = 40); 
   }
 
   void updateControl(double tilt, bool gas) {
-    // 1. APPLY TORQUE INSTEAD OF VELOCITY
-    // This allows natural wheelies on the ground and smooth flips in the air
-    // We multiply by a large number because torque requires more force than velocity
-    chassis.body.applyTorque(tilt * 250);
+    // Much smaller torque. The angular damping keeps it from exploding.
+    chassis.body.applyTorque(tilt * 60);
 
-    // 2. RESPONSIVE MOTOR
     jointR.enableMotor(gas);
-    // 60 is a fast max speed. It will accelerate hard but cap out.
     jointR.motorSpeed = gas ? 60 : 0; 
   }
 }
@@ -103,7 +95,14 @@ class Part extends BodyComponent {
         ? (CircleShape()..radius = 0.5) 
         : (PolygonShape()..setAsBox(1.2, 0.3, Vector2.zero(), 0));
     
-    return world.createBody(BodyDef(type: BodyType.dynamic, position: pos))
+    final bodyDef = BodyDef(type: BodyType.dynamic, position: pos);
+    
+    // CRITICAL FIX: Add "air resistance" to the chassis so it stops spinning instantly
+    if (!isWheel) {
+      bodyDef.angularDamping = 4.0; 
+    }
+    
+    return world.createBody(bodyDef)
       ..createFixture(FixtureDef(shape, density: 1.5, friction: 0.9, restitution: 0.1));
   }
 
@@ -119,11 +118,10 @@ class Part extends BodyComponent {
 }
 
 class Track extends BodyComponent {
-  // Define the points as a class variable so both the physics and the renderer can use them perfectly
   final List<Vector2> pts = [
     Vector2(-50, 5), 
     Vector2(20, 5), 
-    Vector2(35, -2), // Added a real hill to test torque/wheelies!
+    Vector2(35, -2), 
     Vector2(50, 5),
     Vector2(150, 5)
   ];
@@ -139,18 +137,18 @@ class Track extends BodyComponent {
   
   @override
   void render(Canvas canvas) {
-    // Loop through the exact physics points to draw the track
     final paint = Paint()
       ..color = const Color(0xFF00FF99)
-      ..strokeWidth = 0.5 // Thicker line so you can actually see it
+      ..strokeWidth = 0.5 
       ..style = PaintingStyle.stroke;
       
-    for (var i = 0; i < pts.length - 1; i++) {
-      canvas.drawLine(
-        Offset(pts[i].x, pts[i].y), 
-        Offset(pts[i+1].x, pts[i+1].y), 
-        paint
-      );
+    // Use a continuous path to guarantee rendering
+    final path = Path();
+    path.moveTo(pts[0].x, pts[0].y);
+    for (var i = 1; i < pts.length; i++) {
+      path.lineTo(pts[i].x, pts[i].y);
     }
+    
+    canvas.drawPath(path, paint);
   }
 }
