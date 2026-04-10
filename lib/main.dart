@@ -1,8 +1,12 @@
 import 'package:flutter/material.dart';
-import 'package:flame/game.dart'; // <--- THIS WAS LIKELY MISSING
+import 'package:flame/game.dart';
 import 'package:flame/events.dart';
-import 'package:flame_forge2d/flame_forge2d.dart';
+// We use 'hide' to ensure Vector2 only comes from one place
+import 'package:flame_forge2d/flame_forge2d.dart' hide Vector2; 
+import 'package:forge2d/forge2d.dart' hide Vector2;
+import 'package:vector_math/vector_math.dart'; // This is the 32-bit one we want
 import 'package:sensors_plus/sensors_plus.dart';
+
 
 void main() {
   // We use the GameWidget from flame/game.dart
