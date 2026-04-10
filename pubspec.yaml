@@ -20,3 +20,7 @@ dev_dependencies:
 
 flutter:
   uses-material-design: true
+  
+
+dependency_overrides:
+  vector_math: ^2.1.4
