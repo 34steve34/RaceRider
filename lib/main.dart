@@ -154,9 +154,9 @@ class Part extends BodyComponent {
 
     fixture.friction = newFriction;
     
-    // CRITICAL FIX: Tell the physics engine to clear the contact cache and recalculate!
-    for (var edge = body.contacts; edge != null; edge = edge.next) {
-      edge.contact.resetFriction();
+    // DART FIX: Iterate through the standard Dart list instead of a linked list
+    for (final contact in body.contacts) {
+      contact.resetFriction();
     }
   }
 
