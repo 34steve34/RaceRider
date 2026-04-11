@@ -1,3 +1,25 @@
+/* ============================================================================
+ * RACERIDER: GAME DESIGN MANIFESTO & AI CONTEXT
+ * ============================================================================
+ * Target Feel: 2D Arcade Physics Motorcycle Game (Clone of "Bike Race")
+ * Engine: Flutter + Flame + Forge2D (Box2D)
+ * * * CORE ARCADE MECHANICS (DO NOT OVERRIDE WITH PURE SIMULATION PHYSICS):
+ * 1. Absolute Air Control: The bike's rotation targets the phone's tilt 1:1 using
+ * an S-Curve (squared) input for a deadzone in the middle and fast flips at the edges.
+ * 2. Ground Conformity: When on the ground, gravity pulls the nose down to hug 
+ * hills naturally. The Arcade Controller is temporarily disabled.
+ * 3. The "Pro-Lean" (Stoppie): Forward tilt is ignored on the ground UNLESS 
+ * the tilt is violent (>40%), which snaps the bike onto its front wheel.
+ * 4. "The Flick" (Scrub): The millisecond the front wheel leaves a ramp, the player
+ * regains forward-tilt authority to violently throw the nose down and squash airtime.
+ * 5. Dynamic Friction Pivot: Coasting drops wheel friction to 0.1, allowing the bike 
+ * to slide backward on hills or pivot smoothly during backward wheelies.
+ * 6. Magnetic Wheels (Micro-Gravity): A constant artificial normal force pulls any 
+ * touching wheel directly into the track surface. Because it pulls strictly on the 
+ * axle (Center of Mass), it creates zero torque (preserving flat-ground wheelies) 
+ * while allowing ceiling-scrapes, loop-de-loops, and vertical Spider-Man wall climbs.
+ * ============================================================================ */
+
 import 'dart:async';
 import 'package:flutter/material.dart' hide Column;
 import 'package:flame/game.dart' hide Vector2, World;
@@ -35,7 +57,7 @@ class RaceRiderGame extends Forge2DGame with TapCallbacks {
     super.update(dt);
     
     double normalizedTilt = (rawTilt / 10).clamp(-1.0, 1.0);
-    smoothedTilt += (normalizedTilt - smoothedTilt) * 0.2;
+    smoothedTilt += (normalizedTilt - smoothedTilt) * 0.2; 
     
     player.updateControl(smoothedTilt, isGas, isBrake);
     
@@ -64,6 +86,7 @@ class Bike extends Component with HasGameRef<Forge2DGame> {
   late WheelJoint jointF, jointR;
 
   final double maxRotationSpeed = 8.0; 
+  final double magneticStrength = 15.0; // Tune this to make the bike stickier to ceilings/walls
 
   Bike(this.pos);
 
@@ -97,47 +120,73 @@ class Bike extends Component with HasGameRef<Forge2DGame> {
     return false;
   }
 
+  // 🔴 NEW: The Magnetic Micro-Gravity System
+  void _applyMagneticForce(Part wheel) {
+    if (!wheel.isMounted) return;
+    
+    for (final contact in wheel.body.contacts) {
+      if (contact.isTouching()) {
+        final manifold = WorldManifold();
+        contact.contact.getWorldManifold(manifold);
+        Vector2 surfaceNormal = manifold.normal;
+        
+        // Ensure the force vector is aligned correctly relative to A/B fixtures
+        if (contact.contact.fixtureB.body == wheel.body) {
+           surfaceNormal = -surfaceNormal;
+        }
+        
+        // Push directly into the surface. 
+        // Using applyForceToCenter guarantees 0 rotational torque is added.
+        wheel.body.applyForceToCenter(surfaceNormal * -magneticStrength); 
+        
+        break; // Only apply the force once per wheel, per frame
+      }
+    }
+  }
+
   void updateControl(double tilt, bool gas, bool brake) {
-    // 1. STATE MACHINE SENSORS
+    // 1. STATE MACHINE & INTENT LISTENER
     bool frontTouch = _isWheelTouching(frontW);
     bool rearTouch = _isWheelTouching(rearW);
     
     bool enableArcade = false;
 
     if (!frontTouch && !rearTouch) {
-      // STATE 1: PURE AIR MODE
+      // STATE 1: AIR MODE 
       enableArcade = true; 
     } else {
       // STATE 2: GROUNDED 
       if (tilt < -0.05) {
-        // LEANING BACKWARD: Wheelies are always easily allowed.
+        // LEANING BACKWARD: Wheelies
         enableArcade = true;
       } else if (tilt > 0.05) {
-        // LEANING FORWARD: Context dependent
+        // LEANING FORWARD: Context Dependent
         if (!frontTouch) {
-          // The "Flick": Front wheel is already in the air, allow immediate forward control.
+          // THE "FLICK"
           enableArcade = true; 
         } else if (tilt > 0.40) {
-          // THE "PRO-LEAN" THRESHOLD
-          // The front wheel is on the ground. Mild tilts are ignored so the bike hugs hills.
-          // But a heavy, deliberate tilt (>40%) breaks the threshold and forces a Stoppie!
+          // THE "PRO-LEAN"
           enableArcade = true;
         }
       }
     }
 
-    // 2. ARCADE S-CURVE ROTATION
+    // 2. ARCADE S-CURVE ROTATION CONTROLLER
     if (enableArcade) {
       double smoothedS = tilt * tilt.abs(); 
       double targetAngle = smoothedS * 3.0; 
       
       double angleError = targetAngle - chassis.body.angle;
-      double desiredSpeed = angleError * 12.0;
+      double desiredSpeed = angleError * 12.0; 
       
       chassis.body.angularVelocity = desiredSpeed.clamp(-maxRotationSpeed, maxRotationSpeed);
     } 
 
-    // 3. DYNAMIC FRICTION PIVOT
+    // 3. MAGNETIC WHEELS (Micro-Gravity Adhesion)
+    _applyMagneticForce(frontW);
+    _applyMagneticForce(rearW);
+
+    // 4. DYNAMIC FRICTION PIVOT
     if (gas || brake) {
       frontW.setFriction(0.9);
       rearW.setFriction(0.9);
@@ -146,7 +195,7 @@ class Bike extends Component with HasGameRef<Forge2DGame> {
       rearW.setFriction(0.1);
     }
 
-    // 4. MOTOR LOGIC
+    // 5. MOTOR LOGIC
     if (brake) {
       jointR.enableMotor(true);
       jointR.motorSpeed = 0;
@@ -205,6 +254,7 @@ class Part extends BodyComponent {
 }
 
 class Track extends BodyComponent {
+  // Try adding an overhang or a loop here soon to test the magnets!
   final List<Vector2> pts = [
     Vector2(-50, 5), 
     Vector2(20, 5), 
