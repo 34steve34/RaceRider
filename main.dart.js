@@ -36377,10 +36377,10 @@ n.iP(0.9)
 r=q.ch
 r===$&&A.c()
 r.iP(0.9)}else{n===$&&A.c()
-n.iP(0)
+n.iP(0.1)
 r=q.ch
 r===$&&A.c()
-r.iP(0)}if(o){r=q.cx
+r.iP(0.1)}if(o){r=q.cx
 r===$&&A.c()
 r.jV(!0)
 q.cx.soj(0)
@@ -36489,13 +36489,18 @@ q=p?0.75:1.5
 p=this.gcC().k3.go.nr(r)
 p.uH(A.SQ(s,q,0.9,0.1))
 return p},
-iP(a){var s
-if((this.a&4)!==0){s=this.at
+iP(a){var s,r,q,p,o,n=this
+if((n.a&4)!==0){s=n.at
 s===$&&A.c()
-s=s.Q.length!==0}else s=!1
-if(s){s=this.at
+s=s.Q.length===0}else s=!0
+if(s)return
+s=n.at
 s===$&&A.c()
-B.b.gR(s.Q).d=a}},
+r=B.b.gR(s.Q)
+if(r.d===a)return
+r.d=a
+for(s=n.at.at,q=s.length,p=0;p<s.length;s.length===q||(0,A.m)(s),++p){o=s[p]
+o.z=Math.sqrt(o.b.d*o.c.d)}},
 it(a){var s=this.rx,r=s?B.T:B.ot
 if(s){$.ax()
 s=A.cW()
