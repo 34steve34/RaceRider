@@ -89,7 +89,6 @@ class Bike extends Component with HasGameRef<Forge2DGame> {
       ..maxMotorTorque = 100); 
   }
 
-  // 🔴 NEW: The "Eyes" of the bike. Checks if a specific wheel is currently touching the track.
   bool _isWheelTouching(Part wheel) {
     if (!wheel.isMounted) return false;
     for (final contact in wheel.body.contacts) {
@@ -105,17 +104,26 @@ class Bike extends Component with HasGameRef<Forge2DGame> {
     
     bool enableArcade = false;
 
-    if (frontTouch && rearTouch) {
-      // STATE 1: GROUND MODE (Both wheels touching)
-      // Only enable the Arcade Controller if the player is pulling backward (Wheelie)
-      // We use a tiny deadzone (-0.05) so resting hands don't accidentally glitch it.
-      if (tilt < -0.05) {
-        enableArcade = true;
-      }
+    if (!frontTouch && !rearTouch) {
+      // STATE 1: PURE AIR MODE
+      enableArcade = true; 
     } else {
-      // STATE 2 & 3: THE FLICK ZONE & AIR MODE (One or zero wheels touching)
-      // Player gets 100% absolute control over the bike's rotation.
-      enableArcade = true;
+      // STATE 2: GROUNDED 
+      if (tilt < -0.05) {
+        // LEANING BACKWARD: Wheelies are always easily allowed.
+        enableArcade = true;
+      } else if (tilt > 0.05) {
+        // LEANING FORWARD: Context dependent
+        if (!frontTouch) {
+          // The "Flick": Front wheel is already in the air, allow immediate forward control.
+          enableArcade = true; 
+        } else if (tilt > 0.40) {
+          // 🔴 THE "PRO-LEAN" THRESHOLD
+          // The front wheel is on the ground. Mild tilts are ignored so the bike hugs hills.
+          // But a heavy, deliberate tilt (>40%) breaks the threshold and forces a Stoppie!
+          enableArcade = true;
+        }
+      }
     }
 
     // 2. ARCADE S-CURVE ROTATION
@@ -128,8 +136,39 @@ class Bike extends Component with HasGameRef<Forge2DGame> {
       
       chassis.body.angularVelocity = desiredSpeed.clamp(-maxRotationSpeed, maxRotationSpeed);
     } 
-    // If enableArcade is false, we literally do nothing! 
-    // Gravity takes over and pulls the heavy nose down to hug the hill perfectly.
+
+    // 3. DYNAMIC FRICTION PIVOT
+    if (gas || brake) {
+      frontW.setFriction(0.9);
+      rearW.setFriction(0.9);
+    } else {
+      frontW.setFriction(0.1);
+      rearW.setFriction(0.1);
+    }
+
+    // 4. MOTOR LOGIC
+    if (brake) {
+      jointR.enableMotor(true);
+      jointR.motorSpeed = 0;
+      jointF.enableMotor(true);
+      jointF.motorSpeed = 0;
+    } else {
+      jointF.enableMotor(false); 
+      jointR.enableMotor(gas);
+      jointR.motorSpeed = gas ? 50 : 0; 
+    }
+  }
+
+    // 2. ARCADE S-CURVE ROTATION
+    if (enableArcade) {
+      double smoothedS = tilt * tilt.abs(); 
+      double targetAngle = smoothedS * 3.0; 
+      
+      double angleError = targetAngle - chassis.body.angle;
+      double desiredSpeed = angleError * 12.0;
+      
+      chassis.body.angularVelocity = desiredSpeed.clamp(-maxRotationSpeed, maxRotationSpeed);
+    } 
 
     // 3. DYNAMIC FRICTION PIVOT
     if (gas || brake) {
@@ -182,7 +221,6 @@ class Part extends BodyComponent {
 
     fixture.friction = newFriction;
     
-    // Clear the physics cache so the friction updates instantly
     for (final contact in body.contacts) {
       contact.resetFriction();
     }
