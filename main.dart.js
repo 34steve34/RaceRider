@@ -36371,8 +36371,9 @@ m=q.rE(n)
 n=q.ch
 n===$&&A.c()
 l=q.rE(n)
-if(m&&l)k=r<-0.05
-else k=!0
+n=!m
+k=!0
+if(!(n&&!l))if(!(r<-0.05))if(r>0.05){if(!n)k=r>0.4}else k=!1
 if(k){n=q.ax
 n===$&&A.c()
 n=n.at
