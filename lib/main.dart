@@ -86,7 +86,7 @@ class Bike extends Component with HasGameRef<Forge2DGame> {
   late WheelJoint jointF, jointR;
 
   final double maxRotationSpeed = 8.0; 
-  final double magneticStrength = 15.0; // Tune this to make the bike stickier to ceilings/walls
+  final double magneticStrength = 15.0; 
 
   Bike(this.pos);
 
@@ -120,74 +120,56 @@ class Bike extends Component with HasGameRef<Forge2DGame> {
     return false;
   }
 
-  // REPAIRED: The Magnetic Micro-Gravity System
   void _applyMagneticForce(Part wheel) {
     if (!wheel.isMounted) return;
     
     for (final contact in wheel.body.contacts) {
       if (contact.isTouching()) {
         final manifold = WorldManifold();
-        // DART FIX: 'contact' is already the raw Contact object, no need for '.contact'
         contact.getWorldManifold(manifold); 
         Vector2 surfaceNormal = manifold.normal;
         
-        // Ensure the force vector is aligned correctly relative to A/B fixtures
         if (contact.fixtureB.body == wheel.body) {
            surfaceNormal = -surfaceNormal;
         }
         
-        // Push directly into the surface. 
-        // DART FIX: using applyForce targeting the worldCenter guarantees 0 torque.
-        wheel.body.applyForce(surfaceNormal * -magneticStrength, wheel.body.worldCenter); 
-        
-        break; // Only apply the force once per wheel, per frame
+        // Fix: applyForce only needs the force vector to apply to the center of mass
+        wheel.body.applyForce(surfaceNormal * -magneticStrength); 
+        break; 
       }
     }
   }
 
   void updateControl(double tilt, bool gas, bool brake) {
-    // 1. STATE MACHINE & INTENT LISTENER
     bool frontTouch = _isWheelTouching(frontW);
     bool rearTouch = _isWheelTouching(rearW);
-    
     bool enableArcade = false;
 
     if (!frontTouch && !rearTouch) {
-      // STATE 1: AIR MODE 
       enableArcade = true; 
     } else {
-      // STATE 2: GROUNDED 
       if (tilt < -0.05) {
-        // LEANING BACKWARD: Wheelies
         enableArcade = true;
       } else if (tilt > 0.05) {
-        // LEANING FORWARD: Context Dependent
         if (!frontTouch) {
-          // THE "FLICK"
           enableArcade = true; 
         } else if (tilt > 0.40) {
-          // THE "PRO-LEAN"
           enableArcade = true;
         }
       }
     }
 
-    // 2. ARCADE S-CURVE ROTATION CONTROLLER
     if (enableArcade) {
       double smoothedS = tilt * tilt.abs(); 
       double targetAngle = smoothedS * 3.0; 
-      
       double angleError = targetAngle - chassis.body.angle;
       double desiredSpeed = angleError * 12.0; 
-      
       chassis.body.angularVelocity = desiredSpeed.clamp(-maxRotationSpeed, maxRotationSpeed);
     } 
 
-    // 3. MAGNETIC WHEELS (Micro-Gravity Adhesion)
     _applyMagneticForce(frontW);
     _applyMagneticForce(rearW);
 
-    // 4. DYNAMIC FRICTION PIVOT
     if (gas || brake) {
       frontW.setFriction(0.9);
       rearW.setFriction(0.9);
@@ -196,7 +178,6 @@ class Bike extends Component with HasGameRef<Forge2DGame> {
       rearW.setFriction(0.1);
     }
 
-    // 5. MOTOR LOGIC
     if (brake) {
       jointR.enableMotor(true);
       jointR.motorSpeed = 0;
@@ -232,12 +213,9 @@ class Part extends BodyComponent {
 
   void setFriction(double newFriction) {
     if (!isMounted || body.fixtures.isEmpty) return;
-    
     final fixture = body.fixtures.first;
     if (fixture.friction == newFriction) return; 
-
     fixture.friction = newFriction;
-    
     for (final contact in body.contacts) {
       contact.resetFriction();
     }
@@ -255,14 +233,13 @@ class Part extends BodyComponent {
 }
 
 class Track extends BodyComponent {
-  // Added an overhang here to test the ceiling scrape!
   final List<Vector2> pts = [
     Vector2(-50, 5), 
     Vector2(20, 5), 
     Vector2(35, -2), 
     Vector2(50, 5),
-    Vector2(70, -5), // Overhang start
-    Vector2(90, -5), // Overhang end
+    Vector2(70, -5), 
+    Vector2(90, -5), 
     Vector2(100, 5),
     Vector2(300, 5) 
   ];
@@ -285,4 +262,9 @@ class Track extends BodyComponent {
       
     final path = Path();
     path.moveTo(pts[0].x, pts[0].y);
-    for (var i = 1; i < pts.length; i++)
+    for (var i = 1; i < pts.length; i++) {
+      path.lineTo(pts[i].x, pts[i].y);
+    }
+    canvas.drawPath(path, paint);
+  }
+}
