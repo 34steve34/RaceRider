@@ -91,37 +91,32 @@ class Bike extends Component with HasGameRef<Forge2DGame> {
 
   void updateControl(double tilt, bool gas, bool brake) {
     // 1. ARCADE S-CURVE ROTATION
-    // Multiply by absolute value to keep the left/right sign while squaring the input
     double smoothedS = tilt * tilt.abs(); 
     double targetAngle = smoothedS * 3.0; 
     
     double angleError = targetAngle - chassis.body.angle;
     double desiredSpeed = angleError * 12.0;
     
-    // This direct angular velocity override prevents the gas from causing unwanted wheelies.
-    // The bike only rotates when you tilt the phone.
     chassis.body.angularVelocity = desiredSpeed.clamp(-maxRotationSpeed, maxRotationSpeed);
 
-    // 2. DYNAMIC FRICTION PIVOT
+    // 2. DYNAMIC FRICTION PIVOT (Repaired)
     if (gas || brake) {
       // Sticky rubber when driving or stopping
       frontW.setFriction(0.9);
       rearW.setFriction(0.9);
     } else {
-      // Ice mode: Wheels slide effortlessly under the bike when pulling a wheelie
-      frontW.setFriction(0.0);
-      rearW.setFriction(0.0);
+      // Low friction when coasting. Allows sliding on hills and smooth wheelie pivots.
+      frontW.setFriction(0.1);
+      rearW.setFriction(0.1);
     }
 
     // 3. MOTOR LOGIC
     if (brake) {
-      // 2-WHEEL BRAKING
       jointR.enableMotor(true);
       jointR.motorSpeed = 0;
       jointF.enableMotor(true);
       jointF.motorSpeed = 0;
     } else {
-      // GAS or COAST 
       jointF.enableMotor(false); 
       jointR.enableMotor(gas);
       jointR.motorSpeed = gas ? 50 : 0; 
@@ -149,10 +144,19 @@ class Part extends BodyComponent {
       ..createFixture(FixtureDef(shape, density: partDensity, friction: 0.9, restitution: 0.1));
   }
 
-  // Helper method to dynamically change friction on the fly
+  // REPAIRED: Helper method to dynamically change friction on the fly
   void setFriction(double newFriction) {
-    if (isMounted && body.fixtures.isNotEmpty) {
-      body.fixtures.first.friction = newFriction;
+    if (!isMounted || body.fixtures.isEmpty) return;
+    
+    final fixture = body.fixtures.first;
+    // Only update if it actually changed to save CPU
+    if (fixture.friction == newFriction) return; 
+
+    fixture.friction = newFriction;
+    
+    // CRITICAL FIX: Tell the physics engine to clear the contact cache and recalculate!
+    for (var edge = body.contacts; edge != null; edge = edge.next) {
+      edge.contact.resetFriction();
     }
   }
 
