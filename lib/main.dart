@@ -89,28 +89,58 @@ class Bike extends Component with HasGameRef<Forge2DGame> {
       ..maxMotorTorque = 100); 
   }
 
-  void updateControl(double tilt, bool gas, bool brake) {
-    // 1. ARCADE S-CURVE ROTATION
-    double smoothedS = tilt * tilt.abs(); 
-    double targetAngle = smoothedS * 3.0; 
-    
-    double angleError = targetAngle - chassis.body.angle;
-    double desiredSpeed = angleError * 12.0;
-    
-    chassis.body.angularVelocity = desiredSpeed.clamp(-maxRotationSpeed, maxRotationSpeed);
+  // 🔴 NEW: The "Eyes" of the bike. Checks if a specific wheel is currently touching the track.
+  bool _isWheelTouching(Part wheel) {
+    if (!wheel.isMounted) return false;
+    for (final contact in wheel.body.contacts) {
+      if (contact.isTouching()) return true;
+    }
+    return false;
+  }
 
-    // 2. DYNAMIC FRICTION PIVOT (Repaired)
+  void updateControl(double tilt, bool gas, bool brake) {
+    // 1. STATE MACHINE SENSORS
+    bool frontTouch = _isWheelTouching(frontW);
+    bool rearTouch = _isWheelTouching(rearW);
+    
+    bool enableArcade = false;
+
+    if (frontTouch && rearTouch) {
+      // STATE 1: GROUND MODE (Both wheels touching)
+      // Only enable the Arcade Controller if the player is pulling backward (Wheelie)
+      // We use a tiny deadzone (-0.05) so resting hands don't accidentally glitch it.
+      if (tilt < -0.05) {
+        enableArcade = true;
+      }
+    } else {
+      // STATE 2 & 3: THE FLICK ZONE & AIR MODE (One or zero wheels touching)
+      // Player gets 100% absolute control over the bike's rotation.
+      enableArcade = true;
+    }
+
+    // 2. ARCADE S-CURVE ROTATION
+    if (enableArcade) {
+      double smoothedS = tilt * tilt.abs(); 
+      double targetAngle = smoothedS * 3.0; 
+      
+      double angleError = targetAngle - chassis.body.angle;
+      double desiredSpeed = angleError * 12.0;
+      
+      chassis.body.angularVelocity = desiredSpeed.clamp(-maxRotationSpeed, maxRotationSpeed);
+    } 
+    // If enableArcade is false, we literally do nothing! 
+    // Gravity takes over and pulls the heavy nose down to hug the hill perfectly.
+
+    // 3. DYNAMIC FRICTION PIVOT
     if (gas || brake) {
-      // Sticky rubber when driving or stopping
       frontW.setFriction(0.9);
       rearW.setFriction(0.9);
     } else {
-      // Low friction when coasting. Allows sliding on hills and smooth wheelie pivots.
       frontW.setFriction(0.1);
       rearW.setFriction(0.1);
     }
 
-    // 3. MOTOR LOGIC
+    // 4. MOTOR LOGIC
     if (brake) {
       jointR.enableMotor(true);
       jointR.motorSpeed = 0;
@@ -144,17 +174,15 @@ class Part extends BodyComponent {
       ..createFixture(FixtureDef(shape, density: partDensity, friction: 0.9, restitution: 0.1));
   }
 
-  // REPAIRED: Helper method to dynamically change friction on the fly
   void setFriction(double newFriction) {
     if (!isMounted || body.fixtures.isEmpty) return;
     
     final fixture = body.fixtures.first;
-    // Only update if it actually changed to save CPU
     if (fixture.friction == newFriction) return; 
 
     fixture.friction = newFriction;
     
-    // DART FIX: Iterate through the standard Dart list instead of a linked list
+    // Clear the physics cache so the friction updates instantly
     for (final contact in body.contacts) {
       contact.resetFriction();
     }
