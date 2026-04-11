@@ -27,7 +27,6 @@ class RaceRiderGame extends Forge2DGame with TapCallbacks {
     player = Bike(Vector2(0, -2));
     await add(player); 
     
-    // NOTE: Add a minus sign here if the controls feel inverted!
     accelerometerEvents.listen((event) => rawTilt = event.y);
   }
 
@@ -35,20 +34,16 @@ class RaceRiderGame extends Forge2DGame with TapCallbacks {
   void update(double dt) {
     super.update(dt);
     
-    // Normalize the tilt to a max of -1.0 to 1.0
     double normalizedTilt = (rawTilt / 10).clamp(-1.0, 1.0);
     smoothedTilt += (normalizedTilt - smoothedTilt) * 0.2;
     
-    // Pass the tilt, gas, and brake state to the bike
     player.updateControl(smoothedTilt, isGas, isBrake);
     
-    // Camera follows slightly ahead of the bike
     camera.viewfinder.position = player.chassis.body.position + Vector2(5, 0);
   }
 
   @override
   void onTapDown(TapDownEvent event) {
-    // Check if the tap is on the right or left half of the screen
     if (event.localPosition.x > size.x / 2) {
       isGas = true;
     } else {
@@ -58,7 +53,6 @@ class RaceRiderGame extends Forge2DGame with TapCallbacks {
 
   @override
   void onTapUp(TapUpEvent event) {
-    // Release both when the screen is no longer touched
     isGas = false;
     isBrake = false;
   }
@@ -69,7 +63,6 @@ class Bike extends Component with HasGameRef<Forge2DGame> {
   late Part chassis, frontW, rearW;
   late WheelJoint jointF, jointR;
 
-  // 🔴 NEW: The absolute speed limit for how fast the bike can flip
   final double maxRotationSpeed = 8.0; 
 
   Bike(this.pos);
@@ -97,26 +90,39 @@ class Bike extends Component with HasGameRef<Forge2DGame> {
   }
 
   void updateControl(double tilt, bool gas, bool brake) {
-    // 1. ARCADE ROTATION: Direct Angle Targeting
-    // tilt is -1.0 to 1.0. We multiply by 3.0 to give about ~170 degrees of max lean each way.
-    double targetAngle = tilt * 3.0; 
+    // 1. ARCADE S-CURVE ROTATION
+    // Multiply by absolute value to keep the left/right sign while squaring the input
+    double smoothedS = tilt * tilt.abs(); 
+    double targetAngle = smoothedS * 3.0; 
     
-    // Calculate the difference between where the bike is, and where your phone wants it to be
     double angleError = targetAngle - chassis.body.angle;
-    
-    // Calculate how fast the bike WANTS to spin to catch up to the phone
     double desiredSpeed = angleError * 12.0;
-
-    // Clamp that speed so it never exceeds the bike's physical limit
+    
+    // This direct angular velocity override prevents the gas from causing unwanted wheelies.
+    // The bike only rotates when you tilt the phone.
     chassis.body.angularVelocity = desiredSpeed.clamp(-maxRotationSpeed, maxRotationSpeed);
 
-    // 2. MOTOR LOGIC
-    if (brake) {
-      // HARD BRAKE: Lock the motor speed to 0
-      jointR.enableMotor(true);
-      jointR.motorSpeed = 0; 
+    // 2. DYNAMIC FRICTION PIVOT
+    if (gas || brake) {
+      // Sticky rubber when driving or stopping
+      frontW.setFriction(0.9);
+      rearW.setFriction(0.9);
     } else {
-      // GAS or COAST
+      // Ice mode: Wheels slide effortlessly under the bike when pulling a wheelie
+      frontW.setFriction(0.0);
+      rearW.setFriction(0.0);
+    }
+
+    // 3. MOTOR LOGIC
+    if (brake) {
+      // 2-WHEEL BRAKING
+      jointR.enableMotor(true);
+      jointR.motorSpeed = 0;
+      jointF.enableMotor(true);
+      jointF.motorSpeed = 0;
+    } else {
+      // GAS or COAST 
+      jointF.enableMotor(false); 
       jointR.enableMotor(gas);
       jointR.motorSpeed = gas ? 50 : 0; 
     }
@@ -135,15 +141,19 @@ class Part extends BodyComponent {
         : (PolygonShape()..setAsBox(1.2, 0.3, Vector2.zero(), 0));
     
     final bodyDef = BodyDef(type: BodyType.dynamic, position: pos);
-    
-    // Lowered back to 2.0 because the direct angle targeting handles the air control perfectly now
     if (!isWheel) bodyDef.angularDamping = 2.0; 
     
-    // 🔴 NEW: 50% Lighter Wheels (Chassis = 1.5, Wheels = 0.75)
     final double partDensity = isWheel ? 0.75 : 1.5;
     
     return world.createBody(bodyDef)
       ..createFixture(FixtureDef(shape, density: partDensity, friction: 0.9, restitution: 0.1));
+  }
+
+  // Helper method to dynamically change friction on the fly
+  void setFriction(double newFriction) {
+    if (isMounted && body.fixtures.isNotEmpty) {
+      body.fixtures.first.friction = newFriction;
+    }
   }
 
   @override
