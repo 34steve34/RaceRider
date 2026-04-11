@@ -3,7 +3,7 @@
  * ============================================================================
  * Target Feel: 2D Arcade Physics Motorcycle Game (Clone of "Bike Race")
  * Engine: Flutter + Flame + Forge2D (Box2D)
- * * * CORE ARCADE MECHANICS (DO NOT OVERRIDE WITH PURE SIMULATION PHYSICS):
+ * * CORE ARCADE MECHANICS (DO NOT OVERRIDE WITH PURE SIMULATION PHYSICS):
  * 1. Absolute Air Control: The bike's rotation targets the phone's tilt 1:1 using
  * an S-Curve (squared) input for a deadzone in the middle and fast flips at the edges.
  * 2. Ground Conformity: When on the ground, gravity pulls the nose down to hug 
@@ -120,24 +120,25 @@ class Bike extends Component with HasGameRef<Forge2DGame> {
     return false;
   }
 
-  // 🔴 NEW: The Magnetic Micro-Gravity System
+  // REPAIRED: The Magnetic Micro-Gravity System
   void _applyMagneticForce(Part wheel) {
     if (!wheel.isMounted) return;
     
     for (final contact in wheel.body.contacts) {
       if (contact.isTouching()) {
         final manifold = WorldManifold();
-        contact.contact.getWorldManifold(manifold);
+        // DART FIX: 'contact' is already the raw Contact object, no need for '.contact'
+        contact.getWorldManifold(manifold); 
         Vector2 surfaceNormal = manifold.normal;
         
         // Ensure the force vector is aligned correctly relative to A/B fixtures
-        if (contact.contact.fixtureB.body == wheel.body) {
+        if (contact.fixtureB.body == wheel.body) {
            surfaceNormal = -surfaceNormal;
         }
         
         // Push directly into the surface. 
-        // Using applyForceToCenter guarantees 0 rotational torque is added.
-        wheel.body.applyForceToCenter(surfaceNormal * -magneticStrength); 
+        // DART FIX: using applyForce targeting the worldCenter guarantees 0 torque.
+        wheel.body.applyForce(surfaceNormal * -magneticStrength, wheel.body.worldCenter); 
         
         break; // Only apply the force once per wheel, per frame
       }
@@ -254,12 +255,14 @@ class Part extends BodyComponent {
 }
 
 class Track extends BodyComponent {
-  // Try adding an overhang or a loop here soon to test the magnets!
+  // Added an overhang here to test the ceiling scrape!
   final List<Vector2> pts = [
     Vector2(-50, 5), 
     Vector2(20, 5), 
     Vector2(35, -2), 
     Vector2(50, 5),
+    Vector2(70, -5), // Overhang start
+    Vector2(90, -5), // Overhang end
     Vector2(100, 5),
     Vector2(300, 5) 
   ];
@@ -282,9 +285,4 @@ class Track extends BodyComponent {
       
     final path = Path();
     path.moveTo(pts[0].x, pts[0].y);
-    for (var i = 1; i < pts.length; i++) {
-      path.lineTo(pts[i].x, pts[i].y);
-    }
-    canvas.drawPath(path, paint);
-  }
-}
+    for (var i = 1; i < pts.length; i++)
