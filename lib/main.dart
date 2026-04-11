@@ -118,46 +118,13 @@ class Bike extends Component with HasGameRef<Forge2DGame> {
           // The "Flick": Front wheel is already in the air, allow immediate forward control.
           enableArcade = true; 
         } else if (tilt > 0.40) {
-          // 🔴 THE "PRO-LEAN" THRESHOLD
+          // THE "PRO-LEAN" THRESHOLD
           // The front wheel is on the ground. Mild tilts are ignored so the bike hugs hills.
           // But a heavy, deliberate tilt (>40%) breaks the threshold and forces a Stoppie!
           enableArcade = true;
         }
       }
     }
-
-    // 2. ARCADE S-CURVE ROTATION
-    if (enableArcade) {
-      double smoothedS = tilt * tilt.abs(); 
-      double targetAngle = smoothedS * 3.0; 
-      
-      double angleError = targetAngle - chassis.body.angle;
-      double desiredSpeed = angleError * 12.0;
-      
-      chassis.body.angularVelocity = desiredSpeed.clamp(-maxRotationSpeed, maxRotationSpeed);
-    } 
-
-    // 3. DYNAMIC FRICTION PIVOT
-    if (gas || brake) {
-      frontW.setFriction(0.9);
-      rearW.setFriction(0.9);
-    } else {
-      frontW.setFriction(0.1);
-      rearW.setFriction(0.1);
-    }
-
-    // 4. MOTOR LOGIC
-    if (brake) {
-      jointR.enableMotor(true);
-      jointR.motorSpeed = 0;
-      jointF.enableMotor(true);
-      jointF.motorSpeed = 0;
-    } else {
-      jointF.enableMotor(false); 
-      jointR.enableMotor(gas);
-      jointR.motorSpeed = gas ? 50 : 0; 
-    }
-  }
 
     // 2. ARCADE S-CURVE ROTATION
     if (enableArcade) {
