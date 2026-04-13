@@ -3,12 +3,10 @@
  * ============================================================================
  * Target Feel: 2D Arcade Physics Motorcycle Game (Clone of "Bike Race")
  * Engine: Flutter + Flame + Forge2D (Box2D)
- * * VERSION CHECK: CHASSIS IS NEON ORANGE.
+ * * VERSION CHECK: CHASSIS IS MAGENTA.
  * * CORE ARCADE MECHANICS:
- * 1. The "Lead Weight" COG Fix: The visual hull is centered and light, but an 
- * invisible, super-dense sensor is placed near the rear wheel. This creates a 
- * "Weeble-Wobble" effect, eliminating instant torque-reaction backflips while 
- * preserving the accurate visual collision boundary.
+ * 1. Extreme Lead Weight: COG overridden to x = -2.5, y = 3.0. Mass is now 
+ * behind the rear axle, reversing the gravitational torque vector.
  * 2. Velocity Controller (TRUE DEADZONE): Shuts off completely when resting.
  * 3. Safe Mass Ratio (7.5:1): Prevents wheel stretching & ground vibrations.
  * 4. Stiffened Suspension (14.0 Hz): Tight shock absorbers.
@@ -105,8 +103,6 @@ class Bike extends Component with HasGameRef<Forge2DGame> {
       ..initialize(a, b, anchor, Vector2(0, 1))
       ..frequencyHz = 14.0  
       ..dampingRatio = 0.8  
-      // Torque reduced slightly from 250 to 180. 
-      // With the new low COG, the power goes entirely into moving forward instead of flipping.
       ..maxMotorTorque = 180.0); 
   }
 
@@ -115,7 +111,6 @@ class Bike extends Component with HasGameRef<Forge2DGame> {
       double targetVelocity = (tilt * tilt.abs()) * 12.0; 
       double velocityError = targetVelocity - chassis.body.angularVelocity;
       
-      // Increased Arcade Torque slightly to compensate for the new Lead Weight inertia
       double smoothTorque = velocityError * 300.0; 
       chassis.body.applyTorque(smoothTorque.clamp(-1500.0, 1500.0));
     }
@@ -153,18 +148,15 @@ class Part extends BodyComponent {
       final shape = CircleShape()..radius = 0.5;
       body.createFixture(FixtureDef(shape, density: 0.2, friction: 0.9, restitution: 0.0));
     } else {
-      // 1. The Main Hull (Visual & Collision Boundary)
-      // Perfectly centered, low density.
       final hullShape = PolygonShape()
         ..setAsBox(1.2, 0.3, Vector2.zero(), 0);
       body.createFixture(FixtureDef(hullShape, density: 0.5, friction: 0.9, restitution: 0.0));
       
-      // 2. THE LEAD WEIGHT (COG Override)
-      // Tiny, invisible, high-density sensor placed extremely low and near the rear axle.
-      // This forces the Center of Mass down without messing up collisions.
+      // THE EXTREME LEAD WEIGHT
       final weightShape = CircleShape()
         ..radius = 0.1;
-      weightShape.position.setValues(-1.2, 1.0); 
+      // Positioned behind the rear axle (-1.5) and far below the chassis
+      weightShape.position.setValues(-2.5, 3.0); 
       
       body.createFixture(FixtureDef(weightShape, density: 10.0, isSensor: true));
     }
@@ -186,8 +178,8 @@ class Part extends BodyComponent {
 
   @override
   void render(Canvas canvas) {
-    // VISUAL VERIFICATION: Chassis is Neon Orange
-    final color = isWheel ? const Color(0xFFFFFFFF) : const Color(0xFFFFA500); 
+    // VISUAL VERIFICATION: Chassis is Magenta
+    final color = isWheel ? const Color(0xFFFFFFFF) : const Color(0xFFFF00FF); 
     if (isWheel) {
       canvas.drawCircle(Offset.zero, 0.5, Paint()..color = color);
     } else {
