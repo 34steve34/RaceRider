@@ -4,17 +4,12 @@
  * Target Feel: 2D Arcade Physics Motorcycle Game (Clone of "Bike Race")
  * Engine: Flutter + Flame + Forge2D (Box2D)
  * * CORE ARCADE MECHANICS (SINGLE-LOGIC PHYSICS MODEL):
- * 1. Offset COG ("The Heavy, Tippy Tail"): The mass is physically shifted 
- * backward (to make front stoppies naturally harder to hold than rear wheelies) 
- * and upward (to make the bike eager to tip).
- * 2. The PD Controller ("The Snap"): The bike uses a Proportional-Derivative 
- * controller. It provides violent torque to instantly snap to your tilt angle 
- * (overpowering gravity to pop a wheelie), but instantly brakes (damps) as it 
- * reaches the target to prevent wobble/oscillation. Capped to prevent solver panic.
- * 3. Constant Authority Control: No state switching. The arcade controller applies 
- * torque 100% of the time, allowing seamless transitions from ground to air.
- * 4. Micro-Magnetic Wheels: Localized normal force pulls the axle into the 
- * track ONLY during active contact, allowing loops without ruining airtime.
+ * 1. Offset COG ("The Heavy, Tippy Tail"): Mass shifted backward/upward.
+ * 2. The PD Controller ("The Snap"): Proportional-Derivative controller for 
+ * violent but stable rotation. Tuned to avoid Box2D constraint jitter.
+ * 3. Constant Authority Control: No state switching. 
+ * 4. Micro-Magnetic Wheels: Localized normal force (tuned lightly to avoid 
+ * collision penetration loops).
  * ============================================================================ */
 
 import 'dart:async';
@@ -53,13 +48,11 @@ class RaceRiderGame extends Forge2DGame with TapCallbacks {
   void update(double dt) {
     super.update(dt);
     
-    // Near-instant physical reaction blending
     double normalizedTilt = (rawTilt / 10).clamp(-1.0, 1.0);
     smoothedTilt += (normalizedTilt - smoothedTilt) * 0.8; 
     
     player.updateControl(smoothedTilt, isGas, isBrake);
     
-    // Follow camera
     camera.viewfinder.position = player.chassis.body.position + Vector2(5, 0);
   }
 
@@ -84,7 +77,8 @@ class Bike extends Component with HasGameRef<Forge2DGame> {
   late Part chassis, frontW, rearW;
   late WheelJoint jointF, jointR;
 
-  final double magneticStrength = 20.0; 
+  // Reduced magnet strength: Prevents the collision solver from jittering
+  final double magneticStrength = 8.0; 
 
   Bike(this.pos);
 
@@ -105,8 +99,8 @@ class Bike extends Component with HasGameRef<Forge2DGame> {
   WheelJoint _makeJoint(Body a, Body b, Vector2 anchor) {
     return WheelJoint(WheelJointDef()
       ..initialize(a, b, anchor, Vector2(0, 1))
-      ..frequencyHz = 8.0   // Softened to absorb drops
-      ..dampingRatio = 0.85 // Increased to stop spring oscillation
+      ..frequencyHz = 8.0   
+      ..dampingRatio = 0.5 // Lowered from 0.85 to let the suspension "breathe" without jittering
       ..maxMotorTorque = 45); 
   }
 
@@ -130,23 +124,21 @@ class Bike extends Component with HasGameRef<Forge2DGame> {
   }
 
   void updateControl(double tilt, bool gas, bool brake) {
-    // 1. THE PD CONTROLLER ("The Snap & Lock")
     double targetAngle = (tilt * tilt.abs()) * 3.0; 
     double angleError = targetAngle - chassis.body.angle;
     
-    double pGain = 50.0; 
-    double dGain = 8.0;  
+    // RELAXED PD CONTROLLER: 
+    // Lowered these values so they don't break the physics engine's iteration limit
+    double pGain = 30.0; // Was 50.0
+    double dGain = 3.0;  // Was 8.0
     
     double torque = (angleError * pGain) - (chassis.body.angularVelocity * dGain);
     
-    // CLAMPED TORQUE: Prevents infinite force generation during hard crashes
-    chassis.body.applyAngularImpulse(torque.clamp(-120.0, 120.0));
+    chassis.body.applyAngularImpulse(torque.clamp(-80.0, 80.0));
 
-    // 2. Micro-Magnetics
     _applyMicroMagnet(frontW);
     _applyMicroMagnet(rearW);
 
-    // 3. Drive Train & Friction
     double friction = (gas || brake) ? 0.9 : 0.1;
     frontW.setFriction(friction);
     rearW.setFriction(friction);
@@ -181,11 +173,12 @@ class Part extends BodyComponent {
     }
     
     final bodyDef = BodyDef(type: BodyType.dynamic, position: pos);
-    if (!isWheel) bodyDef.angularDamping = 3.0; 
+    
+    // REMOVED: bodyDef.angularDamping = 3.0; 
+    // This was stacking with our PD controller and causing the chassis to vibrate violently.
     
     final double partDensity = isWheel ? 0.75 : 1.5;
     
-    // RESTITUTION ZEROED: Physics shapes no longer add bounce energy, relying entirely on suspension
     return world.createBody(bodyDef)
       ..createFixture(FixtureDef(shape, density: partDensity, friction: 0.9, restitution: 0.0));
   }
