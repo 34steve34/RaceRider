@@ -36524,7 +36524,7 @@ q.xv(1.2,0.3,new A.h(new Float64Array(2)),0)
 s.jR(A.Kg(q,0.5,0.9,!1,0))
 p=A.K6()
 p.b=0.1
-p.c.a_(-1.2,1)
+p.c.a_(-2.5,3)
 s.jR(A.Kg(p,10,0,!0,0))}return s},
 pG(a){var s,r,q,p,o,n=this
 if((n.a&4)!==0){s=n.at
@@ -38083,8 +38083,8 @@ B.d3=new A.jR(0,"none")
 B.a4=new A.jR(1,"hardEdge")
 B.bp=new A.jR(3,"antiAliasWithSaveLayer")
 B.N=new A.wY(0,"sRGB")
+B.ot=new A.cY(1,1,0,1,B.N)
 B.d4=new A.cY(0,0,0,0,B.N)
-B.ot=new A.cY(1,1,0.6470588235294118,0,B.N)
 B.d5=new A.cY(1,0.18823529411764706,0.18823529411764706,0.18823529411764706,B.N)
 B.ou=new A.cY(1,0,1,0.6,B.N)
 B.ov=new A.cY(1,0,0,0,B.N)
