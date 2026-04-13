@@ -3,14 +3,15 @@
  * ============================================================================
  * Target Feel: 2D Arcade Physics Motorcycle Game (Clone of "Bike Race")
  * Engine: Flutter + Flame + Forge2D (Box2D)
- * * VERSION CHECK: CHASSIS IS CYAN.
+ * * VERSION CHECK: CHASSIS IS RED.
  * * CORE ARCADE MECHANICS:
- * 1. The REAL Lead Weight: Fixed the Area calculation error. The sensor now has 
- * enough surface area (radius 0.3) and density (20.0) to truly drag the COG down 
- * and back. Placed at (-1.0, 0.5) for a stable, playable heavy tail.
- * 2. Scaled Powertrain: Motor torque and Arcade torque scaled up 6x to match 
- * the massive increase in the bike's physical weight.
- * 3. Safe Mass Ratio (7.5:1): Prevents wheel stretching & ground vibrations.
+ * 1. Safe Mass Ratio Restored: By giving the wheels a density of 1.0 (mass ~0.78kg),
+ * the solver can safely connect them to the heavy 6.3kg chassis (8:1 ratio).
+ * This prevents the mid-air joint explosions seen in the Cyan build.
+ * 2. High Altitude Drop: Bike spawned at Y = -8 for mid-air stability testing.
+ * 3. The REAL Lead Weight: Sensor (radius 0.3, density 20.0) at (-1.0, 0.5) 
+ * creates a true playable heavy tail.
+ * 4. Scaled Powertrain: Motor/Arcade torque scaled up for the ~6kg mass.
  * ============================================================================ */
 
 import 'dart:async';
@@ -39,7 +40,9 @@ class RaceRiderGame extends Forge2DGame with TapCallbacks {
   @override
   Future<void> onLoad() async {
     await world.add(Track());
-    player = Bike(Vector2(0, -2));
+    
+    // THE HIGH DIVE: Spawn elevated to verify mid-air joint stability
+    player = Bike(Vector2(0, -8));
     await add(player); 
     
     camera.viewfinder.position = player.chassis.body.position;
@@ -102,9 +105,9 @@ class Bike extends Component with HasGameRef<Forge2DGame> {
   WheelJoint _makeJoint(Body a, Body b, Vector2 anchor) {
     return WheelJoint(WheelJointDef()
       ..initialize(a, b, anchor, Vector2(0, 1))
-      ..frequencyHz = 14.0  
+      // Slightly relaxed to 12.0 to absorb the heavier wheels cleanly
+      ..frequencyHz = 12.0  
       ..dampingRatio = 0.8  
-      // Scaled up 6x to push the new ~6kg mass up hills
       ..maxMotorTorque = 1200.0); 
   }
 
@@ -113,7 +116,6 @@ class Bike extends Component with HasGameRef<Forge2DGame> {
       double targetVelocity = (tilt * tilt.abs()) * 12.0; 
       double velocityError = targetVelocity - chassis.body.angularVelocity;
       
-      // Scaled up to manipulate the new true heavy mass
       double smoothTorque = velocityError * 2000.0; 
       chassis.body.applyTorque(smoothTorque.clamp(-10000.0, 10000.0));
     }
@@ -147,17 +149,18 @@ class Part extends BodyComponent {
     
     final body = world.createBody(bodyDef);
     
+    // MASS RATIO FIX: Wheels bumped to 1.0 density. 
+    // This gives them enough mass to stay attached to the 6.3kg chassis.
+    final double partDensity = isWheel ? 1.0 : 0.5; 
+    
     if (isWheel) {
       final shape = CircleShape()..radius = 0.5;
-      body.createFixture(FixtureDef(shape, density: 0.2, friction: 0.9, restitution: 0.0));
+      body.createFixture(FixtureDef(shape, density: partDensity, friction: 0.9, restitution: 0.0));
     } else {
       final hullShape = PolygonShape()
         ..setAsBox(1.2, 0.3, Vector2.zero(), 0);
-      body.createFixture(FixtureDef(hullShape, density: 0.5, friction: 0.9, restitution: 0.0));
+      body.createFixture(FixtureDef(hullShape, density: partDensity, friction: 0.9, restitution: 0.0));
       
-      // THE REAL LEAD WEIGHT
-      // Radius increased to 0.3 (Area ~0.28). 
-      // At density 20.0, this object weighs ~5.6kg, completely dominating the 0.7kg hull.
       final weightShape = CircleShape()
         ..radius = 0.3;
       weightShape.position.setValues(-1.0, 0.5); 
@@ -182,8 +185,8 @@ class Part extends BodyComponent {
 
   @override
   void render(Canvas canvas) {
-    // VISUAL VERIFICATION: Chassis is Cyan
-    final color = isWheel ? const Color(0xFFFFFFFF) : const Color(0xFF00FFFF); 
+    // VISUAL VERIFICATION: Chassis is RED
+    final color = isWheel ? const Color(0xFFFFFFFF) : const Color(0xFFFF0000); 
     if (isWheel) {
       canvas.drawCircle(Offset.zero, 0.5, Paint()..color = color);
     } else {
