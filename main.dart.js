@@ -36411,7 +36411,7 @@ if(n>0.05){m=q.ax
 m===$&&A.c()
 m=m.at
 m===$&&A.c()
-m.FZ(B.c.fs((r*n*12-m.w)*300,-1500,1500))}r=!p
+m.FZ(B.c.fs((r*n*12-m.w)*2000,-1e4,1e4))}r=!p
 l=!r||o?0.9:0.1
 n=q.ay
 n===$&&A.c()
@@ -36483,7 +36483,7 @@ e.k(A.qS(b.d,c))
 g.k(A.h4(r.b,s))
 d.z=14
 d.Q=0.8
-d.x=180
+d.x=1200
 s=new A.h(new Float64Array(2))
 r=new A.h(new Float64Array(2))
 q=new A.h(new Float64Array(2))
@@ -36523,9 +36523,9 @@ s.jR(A.Kg(r,0.2,0.9,!1,0))}else{q=A.NN()
 q.xv(1.2,0.3,new A.h(new Float64Array(2)),0)
 s.jR(A.Kg(q,0.5,0.9,!1,0))
 p=A.K6()
-p.b=0.1
-p.c.a_(-2.5,3)
-s.jR(A.Kg(p,10,0,!0,0))}return s},
+p.b=0.3
+p.c.a_(-1,0.5)
+s.jR(A.Kg(p,20,0,!0,0))}return s},
 pG(a){var s,r,q,p,o,n=this
 if((n.a&4)!==0){s=n.at
 s===$&&A.c()
@@ -38083,8 +38083,8 @@ B.d3=new A.jR(0,"none")
 B.a4=new A.jR(1,"hardEdge")
 B.bp=new A.jR(3,"antiAliasWithSaveLayer")
 B.N=new A.wY(0,"sRGB")
-B.ot=new A.cY(1,1,0,1,B.N)
 B.d4=new A.cY(0,0,0,0,B.N)
+B.ot=new A.cY(1,0,1,1,B.N)
 B.d5=new A.cY(1,0.18823529411764706,0.18823529411764706,0.18823529411764706,B.N)
 B.ou=new A.cY(1,0,1,0.6,B.N)
 B.ov=new A.cY(1,0,0,0,B.N)
