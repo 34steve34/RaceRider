@@ -36378,7 +36378,7 @@ n=q.ax
 n===$&&A.c()
 n=n.at
 n===$&&A.c()
-n.G_(B.c.fs((r*Math.abs(r)*3-n.f.e)*30-n.w*3,-80,80))
+n.G_(B.c.fs((r*Math.abs(r)*12-n.w)*150,-400,400))
 n=q.ay
 n===$&&A.c()
 q.qo(n)
@@ -36400,7 +36400,7 @@ q.CW.soi(0)}else{r=q.CW
 r===$&&A.c()
 r.nI(!1)
 q=q.cx
-q.soi(p?60:0)}r=l.jX.ax
+q.soi(p?90:0)}r=l.jX.ax
 r===$&&A.c()
 r=r.at
 r===$&&A.c()
@@ -36449,9 +36449,9 @@ r=a.d
 f.k(A.qT(r,c))
 e.k(A.qT(b.d,c))
 g.k(A.h3(r.b,s))
-d.z=8
+d.z=10
 d.Q=0.5
-d.x=45
+d.x=250
 s=new A.h(new Float64Array(2))
 r=new A.h(new Float64Array(2))
 q=new A.h(new Float64Array(2))
@@ -36528,7 +36528,7 @@ r=new A.h(new Float64Array(2))
 r.a_(-0.5,-0.2)
 s.xw(1.2,0.3,r,0)
 o.b=s}q=A.M7(this.RG,B.y)
-p=n?0.75:1.5
+p=n?0.1:4
 n=this.gcC().k3.go.np(q)
 n.uJ(A.SR(o.aH(),p,0.9,0))
 return n},
