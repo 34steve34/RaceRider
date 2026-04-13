@@ -36372,7 +36372,7 @@ aa(a){var s,r,q,p,o,n,m,l=this
 l.yA(a)
 s=B.c.hO(l.bP/10,-1,1)
 r=l.jY
-r=l.jY=r+(s-r)*0.2
+r=l.jY=r+(s-r)*0.8
 q=l.jX
 q===$&&A.c()
 p=l.aK
@@ -36381,7 +36381,7 @@ n=q.ax
 n===$&&A.c()
 n=n.at
 n===$&&A.c()
-n.G_((r*Math.abs(r)*3-n.f.e)*15)
+n.G_((r*Math.abs(r)*3-n.f.e)*50-n.w*8)
 n=q.ay
 n===$&&A.c()
 q.qo(n)
@@ -36528,7 +36528,7 @@ if(n){s=A.Mf()
 s.b=0.5
 o.b=s}else{s=A.NL()
 r=new A.h(new Float64Array(2))
-r.a_(0.5,0.2)
+r.a_(-0.5,-0.2)
 s.xw(1.2,0.3,r,0)
 o.b=s}q=A.M7(this.RG,B.y)
 if(!n)q.w=3
