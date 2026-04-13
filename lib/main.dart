@@ -5,11 +5,10 @@
  * Engine: Flutter + Flame + Forge2D (Box2D)
  * * CORE ARCADE MECHANICS:
  * 1. Offset COG: Mass shifted backward/upward for rear stability.
- * 2. Velocity Controller: Tilting commands rotational speed for continuous flips.
- * 3. Safe Mass Ratio (7.5:1): Chassis is 1.5, wheels are 0.2. This prevents 
- * centrifugal air-stretching WITHOUT breaking Box2D's 10:1 solver limit 
- * (which causes 60hz ground vibrations).
- * 4. Micro-Magnetic Wheels: Scaled down to match the lighter wheels.
+ * 2. Velocity Controller (TORQUE OVERHAUL): Tilting commands rotational speed. 
+ * Uses continuous applyTorque instead of violent impulses to prevent joint tearing.
+ * 3. Safe Mass Ratio (7.5:1): Chassis is 1.5, wheels are 0.2. 
+ * 4. Stable Suspension: frequencyHz reduced to Box2D vehicle standards (5Hz).
  * ============================================================================ */
 
 import 'dart:async';
@@ -77,7 +76,6 @@ class Bike extends Component with HasGameRef<Forge2DGame> {
   late Part chassis, frontW, rearW;
   late WheelJoint jointF, jointR;
 
-  // Reduced heavily because the wheels are much lighter now
   final double magneticStrength = 2.0; 
 
   Bike(this.pos);
@@ -99,8 +97,11 @@ class Bike extends Component with HasGameRef<Forge2DGame> {
   WheelJoint _makeJoint(Body a, Body b, Vector2 anchor) {
     return WheelJoint(WheelJointDef()
       ..initialize(a, b, anchor, Vector2(0, 1))
-      ..frequencyHz = 12.0  // Stiffened to support the 7.5:1 mass ratio
-      ..dampingRatio = 0.8  // High damping to instantly kill bounce vibrations
+      // THE SUSPENSION FIX: 
+      // Lowered to 5.0 (Box2D sweet spot for vehicles). 
+      // Allows the wheels to absorb terrain without panicking the math solver.
+      ..frequencyHz = 5.0  
+      ..dampingRatio = 0.7  
       ..maxMotorTorque = 250.0); 
   }
 
@@ -117,7 +118,6 @@ class Bike extends Component with HasGameRef<Forge2DGame> {
            surfaceNormal = -surfaceNormal;
         }
         
-        // Apply force to the center to avoid twisting the wheel
         wheel.body.applyForce(surfaceNormal * -magneticStrength); 
         break; 
       }
@@ -128,9 +128,13 @@ class Bike extends Component with HasGameRef<Forge2DGame> {
     double targetVelocity = (tilt * tilt.abs()) * 12.0; 
     double velocityError = targetVelocity - chassis.body.angularVelocity;
     
-    // Scaled down slightly since the chassis is back to 1.5 density
-    double tiltTorque = velocityError * 100.0; 
-    chassis.body.applyAngularImpulse(tiltTorque.clamp(-300.0, 300.0));
+    // THE SLEDGEHAMMER FIX (Torque instead of Impulse):
+    // Because applyTorque is scaled by time (dt), the multiplier must be much higher
+    // to achieve the same strength, but the resulting force is perfectly smooth.
+    double smoothTorque = velocityError * 6000.0; 
+    
+    // Using applyTorque stops the solver from tearing the joints apart
+    chassis.body.applyTorque(smoothTorque.clamp(-20000.0, 20000.0));
 
     _applyMicroMagnet(frontW);
     _applyMicroMagnet(rearW);
@@ -169,10 +173,6 @@ class Part extends BodyComponent {
     }
     
     final bodyDef = BodyDef(type: BodyType.dynamic, position: pos);
-    
-    // THE SAFE MASS RATIO FIX (7.5 to 1)
-    // Safe enough for Box2D to calculate without jitter, but disparate 
-    // enough to prevent the wheels from flying off during a flip.
     final double partDensity = isWheel ? 0.2 : 1.5; 
     
     return world.createBody(bodyDef)
