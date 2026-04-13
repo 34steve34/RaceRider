@@ -36381,7 +36381,7 @@ o=t.r
 s=2
 return A.A(o.b(i)?i:A.cw(i,p),$async$b0)
 case 2:i=new A.h(new Float64Array(2))
-i.a_(0,-2)
+i.a_(0,-8)
 i=new A.nt(i,null,0,null,new A.b0([]),new A.b0([]))
 q.i_=i
 i=q.dF(i)
@@ -36481,7 +36481,7 @@ r=a.d
 f.k(A.qS(r,c))
 e.k(A.qS(b.d,c))
 g.k(A.h4(r.b,s))
-d.z=14
+d.z=12
 d.Q=0.8
 d.x=1200
 s=new A.h(new Float64Array(2))
@@ -36514,18 +36514,19 @@ o.w=d.z
 o.x=d.Q
 return o}}
 A.pA.prototype={
-nr(){var s,r,q,p,o=A.Ma(this.RG,B.y),n=this.rx
-if(!n)o.w=1.5
-s=this.gcC().k3.go.ns(o)
-if(n){r=A.K6()
-r.b=0.5
-s.jR(A.Kg(r,0.2,0.9,!1,0))}else{q=A.NN()
-q.xv(1.2,0.3,new A.h(new Float64Array(2)),0)
-s.jR(A.Kg(q,0.5,0.9,!1,0))
-p=A.K6()
-p.b=0.3
-p.c.a_(-1,0.5)
-s.jR(A.Kg(p,20,0,!0,0))}return s},
+nr(){var s,r,q,p,o,n=A.Ma(this.RG,B.y),m=this.rx
+if(!m)n.w=1.5
+s=this.gcC().k3.go.ns(n)
+r=m?1:0.5
+if(m){q=A.K6()
+q.b=0.5
+s.jR(A.Kg(q,r,0.9,!1,0))}else{p=A.NN()
+p.xv(1.2,0.3,new A.h(new Float64Array(2)),0)
+s.jR(A.Kg(p,r,0.9,!1,0))
+o=A.K6()
+o.b=0.3
+o.c.a_(-1,0.5)
+s.jR(A.Kg(o,20,0,!0,0))}return s},
 pG(a){var s,r,q,p,o,n=this
 if((n.a&4)!==0){s=n.at
 s===$&&A.c()
@@ -38083,8 +38084,8 @@ B.d3=new A.jR(0,"none")
 B.a4=new A.jR(1,"hardEdge")
 B.bp=new A.jR(3,"antiAliasWithSaveLayer")
 B.N=new A.wY(0,"sRGB")
+B.ot=new A.cY(1,1,0,0,B.N)
 B.d4=new A.cY(0,0,0,0,B.N)
-B.ot=new A.cY(1,0,1,1,B.N)
 B.d5=new A.cY(1,0.18823529411764706,0.18823529411764706,0.18823529411764706,B.N)
 B.ou=new A.cY(1,0,1,0.6,B.N)
 B.ov=new A.cY(1,0,0,0,B.N)
