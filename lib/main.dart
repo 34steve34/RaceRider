@@ -118,7 +118,7 @@ class Bike extends Component with HasGameRef<Forge2DGame> {
         }
         
         // Apply force to the center to avoid twisting the wheel
-        wheel.body.applyForceToCenter(surfaceNormal * -magneticStrength); 
+        wheel.body.applyForce(surfaceNormal * -magneticStrength); 
         break; 
       }
     }
