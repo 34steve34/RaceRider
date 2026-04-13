@@ -10,7 +10,7 @@
  * 2. The PD Controller ("The Snap"): The bike uses a Proportional-Derivative 
  * controller. It provides violent torque to instantly snap to your tilt angle 
  * (overpowering gravity to pop a wheelie), but instantly brakes (damps) as it 
- * reaches the target to prevent wobble/oscillation.
+ * reaches the target to prevent wobble/oscillation. Capped to prevent solver panic.
  * 3. Constant Authority Control: No state switching. The arcade controller applies 
  * torque 100% of the time, allowing seamless transitions from ground to air.
  * 4. Micro-Magnetic Wheels: Localized normal force pulls the axle into the 
@@ -38,7 +38,6 @@ class RaceRiderGame extends Forge2DGame with TapCallbacks {
   bool isGas = false;
   bool isBrake = false;
 
-  // Bumped gravity slightly to make the bike feel "snappier" on landings
   RaceRiderGame() : super(gravity: Vector2(0, 35), zoom: 15);
 
   @override
@@ -54,8 +53,7 @@ class RaceRiderGame extends Forge2DGame with TapCallbacks {
   void update(double dt) {
     super.update(dt);
     
-    // REDUCED INPUT LAG: 
-    // Blending factor increased to 0.8 for near-instant physical reaction.
+    // Near-instant physical reaction blending
     double normalizedTilt = (rawTilt / 10).clamp(-1.0, 1.0);
     smoothedTilt += (normalizedTilt - smoothedTilt) * 0.8; 
     
@@ -107,8 +105,8 @@ class Bike extends Component with HasGameRef<Forge2DGame> {
   WheelJoint _makeJoint(Body a, Body b, Vector2 anchor) {
     return WheelJoint(WheelJointDef()
       ..initialize(a, b, anchor, Vector2(0, 1))
-      ..frequencyHz = 15 
-      ..dampingRatio = 0.7
+      ..frequencyHz = 8.0   // Softened to absorb drops
+      ..dampingRatio = 0.85 // Increased to stop spring oscillation
       ..maxMotorTorque = 45); 
   }
 
@@ -133,17 +131,16 @@ class Bike extends Component with HasGameRef<Forge2DGame> {
 
   void updateControl(double tilt, bool gas, bool brake) {
     // 1. THE PD CONTROLLER ("The Snap & Lock")
-    // S-Curve input for deadzone in the middle, fast rotation at the edges
     double targetAngle = (tilt * tilt.abs()) * 3.0; 
     double angleError = targetAngle - chassis.body.angle;
     
-    // Proportional Gain: The violent torque that forces the pop
     double pGain = 50.0; 
-    // Derivative Gain: The "Shock Absorber" that kills the wobble
     double dGain = 8.0;  
     
     double torque = (angleError * pGain) - (chassis.body.angularVelocity * dGain);
-    chassis.body.applyAngularImpulse(torque);
+    
+    // CLAMPED TORQUE: Prevents infinite force generation during hard crashes
+    chassis.body.applyAngularImpulse(torque.clamp(-120.0, 120.0));
 
     // 2. Micro-Magnetics
     _applyMicroMagnet(frontW);
@@ -179,9 +176,6 @@ class Part extends BodyComponent {
     if (isWheel) {
       shape = CircleShape()..radius = 0.5;
     } else {
-      // THE OFFSET COG ("The Balance Difficulty")
-      // -0.5 shifts mass BACKWARD to make the rear pivot stable and front unstable.
-      // -0.2 shifts mass UPWARD to make the bike "tippy" and eager to rotate.
       shape = PolygonShape()
         ..setAsBox(1.2, 0.3, Vector2(-0.5, -0.2), 0);
     }
@@ -191,8 +185,9 @@ class Part extends BodyComponent {
     
     final double partDensity = isWheel ? 0.75 : 1.5;
     
+    // RESTITUTION ZEROED: Physics shapes no longer add bounce energy, relying entirely on suspension
     return world.createBody(bodyDef)
-      ..createFixture(FixtureDef(shape, density: partDensity, friction: 0.9, restitution: 0.1));
+      ..createFixture(FixtureDef(shape, density: partDensity, friction: 0.9, restitution: 0.0));
   }
 
   void setFriction(double newFriction) {
@@ -211,7 +206,6 @@ class Part extends BodyComponent {
     if (isWheel) {
       canvas.drawCircle(Offset.zero, 0.5, Paint()..color = color);
     } else {
-      // Visual representation is kept centered despite the physical COG shift
       canvas.drawRect(const Rect.fromLTWH(-1.2, -0.3, 2.4, 0.6), Paint()..color = color);
     }
   }
