@@ -4,12 +4,13 @@
  * Target Feel: 2D Arcade Physics Motorcycle Game (Clone of "Bike Race")
  * Engine: Flutter + Flame + Forge2D (Box2D)
  * * CORE ARCADE MECHANICS (SINGLE-LOGIC PHYSICS MODEL):
- * 1. Offset COG ("The Heavy, Tippy Tail"): Mass shifted backward/upward.
- * 2. The PD Controller ("The Snap"): Proportional-Derivative controller for 
- * violent but stable rotation. Tuned to avoid Box2D constraint jitter.
- * 3. Constant Authority Control: No state switching. 
- * 4. Micro-Magnetic Wheels: Localized normal force (tuned lightly to avoid 
- * collision penetration loops).
+ * 1. Offset COG ("The Heavy Tail"): Mass shifted backward/upward.
+ * 2. Velocity Controller ("The Spin"): Tilting targets rotational speed, not 
+ * absolute position. This allows continuous flips in the air and forces the 
+ * player to actively balance on the ground against gravity.
+ * 3. Mass Disparity: Chassis is very heavy, wheels are paper-light. This prevents
+ * centrifugal force from stretching the suspension during air-spins.
+ * 4. Micro-Magnetic Wheels: Localized normal force (lightly tuned).
  * ============================================================================ */
 
 import 'dart:async';
@@ -77,7 +78,6 @@ class Bike extends Component with HasGameRef<Forge2DGame> {
   late Part chassis, frontW, rearW;
   late WheelJoint jointF, jointR;
 
-  // Reduced magnet strength: Prevents the collision solver from jittering
   final double magneticStrength = 8.0; 
 
   Bike(this.pos);
@@ -99,9 +99,9 @@ class Bike extends Component with HasGameRef<Forge2DGame> {
   WheelJoint _makeJoint(Body a, Body b, Vector2 anchor) {
     return WheelJoint(WheelJointDef()
       ..initialize(a, b, anchor, Vector2(0, 1))
-      ..frequencyHz = 8.0   
-      ..dampingRatio = 0.5 // Lowered from 0.85 to let the suspension "breathe" without jittering
-      ..maxMotorTorque = 45); 
+      ..frequencyHz = 10.0  // Bumped slightly to support the new, heavier chassis 
+      ..dampingRatio = 0.5 
+      ..maxMotorTorque = 250.0); // MUSCLE: Massive increase to climb hills
   }
 
   void _applyMicroMagnet(Part wheel) {
@@ -124,21 +124,20 @@ class Bike extends Component with HasGameRef<Forge2DGame> {
   }
 
   void updateControl(double tilt, bool gas, bool brake) {
-    double targetAngle = (tilt * tilt.abs()) * 3.0; 
-    double angleError = targetAngle - chassis.body.angle;
+    // 1. VELOCITY CONTROLLER (Fixes the "Servo-Lock" Stoppie Issue)
+    // Tilt now commands a rotation speed, allowing continuous flips and removing the artificial angle lock.
+    double targetVelocity = (tilt * tilt.abs()) * 12.0; 
+    double velocityError = targetVelocity - chassis.body.angularVelocity;
     
-    // RELAXED PD CONTROLLER: 
-    // Lowered these values so they don't break the physics engine's iteration limit
-    double pGain = 30.0; // Was 50.0
-    double dGain = 3.0;  // Was 8.0
-    
-    double torque = (angleError * pGain) - (chassis.body.angularVelocity * dGain);
-    
-    chassis.body.applyAngularImpulse(torque.clamp(-80.0, 80.0));
+    // Apply torque to achieve that spin speed. Scaled up because the chassis is heavy.
+    double tiltTorque = velocityError * 150.0; 
+    chassis.body.applyAngularImpulse(tiltTorque.clamp(-400.0, 400.0));
 
+    // 2. Micro-Magnetics
     _applyMicroMagnet(frontW);
     _applyMicroMagnet(rearW);
 
+    // 3. Drive Train & Friction
     double friction = (gas || brake) ? 0.9 : 0.1;
     frontW.setFriction(friction);
     rearW.setFriction(friction);
@@ -151,7 +150,7 @@ class Bike extends Component with HasGameRef<Forge2DGame> {
       jointF.motorSpeed = 0;
     } else {
       jointF.enableMotor(false);
-      jointR.motorSpeed = gas ? 60 : 0; 
+      jointR.motorSpeed = gas ? 90 : 0; // SPEED: 1.5x faster 
     }
   }
 }
@@ -174,10 +173,9 @@ class Part extends BodyComponent {
     
     final bodyDef = BodyDef(type: BodyType.dynamic, position: pos);
     
-    // REMOVED: bodyDef.angularDamping = 3.0; 
-    // This was stacking with our PD controller and causing the chassis to vibrate violently.
-    
-    final double partDensity = isWheel ? 0.75 : 1.5;
+    // MASS DISPARITY: Chassis is a brick, wheels are feathers.
+    // This stops the centrifugal force of a flip from tearing the wheels off.
+    final double partDensity = isWheel ? 0.1 : 4.0; 
     
     return world.createBody(bodyDef)
       ..createFixture(FixtureDef(shape, density: partDensity, friction: 0.9, restitution: 0.0));
