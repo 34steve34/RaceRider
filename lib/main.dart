@@ -4,17 +4,17 @@
  * Target Feel: 2D Arcade Physics Motorcycle Game (Clone of "Bike Race")
  * Engine: Flutter + Flame + Forge2D (Box2D)
  * * CORE ARCADE MECHANICS (SINGLE-LOGIC PHYSICS MODEL):
- * 1. Offset COG (The "Heavy Tail"): The chassis mass is shifted physically backward 
- * and low. This makes backflips naturally resist gravity and front-wheel stoppies 
- * require momentum, perfectly replicating the original game's balance struggle.
- * 2. Absolute Air Control (Soft-Clamp): The bike's rotation targets the phone's tilt 
- * using an S-Curve impulse. This applies constant authority, allowing the player 
- * to fight the physics engine smoothly without ghosting through walls.
+ * 1. Offset COG ("The Heavy, Tippy Tail"): The mass is physically shifted 
+ * backward (to make front stoppies naturally harder to hold than rear wheelies) 
+ * and upward (to make the bike eager to tip).
+ * 2. The PD Controller ("The Snap"): The bike uses a Proportional-Derivative 
+ * controller. It provides violent torque to instantly snap to your tilt angle 
+ * (overpowering gravity to pop a wheelie), but instantly brakes (damps) as it 
+ * reaches the target to prevent wobble/oscillation.
  * 3. Constant Authority Control: No state switching. The arcade controller applies 
  * torque 100% of the time, allowing seamless transitions from ground to air.
- * 4. Micro-Magnetic Wheels: A localized normal force pulls the wheel axle into the 
- * track ONLY when contact is actively occurring. This allows for ceiling rides 
- * and loops without creating a universal gravity well during jumps.
+ * 4. Micro-Magnetic Wheels: Localized normal force pulls the axle into the 
+ * track ONLY during active contact, allowing loops without ruining airtime.
  * ============================================================================ */
 
 import 'dart:async';
@@ -54,9 +54,10 @@ class RaceRiderGame extends Forge2DGame with TapCallbacks {
   void update(double dt) {
     super.update(dt);
     
-    // Normalize and smooth the accelerometer input
+    // REDUCED INPUT LAG: 
+    // Blending factor increased to 0.8 for near-instant physical reaction.
     double normalizedTilt = (rawTilt / 10).clamp(-1.0, 1.0);
-    smoothedTilt += (normalizedTilt - smoothedTilt) * 0.2; 
+    smoothedTilt += (normalizedTilt - smoothedTilt) * 0.8; 
     
     player.updateControl(smoothedTilt, isGas, isBrake);
     
@@ -85,7 +86,6 @@ class Bike extends Component with HasGameRef<Forge2DGame> {
   late Part chassis, frontW, rearW;
   late WheelJoint jointF, jointR;
 
-  // Reduced magnet strength since it's pulling against higher gravity now
   final double magneticStrength = 20.0; 
 
   Bike(this.pos);
@@ -109,7 +109,7 @@ class Bike extends Component with HasGameRef<Forge2DGame> {
       ..initialize(a, b, anchor, Vector2(0, 1))
       ..frequencyHz = 15 
       ..dampingRatio = 0.7
-      ..maxMotorTorque = 45); // Capped to prevent instant flips on acceleration
+      ..maxMotorTorque = 45); 
   }
 
   void _applyMicroMagnet(Part wheel) {
@@ -121,29 +121,31 @@ class Bike extends Component with HasGameRef<Forge2DGame> {
         contact.getWorldManifold(manifold); 
         Vector2 surfaceNormal = manifold.normal;
         
-        // Ensure the normal vector always points from the surface into the wheel
         if (contact.fixtureB.body == wheel.body) {
            surfaceNormal = -surfaceNormal;
         }
         
-        // Pull the wheel center directly into the surface to stick to loops
         wheel.body.applyForce(surfaceNormal * -magneticStrength); 
-        break; // Only apply once per frame per wheel
+        break; 
       }
     }
   }
 
   void updateControl(double tilt, bool gas, bool brake) {
-    // 1. Unified Rotation (The Arcade Controller)
+    // 1. THE PD CONTROLLER ("The Snap & Lock")
     // S-Curve input for deadzone in the middle, fast rotation at the edges
     double targetAngle = (tilt * tilt.abs()) * 3.0; 
     double angleError = targetAngle - chassis.body.angle;
     
-    // Apply constant impulse. The offset COG will naturally resist this 
-    // when trying to backflip or stoppie, providing the "weight" feel.
-    chassis.body.applyAngularImpulse(angleError * 15.0);
+    // Proportional Gain: The violent torque that forces the pop
+    double pGain = 50.0; 
+    // Derivative Gain: The "Shock Absorber" that kills the wobble
+    double dGain = 8.0;  
+    
+    double torque = (angleError * pGain) - (chassis.body.angularVelocity * dGain);
+    chassis.body.applyAngularImpulse(torque);
 
-    // 2. Micro-Magnetics (Only triggers on active physical contact)
+    // 2. Micro-Magnetics
     _applyMicroMagnet(frontW);
     _applyMicroMagnet(rearW);
 
@@ -155,14 +157,12 @@ class Bike extends Component with HasGameRef<Forge2DGame> {
     jointR.enableMotor(gas || brake);
     
     if (brake) {
-      // Lock both wheels for a snappy stop
       jointR.motorSpeed = 0;
       jointF.enableMotor(true); 
       jointF.motorSpeed = 0;
     } else {
-      // Power to the rear wheel only
       jointF.enableMotor(false);
-      jointR.motorSpeed = gas ? 60 : 0; // High speed for arcade zip
+      jointR.motorSpeed = gas ? 60 : 0; 
     }
   }
 }
@@ -179,15 +179,15 @@ class Part extends BodyComponent {
     if (isWheel) {
       shape = CircleShape()..radius = 0.5;
     } else {
-      // THE OFFSET COG ("Heavy Tail")
-      // Shift mass 0.5 forward and 0.2 down relative to the joints.
-      // This puts the actual pivot center closer to the rear wheel.
+      // THE OFFSET COG ("The Balance Difficulty")
+      // -0.5 shifts mass BACKWARD to make the rear pivot stable and front unstable.
+      // -0.2 shifts mass UPWARD to make the bike "tippy" and eager to rotate.
       shape = PolygonShape()
-        ..setAsBox(1.2, 0.3, Vector2(0.5, 0.2), 0);
+        ..setAsBox(1.2, 0.3, Vector2(-0.5, -0.2), 0);
     }
     
     final bodyDef = BodyDef(type: BodyType.dynamic, position: pos);
-    if (!isWheel) bodyDef.angularDamping = 3.0; // Keeps it from spinning wildly
+    if (!isWheel) bodyDef.angularDamping = 3.0; 
     
     final double partDensity = isWheel ? 0.75 : 1.5;
     
