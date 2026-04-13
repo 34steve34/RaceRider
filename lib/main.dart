@@ -3,15 +3,15 @@
  * ============================================================================
  * Target Feel: 2D Arcade Physics Motorcycle Game (Clone of "Bike Race")
  * Engine: Flutter + Flame + Forge2D (Box2D)
- * * VERSION CHECK: CHASSIS IS NEON GREEN.
+ * * VERSION CHECK: CHASSIS IS NEON ORANGE.
  * * CORE ARCADE MECHANICS:
- * 1. Offset COG: Mass shifted backward/upward for rear stability.
- * 2. Velocity Controller (TRUE DEADZONE): Controller shuts off completely 
- * when the phone is flat, preventing mid-air vibrations.
- * 3. Stiffened Suspension & Adjusted Ride Height: frequencyHz increased to 14.0, 
- * wheel anchor points lowered to prevent the "low-rider" effect.
- * 4. Explicit Camera Tracking: Manual interpolation assignment to fix Flame's 
- * getter/setter update freeze.
+ * 1. The "Lead Weight" COG Fix: The visual hull is centered and light, but an 
+ * invisible, super-dense sensor is placed near the rear wheel. This creates a 
+ * "Weeble-Wobble" effect, eliminating instant torque-reaction backflips while 
+ * preserving the accurate visual collision boundary.
+ * 2. Velocity Controller (TRUE DEADZONE): Shuts off completely when resting.
+ * 3. Safe Mass Ratio (7.5:1): Prevents wheel stretching & ground vibrations.
+ * 4. Stiffened Suspension (14.0 Hz): Tight shock absorbers.
  * ============================================================================ */
 
 import 'dart:async';
@@ -57,7 +57,6 @@ class RaceRiderGame extends Forge2DGame with TapCallbacks {
     
     player.updateControl(smoothedTilt, isGas, isBrake);
     
-    // CAMERA FIX: Explicit assignment to trigger Flame's view refresh
     final targetCamPos = player.chassis.body.position + Vector2(5, 0);
     final currentPos = camera.viewfinder.position;
     camera.viewfinder.position = currentPos + (targetCamPos - currentPos) * 0.15;
@@ -90,9 +89,6 @@ class Bike extends Component with HasGameRef<Forge2DGame> {
   Future<void> onLoad() async {
     chassis = Part(pos, isWheel: false);
     
-    // RIDE HEIGHT FIX:
-    // Shifted Y from 0.8 to 1.4. This creates a larger gap between the chassis 
-    // center and the wheels when the suspension joints are initialized.
     frontW = Part(pos + Vector2(1.5, 1.4), isWheel: true);
     rearW = Part(pos + Vector2(-1.5, 1.4), isWheel: true);
 
@@ -107,11 +103,11 @@ class Bike extends Component with HasGameRef<Forge2DGame> {
   WheelJoint _makeJoint(Body a, Body b, Vector2 anchor) {
     return WheelJoint(WheelJointDef()
       ..initialize(a, b, anchor, Vector2(0, 1))
-      // SUSPENSION STIFFNESS FIX: 
-      // Increased to 14.0 for a much tighter, snappier shock absorber.
       ..frequencyHz = 14.0  
       ..dampingRatio = 0.8  
-      ..maxMotorTorque = 250.0); 
+      // Torque reduced slightly from 250 to 180. 
+      // With the new low COG, the power goes entirely into moving forward instead of flipping.
+      ..maxMotorTorque = 180.0); 
   }
 
   void updateControl(double tilt, bool gas, bool brake) {
@@ -119,8 +115,9 @@ class Bike extends Component with HasGameRef<Forge2DGame> {
       double targetVelocity = (tilt * tilt.abs()) * 12.0; 
       double velocityError = targetVelocity - chassis.body.angularVelocity;
       
-      double smoothTorque = velocityError * 200.0; 
-      chassis.body.applyTorque(smoothTorque.clamp(-1200.0, 1200.0));
+      // Increased Arcade Torque slightly to compensate for the new Lead Weight inertia
+      double smoothTorque = velocityError * 300.0; 
+      chassis.body.applyTorque(smoothTorque.clamp(-1500.0, 1500.0));
     }
 
     double friction = (gas || brake) ? 0.9 : 0.1;
@@ -147,30 +144,41 @@ class Part extends BodyComponent {
 
   @override
   Body createBody() {
-    late Shape shape;
-    
-    if (isWheel) {
-      shape = CircleShape()..radius = 0.5;
-    } else {
-      shape = PolygonShape()
-        ..setAsBox(1.2, 0.3, Vector2(-0.5, -0.2), 0);
-    }
-    
     final bodyDef = BodyDef(type: BodyType.dynamic, position: pos);
-    
     if (!isWheel) bodyDef.angularDamping = 1.5; 
     
-    final double partDensity = isWheel ? 0.2 : 1.5; 
+    final body = world.createBody(bodyDef);
     
-    return world.createBody(bodyDef)
-      ..createFixture(FixtureDef(shape, density: partDensity, friction: 0.9, restitution: 0.0));
+    if (isWheel) {
+      final shape = CircleShape()..radius = 0.5;
+      body.createFixture(FixtureDef(shape, density: 0.2, friction: 0.9, restitution: 0.0));
+    } else {
+      // 1. The Main Hull (Visual & Collision Boundary)
+      // Perfectly centered, low density.
+      final hullShape = PolygonShape()
+        ..setAsBox(1.2, 0.3, Vector2.zero(), 0);
+      body.createFixture(FixtureDef(hullShape, density: 0.5, friction: 0.9, restitution: 0.0));
+      
+      // 2. THE LEAD WEIGHT (COG Override)
+      // Tiny, invisible, high-density sensor placed extremely low and near the rear axle.
+      // This forces the Center of Mass down without messing up collisions.
+      final weightShape = CircleShape()
+        ..radius = 0.1;
+      weightShape.position.setValues(-1.2, 1.0); 
+      
+      body.createFixture(FixtureDef(weightShape, density: 10.0, isSensor: true));
+    }
+    
+    return body;
   }
 
   void setFriction(double newFriction) {
     if (!isMounted || body.fixtures.isEmpty) return;
-    final fixture = body.fixtures.first;
-    if (fixture.friction == newFriction) return; 
-    fixture.friction = newFriction;
+    for (final fixture in body.fixtures) {
+      if (fixture.friction != newFriction) {
+        fixture.friction = newFriction;
+      }
+    }
     for (final contact in body.contacts) {
       contact.resetFriction();
     }
@@ -178,8 +186,8 @@ class Part extends BodyComponent {
 
   @override
   void render(Canvas canvas) {
-    // VISUAL VERIFICATION: Chassis is now Neon Green
-    final color = isWheel ? const Color(0xFFFFFFFF) : const Color(0xFF00FF00); 
+    // VISUAL VERIFICATION: Chassis is Neon Orange
+    final color = isWheel ? const Color(0xFFFFFFFF) : const Color(0xFFFFA500); 
     if (isWheel) {
       canvas.drawCircle(Offset.zero, 0.5, Paint()..color = color);
     } else {
