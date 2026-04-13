@@ -30096,7 +30096,7 @@ q.f=s
 q.uj()}}},
 hv(){if(this.x)return
 this.x=!0
-A.eq(this.gG0())},
+A.eq(this.gG_())},
 uj(){var s,r,q,p,o,n,m,l,k,j=this
 j.x=!1
 s=j.c
@@ -33719,6 +33719,10 @@ r=s.a
 q=a.a
 s.sm(r[0]+q[0])
 s.sn(r[1]+q[1])},
+G0(a){var s=this
+if(s.a!==B.y)return
+if((s.b&2)!==2)s.aQ(!0)
+s.y+=a},
 hJ(a,b){var s,r,q,p=this
 if(p.a!==B.y)return
 if((p.b&2)!==2)p.aQ(!0)
@@ -33727,10 +33731,6 @@ s=b.a
 r=p.f.c.a
 q=a.a
 p.w=p.w+p.CW*((s[0]-r[0])*q[1]-(s[1]-r[1])*q[0])},
-G_(a){var s=this
-if(s.a!==B.y)return
-if((s.b&2)!==2)s.aQ(!0)
-s.w=s.w+s.CW*a},
 Ku(){var s,r,q,p,o,n,m,l,k,j,i,h,g,f,e=this
 e.CW=e.ch=e.ay=e.ax=0
 s=e.f
@@ -36378,7 +36378,7 @@ n=q.ax
 n===$&&A.c()
 n=n.at
 n===$&&A.c()
-n.G_(B.c.fs((r*Math.abs(r)*12-n.w)*100,-300,300))
+n.G0(B.c.fs((r*Math.abs(r)*12-n.w)*6000,-2e4,2e4))
 n=q.ay
 n===$&&A.c()
 q.qo(n)
@@ -36449,8 +36449,8 @@ r=a.d
 f.k(A.qT(r,c))
 e.k(A.qT(b.d,c))
 g.k(A.h3(r.b,s))
-d.z=12
-d.Q=0.8
+d.z=5
+d.Q=0.7
 d.x=250
 s=new A.h(new Float64Array(2))
 r=new A.h(new Float64Array(2))
@@ -37324,7 +37324,7 @@ m(j,"gIE","o4",49)
 r(A,"cz","SY",27)
 k(A.bo.prototype,"gKt",0,0,null,["$1","$0"],["wx","kU"],203,0,0)
 m(j=A.ov.prototype,"gAj","Ak",50)
-o(j,"gG0","uj",0)
+o(j,"gG_","uj",0)
 m(j=A.t9.prototype,"gIl","o1",37)
 m(j,"gI7","I8",205)
 m(j,"gIq","Ir",75)
