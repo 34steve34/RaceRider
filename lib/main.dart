@@ -3,13 +3,14 @@
  * ============================================================================
  * Target Feel: 2D Arcade Physics Motorcycle Game (Clone of "Bike Race")
  * Engine: Flutter + Flame + Forge2D (Box2D)
- * * VERSION CHECK: CHASSIS IS MAGENTA.
+ * * VERSION CHECK: CHASSIS IS CYAN.
  * * CORE ARCADE MECHANICS:
- * 1. Extreme Lead Weight: COG overridden to x = -2.5, y = 3.0. Mass is now 
- * behind the rear axle, reversing the gravitational torque vector.
- * 2. Velocity Controller (TRUE DEADZONE): Shuts off completely when resting.
+ * 1. The REAL Lead Weight: Fixed the Area calculation error. The sensor now has 
+ * enough surface area (radius 0.3) and density (20.0) to truly drag the COG down 
+ * and back. Placed at (-1.0, 0.5) for a stable, playable heavy tail.
+ * 2. Scaled Powertrain: Motor torque and Arcade torque scaled up 6x to match 
+ * the massive increase in the bike's physical weight.
  * 3. Safe Mass Ratio (7.5:1): Prevents wheel stretching & ground vibrations.
- * 4. Stiffened Suspension (14.0 Hz): Tight shock absorbers.
  * ============================================================================ */
 
 import 'dart:async';
@@ -103,7 +104,8 @@ class Bike extends Component with HasGameRef<Forge2DGame> {
       ..initialize(a, b, anchor, Vector2(0, 1))
       ..frequencyHz = 14.0  
       ..dampingRatio = 0.8  
-      ..maxMotorTorque = 180.0); 
+      // Scaled up 6x to push the new ~6kg mass up hills
+      ..maxMotorTorque = 1200.0); 
   }
 
   void updateControl(double tilt, bool gas, bool brake) {
@@ -111,8 +113,9 @@ class Bike extends Component with HasGameRef<Forge2DGame> {
       double targetVelocity = (tilt * tilt.abs()) * 12.0; 
       double velocityError = targetVelocity - chassis.body.angularVelocity;
       
-      double smoothTorque = velocityError * 300.0; 
-      chassis.body.applyTorque(smoothTorque.clamp(-1500.0, 1500.0));
+      // Scaled up to manipulate the new true heavy mass
+      double smoothTorque = velocityError * 2000.0; 
+      chassis.body.applyTorque(smoothTorque.clamp(-10000.0, 10000.0));
     }
 
     double friction = (gas || brake) ? 0.9 : 0.1;
@@ -152,13 +155,14 @@ class Part extends BodyComponent {
         ..setAsBox(1.2, 0.3, Vector2.zero(), 0);
       body.createFixture(FixtureDef(hullShape, density: 0.5, friction: 0.9, restitution: 0.0));
       
-      // THE EXTREME LEAD WEIGHT
+      // THE REAL LEAD WEIGHT
+      // Radius increased to 0.3 (Area ~0.28). 
+      // At density 20.0, this object weighs ~5.6kg, completely dominating the 0.7kg hull.
       final weightShape = CircleShape()
-        ..radius = 0.1;
-      // Positioned behind the rear axle (-1.5) and far below the chassis
-      weightShape.position.setValues(-2.5, 3.0); 
+        ..radius = 0.3;
+      weightShape.position.setValues(-1.0, 0.5); 
       
-      body.createFixture(FixtureDef(weightShape, density: 10.0, isSensor: true));
+      body.createFixture(FixtureDef(weightShape, density: 20.0, isSensor: true));
     }
     
     return body;
@@ -178,8 +182,8 @@ class Part extends BodyComponent {
 
   @override
   void render(Canvas canvas) {
-    // VISUAL VERIFICATION: Chassis is Magenta
-    final color = isWheel ? const Color(0xFFFFFFFF) : const Color(0xFFFF00FF); 
+    // VISUAL VERIFICATION: Chassis is Cyan
+    final color = isWheel ? const Color(0xFFFFFFFF) : const Color(0xFF00FFFF); 
     if (isWheel) {
       canvas.drawCircle(Offset.zero, 0.5, Paint()..color = color);
     } else {
