@@ -10371,11 +10371,9 @@ if(a==null)s=new A.h(new Float64Array(2))
 else s=a
 r=new A.h(new Float64Array(2))
 return new A.wj(b,s,r)},
-wj:function wj(a,b,c){var _=this
-_.a=a
-_.c=b
-_.e=c
-_.w=0},
+wj:function wj(a,b,c){this.a=a
+this.c=b
+this.e=c},
 jJ:function jJ(a,b){this.a=a
 this.b=b},
 nV:function nV(a,b){var _=this
@@ -35380,7 +35378,6 @@ o.k(s)
 n.k(s)
 m.f=m.e=m.d=0
 l.k(a.e)
-f.cy=a.w
 k.aX()
 s=a.a
 f.a=s
@@ -36381,7 +36378,7 @@ n=q.ax
 n===$&&A.c()
 n=n.at
 n===$&&A.c()
-n.G_(B.c.fs((r*Math.abs(r)*3-n.f.e)*50-n.w*8,-120,120))
+n.G_(B.c.fs((r*Math.abs(r)*3-n.f.e)*30-n.w*3,-80,80))
 n=q.ay
 n===$&&A.c()
 q.qo(n)
@@ -36453,7 +36450,7 @@ f.k(A.qT(r,c))
 e.k(A.qT(b.d,c))
 g.k(A.h3(r.b,s))
 d.z=8
-d.Q=0.85
+d.Q=0.5
 d.x=45
 s=new A.h(new Float64Array(2))
 r=new A.h(new Float64Array(2))
@@ -36515,7 +36512,7 @@ n=new A.h(r)
 j=l.a
 r[1]=j[1]
 r[0]=j[0]
-n.al(-20)
+n.al(-8)
 i=s.f.c
 s.Am(n)
 n=i.a
@@ -36531,7 +36528,6 @@ r=new A.h(new Float64Array(2))
 r.a_(-0.5,-0.2)
 s.xw(1.2,0.3,r,0)
 o.b=s}q=A.M7(this.RG,B.y)
-if(!n)q.w=3
 p=n?0.75:1.5
 n=this.gcC().k3.go.np(q)
 n.uJ(A.SR(o.aH(),p,0.9,0))
