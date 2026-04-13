@@ -3,13 +3,15 @@
  * ============================================================================
  * Target Feel: 2D Arcade Physics Motorcycle Game (Clone of "Bike Race")
  * Engine: Flutter + Flame + Forge2D (Box2D)
- * * VERSION CHECK: CHASSIS IS NEON YELLOW.
+ * * VERSION CHECK: CHASSIS IS NEON GREEN.
  * * CORE ARCADE MECHANICS:
  * 1. Offset COG: Mass shifted backward/upward for rear stability.
- * 2. Velocity Controller (TRUE DEADZONE FIX): Controller shuts off completely 
- * when the phone is flat, preventing mid-air "Active Freeze" vibrations.
- * 3. Safe Mass Ratio (7.5:1): Chassis is 1.5, wheels are 0.2. 
- * 4. Camera Lerping: Smooth follow to absorb any Box2D micro-stutters.
+ * 2. Velocity Controller (TRUE DEADZONE): Controller shuts off completely 
+ * when the phone is flat, preventing mid-air vibrations.
+ * 3. Stiffened Suspension & Adjusted Ride Height: frequencyHz increased to 14.0, 
+ * wheel anchor points lowered to prevent the "low-rider" effect.
+ * 4. Explicit Camera Tracking: Manual interpolation assignment to fix Flame's 
+ * getter/setter update freeze.
  * ============================================================================ */
 
 import 'dart:async';
@@ -55,8 +57,10 @@ class RaceRiderGame extends Forge2DGame with TapCallbacks {
     
     player.updateControl(smoothedTilt, isGas, isBrake);
     
+    // CAMERA FIX: Explicit assignment to trigger Flame's view refresh
     final targetCamPos = player.chassis.body.position + Vector2(5, 0);
-    camera.viewfinder.position.lerp(targetCamPos, 0.2);
+    final currentPos = camera.viewfinder.position;
+    camera.viewfinder.position = currentPos + (targetCamPos - currentPos) * 0.15;
   }
 
   @override
@@ -85,8 +89,12 @@ class Bike extends Component with HasGameRef<Forge2DGame> {
   @override
   Future<void> onLoad() async {
     chassis = Part(pos, isWheel: false);
-    frontW = Part(pos + Vector2(1.5, 0.8), isWheel: true);
-    rearW = Part(pos + Vector2(-1.5, 0.8), isWheel: true);
+    
+    // RIDE HEIGHT FIX:
+    // Shifted Y from 0.8 to 1.4. This creates a larger gap between the chassis 
+    // center and the wheels when the suspension joints are initialized.
+    frontW = Part(pos + Vector2(1.5, 1.4), isWheel: true);
+    rearW = Part(pos + Vector2(-1.5, 1.4), isWheel: true);
 
     await gameRef.world.addAll([chassis, frontW, rearW]);
 
@@ -99,20 +107,18 @@ class Bike extends Component with HasGameRef<Forge2DGame> {
   WheelJoint _makeJoint(Body a, Body b, Vector2 anchor) {
     return WheelJoint(WheelJointDef()
       ..initialize(a, b, anchor, Vector2(0, 1))
-      ..frequencyHz = 5.0  
-      ..dampingRatio = 0.7  
+      // SUSPENSION STIFFNESS FIX: 
+      // Increased to 14.0 for a much tighter, snappier shock absorber.
+      ..frequencyHz = 14.0  
+      ..dampingRatio = 0.8  
       ..maxMotorTorque = 250.0); 
   }
 
   void updateControl(double tilt, bool gas, bool brake) {
-    // THE TRUE DEADZONE:
-    // If tilt is less than 5%, we do ABSOLUTELY NOTHING. 
-    // This stops the controller from vibrating the bike in mid-air trying to hit a 0.0 target.
     if (tilt.abs() > 0.05) {
       double targetVelocity = (tilt * tilt.abs()) * 12.0; 
       double velocityError = targetVelocity - chassis.body.angularVelocity;
       
-      // Scaled down slightly to ensure smooth torque delivery
       double smoothTorque = velocityError * 200.0; 
       chassis.body.applyTorque(smoothTorque.clamp(-1200.0, 1200.0));
     }
@@ -152,7 +158,6 @@ class Part extends BodyComponent {
     
     final bodyDef = BodyDef(type: BodyType.dynamic, position: pos);
     
-    // Natural damping takes over when the Arcade Controller shuts off in the deadzone
     if (!isWheel) bodyDef.angularDamping = 1.5; 
     
     final double partDensity = isWheel ? 0.2 : 1.5; 
@@ -173,8 +178,8 @@ class Part extends BodyComponent {
 
   @override
   void render(Canvas canvas) {
-    // VISUAL VERIFICATION: Chassis is now Neon Yellow
-    final color = isWheel ? const Color(0xFFFFFFFF) : const Color(0xFFFFFF00); 
+    // VISUAL VERIFICATION: Chassis is now Neon Green
+    final color = isWheel ? const Color(0xFFFFFFFF) : const Color(0xFF00FF00); 
     if (isWheel) {
       canvas.drawCircle(Offset.zero, 0.5, Paint()..color = color);
     } else {
