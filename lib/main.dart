@@ -3,12 +3,13 @@
  * ============================================================================
  * Target Feel: 2D Arcade Physics Motorcycle Game (Clone of "Bike Race")
  * Engine: Flutter + Flame + Forge2D (Box2D)
+ * * VERSION CHECK: CHASSIS IS NEON YELLOW.
  * * CORE ARCADE MECHANICS:
  * 1. Offset COG: Mass shifted backward/upward for rear stability.
- * 2. Velocity Controller (TORQUE OVERHAUL): Tilting commands rotational speed. 
- * Uses continuous applyTorque instead of violent impulses to prevent joint tearing.
+ * 2. Velocity Controller (TRUE DEADZONE FIX): Controller shuts off completely 
+ * when the phone is flat, preventing mid-air "Active Freeze" vibrations.
  * 3. Safe Mass Ratio (7.5:1): Chassis is 1.5, wheels are 0.2. 
- * 4. Stable Suspension: frequencyHz reduced to Box2D vehicle standards (5Hz).
+ * 4. Camera Lerping: Smooth follow to absorb any Box2D micro-stutters.
  * ============================================================================ */
 
 import 'dart:async';
@@ -40,6 +41,8 @@ class RaceRiderGame extends Forge2DGame with TapCallbacks {
     player = Bike(Vector2(0, -2));
     await add(player); 
     
+    camera.viewfinder.position = player.chassis.body.position;
+    
     accelerometerEvents.listen((event) => rawTilt = event.y);
   }
 
@@ -52,7 +55,8 @@ class RaceRiderGame extends Forge2DGame with TapCallbacks {
     
     player.updateControl(smoothedTilt, isGas, isBrake);
     
-    camera.viewfinder.position = player.chassis.body.position + Vector2(5, 0);
+    final targetCamPos = player.chassis.body.position + Vector2(5, 0);
+    camera.viewfinder.position.lerp(targetCamPos, 0.2);
   }
 
   @override
@@ -76,8 +80,6 @@ class Bike extends Component with HasGameRef<Forge2DGame> {
   late Part chassis, frontW, rearW;
   late WheelJoint jointF, jointR;
 
-  final double magneticStrength = 2.0; 
-
   Bike(this.pos);
 
   @override
@@ -97,47 +99,23 @@ class Bike extends Component with HasGameRef<Forge2DGame> {
   WheelJoint _makeJoint(Body a, Body b, Vector2 anchor) {
     return WheelJoint(WheelJointDef()
       ..initialize(a, b, anchor, Vector2(0, 1))
-      // THE SUSPENSION FIX: 
-      // Lowered to 5.0 (Box2D sweet spot for vehicles). 
-      // Allows the wheels to absorb terrain without panicking the math solver.
       ..frequencyHz = 5.0  
       ..dampingRatio = 0.7  
       ..maxMotorTorque = 250.0); 
   }
 
-  void _applyMicroMagnet(Part wheel) {
-    if (!wheel.isMounted) return;
-    
-    for (final contact in wheel.body.contacts) {
-      if (contact.isTouching()) {
-        final manifold = WorldManifold();
-        contact.getWorldManifold(manifold); 
-        Vector2 surfaceNormal = manifold.normal;
-        
-        if (contact.fixtureB.body == wheel.body) {
-           surfaceNormal = -surfaceNormal;
-        }
-        
-        wheel.body.applyForce(surfaceNormal * -magneticStrength); 
-        break; 
-      }
-    }
-  }
-
   void updateControl(double tilt, bool gas, bool brake) {
-    double targetVelocity = (tilt * tilt.abs()) * 12.0; 
-    double velocityError = targetVelocity - chassis.body.angularVelocity;
-    
-    // THE SLEDGEHAMMER FIX (Torque instead of Impulse):
-    // Because applyTorque is scaled by time (dt), the multiplier must be much higher
-    // to achieve the same strength, but the resulting force is perfectly smooth.
-    double smoothTorque = velocityError * 6000.0; 
-    
-    // Using applyTorque stops the solver from tearing the joints apart
-    chassis.body.applyTorque(smoothTorque.clamp(-20000.0, 20000.0));
-
-    _applyMicroMagnet(frontW);
-    _applyMicroMagnet(rearW);
+    // THE TRUE DEADZONE:
+    // If tilt is less than 5%, we do ABSOLUTELY NOTHING. 
+    // This stops the controller from vibrating the bike in mid-air trying to hit a 0.0 target.
+    if (tilt.abs() > 0.05) {
+      double targetVelocity = (tilt * tilt.abs()) * 12.0; 
+      double velocityError = targetVelocity - chassis.body.angularVelocity;
+      
+      // Scaled down slightly to ensure smooth torque delivery
+      double smoothTorque = velocityError * 200.0; 
+      chassis.body.applyTorque(smoothTorque.clamp(-1200.0, 1200.0));
+    }
 
     double friction = (gas || brake) ? 0.9 : 0.1;
     frontW.setFriction(friction);
@@ -173,6 +151,10 @@ class Part extends BodyComponent {
     }
     
     final bodyDef = BodyDef(type: BodyType.dynamic, position: pos);
+    
+    // Natural damping takes over when the Arcade Controller shuts off in the deadzone
+    if (!isWheel) bodyDef.angularDamping = 1.5; 
+    
     final double partDensity = isWheel ? 0.2 : 1.5; 
     
     return world.createBody(bodyDef)
@@ -191,7 +173,8 @@ class Part extends BodyComponent {
 
   @override
   void render(Canvas canvas) {
-    final color = isWheel ? const Color(0xFFFFFFFF) : const Color(0xFFFF69B4); 
+    // VISUAL VERIFICATION: Chassis is now Neon Yellow
+    final color = isWheel ? const Color(0xFFFFFFFF) : const Color(0xFFFFFF00); 
     if (isWheel) {
       canvas.drawCircle(Offset.zero, 0.5, Paint()..color = color);
     } else {
