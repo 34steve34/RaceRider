@@ -1,6 +1,6 @@
 /* ============================================================================
  * RACERIDER - Custom Arcade Physics (Bike Race style)
- * Engine: Flutter + Flame (no Forge2D for the bike)
+ * Engine: Flutter + Flame (No Forge2D for bike)
  * ============================================================================ */
 
 import 'dart:math';
@@ -11,7 +11,7 @@ import 'package:flame/events.dart';
 import 'package:sensors_plus/sensors_plus.dart';
 
 void main() {
-  runApp(GameWidget(game: RaceRiderGame()));
+  runApp(const GameWidget(game: RaceRiderGame()));
 }
 
 class RaceRiderGame extends FlameGame with TapCallbacks {
@@ -24,7 +24,7 @@ class RaceRiderGame extends FlameGame with TapCallbacks {
   bool isGas = false;
   bool isBrake = false;
 
-  RaceRiderGame() : super();
+  RaceRiderGame();
 
   @override
   Future<void> onLoad() async {
@@ -34,8 +34,9 @@ class RaceRiderGame extends FlameGame with TapCallbacks {
     player = Bike(Vector2(0, -8));
     add(player);
 
-    // Camera follows the player smoothly
-    camera.followComponent(player, worldBounds: Rect.fromLTWH(-500, -1000, 2000, 2000));
+    // Camera setup
+    camera.follow(player);
+    camera.viewfinder.zoom = 12.0;           // Adjust zoom to your liking
 
     accelerometerEvents.listen((event) {
       rawTilt = event.y;
@@ -46,7 +47,6 @@ class RaceRiderGame extends FlameGame with TapCallbacks {
   void update(double dt) {
     super.update(dt);
 
-    // Smooth tilt input
     double normalizedTilt = (rawTilt / 10).clamp(-1.0, 1.0);
     smoothedTilt += (normalizedTilt - smoothedTilt) * 0.75;
 
@@ -70,21 +70,21 @@ class RaceRiderGame extends FlameGame with TapCallbacks {
 }
 
 // ===================================================================
-// CUSTOM BIKE - Lightweight Arcade Physics
+// CUSTOM BIKE PHYSICS
 // ===================================================================
 class Bike extends PositionComponent {
   Vector2 velocity = Vector2.zero();
-  double angle = 0.0;           // chassis angle in radians
+  double angle = 0.0;
   double angularVelocity = 0.0;
 
   bool onGround = false;
   double groundAngle = 0.0;
 
-  // ==================== TUNING (play with these) ====================
+  // ==================== TUNING ====================
   final double gravity = 38.0;
   final double airDamping = 0.965;
   final double groundFriction = 0.89;
-  final double leanStrength = 19.5;           // main lean power
+  final double leanStrength = 19.5;
   final double groundLeanMultiplier = 2.4;
   final double airControl = 0.78;
   final double acceleration = 32.0;
@@ -98,15 +98,13 @@ class Bike extends PositionComponent {
   }
 
   void updateBike(double dt, double tilt, bool gas, bool brake) {
-    // 1. Gravity
     velocity.y += gravity * dt;
 
-    // 2. Lean / Rotation Control (this is the soul of Bike Race)
+    // Lean control
     double torque = tilt * leanStrength;
 
     if (onGround) {
       torque *= groundLeanMultiplier;
-      // Gently align with ground
       angle = angle * 0.65 + groundAngle * 0.35;
     } else {
       torque *= airControl;
@@ -116,44 +114,42 @@ class Bike extends PositionComponent {
     angularVelocity += torque * dt;
     angle += angularVelocity * dt;
 
-    // 3. Drive / Braking (only when on ground)
+    // Drive
     if (onGround) {
       double driveForce = 0.0;
       if (gas) driveForce = acceleration;
       if (brake) driveForce = -brakePower;
 
-      // Apply force in the direction the bike is facing
       velocity.x += driveForce * cos(angle) * dt;
       velocity.y += driveForce * sin(angle) * dt;
 
-      // Strong ground friction for snappy traction feel
       velocity.x *= groundFriction;
-      velocity.y *= groundFriction * 0.6; // less vertical friction
+      velocity.y *= groundFriction * 0.6;
 
       velocity.x = velocity.x.clamp(-maxSpeed, maxSpeed);
     }
 
-    // 4. Move the bike
     position += velocity * dt;
 
-    // 5. Ground detection + slope
     _checkGround();
   }
 
   void _checkGround() {
-    // Simple but effective ground check - improve later with proper raycasts
-    final rearPos = position + Vector2(-1.6, 0.6).rotated(angle);
-    final frontPos = position + Vector2(1.6, 0.6).rotated(angle);
+    // Wheel positions
+    final rearOffset = Vector2(-1.6, 0.6)..rotate(angle);
+    final frontOffset = Vector2(1.6, 0.6)..rotate(angle);
 
-    // Current track is mostly at y ≈ 5
+    final rearPos = position + rearOffset;
+    final frontPos = position + frontOffset;
+
     const groundLevel = 5.0;
-    const tolerance = 0.8;
+    const tolerance = 0.9;
 
     onGround = rearPos.y >= groundLevel - tolerance || frontPos.y >= groundLevel - tolerance;
 
     if (onGround) {
-      angularVelocity *= 0.45; // kill spinning fast when landing
-      groundAngle = 0.0;       // TODO: calculate real slope from track
+      angularVelocity *= 0.45;
+      groundAngle = 0.0; // TODO: improve with real slope
     }
   }
 
@@ -167,9 +163,9 @@ class Bike extends PositionComponent {
     final chassisPaint = Paint()..color = const Color(0xFF0000FF);
     canvas.drawRect(const Rect.fromLTWH(-1.9, -0.45, 3.8, 0.9), chassisPaint);
 
-    // Rider (simple rectangle for now)
+    // Rider
     final riderPaint = Paint()..color = const Color(0xFFFFAA00);
-    canvas.drawRect(const Rect.fromLTWH(-0.6, -1.1, 1.1, 0.9), riderPaint);
+    canvas.drawRect(const Rect.fromLTWH(-0.6, -1.2, 1.2, 1.0), riderPaint);
 
     // Wheels
     final wheelPaint = Paint()..color = Colors.white;
