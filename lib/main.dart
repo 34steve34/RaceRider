@@ -11,7 +11,7 @@ import 'package:flame/events.dart';
 import 'package:sensors_plus/sensors_plus.dart';
 
 void main() {
-  runApp(GameWidget(game: RaceRiderGame()));   // Removed const
+  runApp(GameWidget(game: RaceRiderGame()));   
 }
 
 class RaceRiderGame extends FlameGame with TapCallbacks {
@@ -25,13 +25,12 @@ class RaceRiderGame extends FlameGame with TapCallbacks {
   bool isBrake = false;
 
   RaceRiderGame();
-  
+
   @override
   void onGameResize(Vector2 size) {
     super.onGameResize(size);
     
     // Set how many world units should be visible horizontally.
-    // Since the bike is 3.8 units wide, 40.0 provides a good field of view.
     const double visibleWorldWidth = 40.0; 
     
     // Calculate the vertical size based on the device's aspect ratio
@@ -51,26 +50,8 @@ class RaceRiderGame extends FlameGame with TapCallbacks {
     player = Bike(Vector2(0, -8));
     add(player);
 
-    // Keep the follow logic, but remove the static zoom
-    camera.follow(player);
-
-    accelerometerEvents.listen((event) {
-      rawTilt = event.y;
-    });
-  }
-
-
-  @override
-  Future<void> onLoad() async {
-    track = Track();
-    add(track);
-
-    player = Bike(Vector2(0, -8));
-    add(player);
-
     // Camera setup
     camera.follow(player);
-
 
     accelerometerEvents.listen((event) {
       rawTilt = event.y;
