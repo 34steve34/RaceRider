@@ -45,10 +45,12 @@ class RaceRiderGame extends FlameGame with TapCallbacks {
   @override
   Future<void> onLoad() async {
     track = Track();
-    add(track);
+    // CHANGED: Must add to world so the camera can see it!
+    world.add(track);
 
     player = Bike(Vector2(0, -8));
-    add(player);
+    // CHANGED: Must add to world so the camera can follow and scale it!
+    world.add(player);
 
     // Camera setup
     camera.follow(player);
@@ -115,7 +117,7 @@ class Bike extends PositionComponent {
   void updateBike(double dt, double tilt, bool gas, bool brake) {
     velocity.y += gravity * dt;
 
-    // Lean control (this is the most important part for Bike Race feel)
+    // Lean control
     double torque = tilt * leanStrength;
 
     if (onGround) {
