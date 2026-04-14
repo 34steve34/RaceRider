@@ -3,15 +3,14 @@
  * ============================================================================
  * Target Feel: 2D Arcade Physics Motorcycle Game (Clone of "Bike Race")
  * Engine: Flutter + Flame + Forge2D (Box2D)
- * * VERSION CHECK: CHASSIS IS RED.
+ * * VERSION CHECK: CHASSIS IS BLUE.
  * * CORE ARCADE MECHANICS:
- * 1. Safe Mass Ratio Restored: By giving the wheels a density of 1.0 (mass ~0.78kg),
- * the solver can safely connect them to the heavy 6.3kg chassis (8:1 ratio).
- * This prevents the mid-air joint explosions seen in the Cyan build.
- * 2. High Altitude Drop: Bike spawned at Y = -8 for mid-air stability testing.
- * 3. The REAL Lead Weight: Sensor (radius 0.3, density 20.0) at (-1.0, 0.5) 
- * creates a true playable heavy tail.
- * 4. Scaled Powertrain: Motor/Arcade torque scaled up for the ~6kg mass.
+ * 1. Anti-Jitter Crash Sensor: If the hull touches the ground, all artificial 
+ * torques (Arcade Controller & Motor) shut off, preventing Box2D solver spasms.
+ * 2. Reduced Motor Torque: Lowered to 200 to prevent Newton's Third Law from 
+ * instantly backflipping the chassis on acceleration.
+ * 3. Deep Lead Weight: COG lowered to Y=1.2 (axle level) for maximum stability.
+ * 4. High Altitude Drop: Bike spawned at Y = -8 for mid-air stability testing.
  * ============================================================================ */
 
 import 'dart:async';
@@ -41,7 +40,6 @@ class RaceRiderGame extends Forge2DGame with TapCallbacks {
   Future<void> onLoad() async {
     await world.add(Track());
     
-    // THE HIGH DIVE: Spawn elevated to verify mid-air joint stability
     player = Bike(Vector2(0, -8));
     await add(player); 
     
@@ -105,34 +103,63 @@ class Bike extends Component with HasGameRef<Forge2DGame> {
   WheelJoint _makeJoint(Body a, Body b, Vector2 anchor) {
     return WheelJoint(WheelJointDef()
       ..initialize(a, b, anchor, Vector2(0, 1))
-      // Slightly relaxed to 12.0 to absorb the heavier wheels cleanly
       ..frequencyHz = 12.0  
       ..dampingRatio = 0.8  
-      ..maxMotorTorque = 1200.0); 
+      // MOTOR TORQUE FIX: 
+      // Lowered to prevent instant reaction-torque backflips. 
+      ..maxMotorTorque = 200.0); 
+  }
+
+  // CRASH SENSOR: Checks if the non-wheel parts are touching the ground
+  bool _isHullTouchingGround() {
+    if (!chassis.isMounted) return false;
+    for (final contact in chassis.body.contacts) {
+      if (contact.isTouching()) {
+        final fixA = contact.fixtureA;
+        final fixB = contact.fixtureB;
+        // If the hull is touching something that IS NOT a wheel, it's a crash.
+        if (fixA.body != frontW.body && fixA.body != rearW.body &&
+            fixB.body != frontW.body && fixB.body != rearW.body) {
+          return true;
+        }
+      }
+    }
+    return false;
   }
 
   void updateControl(double tilt, bool gas, bool brake) {
-    if (tilt.abs() > 0.05) {
+    bool isCrashed = _isHullTouchingGround();
+
+    // 1. ARCADE CONTROLLER
+    // Completely disabled if crashed to prevent ground-collision jitter
+    if (!isCrashed && tilt.abs() > 0.05) {
       double targetVelocity = (tilt * tilt.abs()) * 12.0; 
       double velocityError = targetVelocity - chassis.body.angularVelocity;
-      
       double smoothTorque = velocityError * 2000.0; 
       chassis.body.applyTorque(smoothTorque.clamp(-10000.0, 10000.0));
     }
 
+    // 2. FRICTION
     double friction = (gas || brake) ? 0.9 : 0.1;
     frontW.setFriction(friction);
     rearW.setFriction(friction);
 
-    jointR.enableMotor(gas || brake);
-    
-    if (brake) {
-      jointR.motorSpeed = 0;
-      jointF.enableMotor(true); 
-      jointF.motorSpeed = 0;
-    } else {
+    // 3. DRIVE TRAIN
+    if (isCrashed) {
+      // Kill the engine on crash so the wheels don't grind against the dirt
+      jointR.enableMotor(false);
       jointF.enableMotor(false);
-      jointR.motorSpeed = gas ? 90 : 0; 
+    } else {
+      jointR.enableMotor(gas || brake);
+      
+      if (brake) {
+        jointR.motorSpeed = 0;
+        jointF.enableMotor(true); 
+        jointF.motorSpeed = 0;
+      } else {
+        jointF.enableMotor(false);
+        jointR.motorSpeed = gas ? 90 : 0; 
+      }
     }
   }
 }
@@ -145,12 +172,11 @@ class Part extends BodyComponent {
   @override
   Body createBody() {
     final bodyDef = BodyDef(type: BodyType.dynamic, position: pos);
-    if (!isWheel) bodyDef.angularDamping = 1.5; 
+    
+    // Increased natural damping so the bike settles quietly after a crash
+    if (!isWheel) bodyDef.angularDamping = 3.0; 
     
     final body = world.createBody(bodyDef);
-    
-    // MASS RATIO FIX: Wheels bumped to 1.0 density. 
-    // This gives them enough mass to stay attached to the 6.3kg chassis.
     final double partDensity = isWheel ? 1.0 : 0.5; 
     
     if (isWheel) {
@@ -161,9 +187,12 @@ class Part extends BodyComponent {
         ..setAsBox(1.2, 0.3, Vector2.zero(), 0);
       body.createFixture(FixtureDef(hullShape, density: partDensity, friction: 0.9, restitution: 0.0));
       
+      // DEEP LEAD WEIGHT
+      // Y lowered to 1.2 to sit level with the axles. 
+      // This minimizes the lever arm for the engine's reaction torque.
       final weightShape = CircleShape()
         ..radius = 0.3;
-      weightShape.position.setValues(-1.0, 0.5); 
+      weightShape.position.setValues(-1.0, 1.2); 
       
       body.createFixture(FixtureDef(weightShape, density: 20.0, isSensor: true));
     }
@@ -185,8 +214,8 @@ class Part extends BodyComponent {
 
   @override
   void render(Canvas canvas) {
-    // VISUAL VERIFICATION: Chassis is RED
-    final color = isWheel ? const Color(0xFFFFFFFF) : const Color(0xFFFF0000); 
+    // VISUAL VERIFICATION: Chassis is BLUE
+    final color = isWheel ? const Color(0xFFFFFFFF) : const Color(0xFF0000FF); 
     if (isWheel) {
       canvas.drawCircle(Offset.zero, 0.5, Paint()..color = color);
     } else {
