@@ -11,7 +11,7 @@ import 'package:flame/events.dart';
 import 'package:sensors_plus/sensors_plus.dart';
 
 void main() {
-  runApp(const GameWidget(game: RaceRiderGame()));
+  runApp(GameWidget(game: RaceRiderGame()));   // Removed const
 }
 
 class RaceRiderGame extends FlameGame with TapCallbacks {
@@ -36,7 +36,7 @@ class RaceRiderGame extends FlameGame with TapCallbacks {
 
     // Camera setup
     camera.follow(player);
-    camera.viewfinder.zoom = 12.0;           // Adjust zoom to your liking
+    camera.viewfinder.zoom = 12.0;
 
     accelerometerEvents.listen((event) {
       rawTilt = event.y;
@@ -80,7 +80,7 @@ class Bike extends PositionComponent {
   bool onGround = false;
   double groundAngle = 0.0;
 
-  // ==================== TUNING ====================
+  // ==================== TUNING - CHANGE THESE TO FEEL THE DIFFERENCE ====================
   final double gravity = 38.0;
   final double airDamping = 0.965;
   final double groundFriction = 0.89;
@@ -100,7 +100,7 @@ class Bike extends PositionComponent {
   void updateBike(double dt, double tilt, bool gas, bool brake) {
     velocity.y += gravity * dt;
 
-    // Lean control
+    // Lean control (this is the most important part for Bike Race feel)
     double torque = tilt * leanStrength;
 
     if (onGround) {
@@ -114,7 +114,7 @@ class Bike extends PositionComponent {
     angularVelocity += torque * dt;
     angle += angularVelocity * dt;
 
-    // Drive
+    // Drive / Brake
     if (onGround) {
       double driveForce = 0.0;
       if (gas) driveForce = acceleration;
@@ -135,7 +135,6 @@ class Bike extends PositionComponent {
   }
 
   void _checkGround() {
-    // Wheel positions
     final rearOffset = Vector2(-1.6, 0.6)..rotate(angle);
     final frontOffset = Vector2(1.6, 0.6)..rotate(angle);
 
@@ -149,7 +148,7 @@ class Bike extends PositionComponent {
 
     if (onGround) {
       angularVelocity *= 0.45;
-      groundAngle = 0.0; // TODO: improve with real slope
+      groundAngle = 0.0;
     }
   }
 
@@ -159,7 +158,7 @@ class Bike extends PositionComponent {
     canvas.translate(position.x, position.y);
     canvas.rotate(angle);
 
-    // Chassis
+    // Chassis (Blue)
     final chassisPaint = Paint()..color = const Color(0xFF0000FF);
     canvas.drawRect(const Rect.fromLTWH(-1.9, -0.45, 3.8, 0.9), chassisPaint);
 
