@@ -1,5 +1,5 @@
 /* ============================================================================
- * RACERIDER - Custom Physics v3 (GREEN bike = new version)
+ * RACERIDER - v7 SCALE FOCUS TEST - PINK bike
  * ============================================================================ */
 
 import 'dart:math';
@@ -16,6 +16,7 @@ void main() {
 class RaceRiderGame extends FlameGame with TapCallbacks {
   late Bike player;
   late Track track;
+  late DebugText debugText;
 
   double rawTilt = 0;
   double smoothedTilt = 0;
@@ -30,24 +31,25 @@ class RaceRiderGame extends FlameGame with TapCallbacks {
     track = Track();
     add(track);
 
-    player = Bike(Vector2(-35, 2.5));   // Spawn earlier on flat
+    player = Bike(Vector2(-40, 3.0));
     add(player);
 
-    camera.follow(player);
-    camera.viewfinder.zoom = 5.8;       // Bigger view
+    debugText = DebugText();
+    add(debugText);
 
-    // Faster sensor response
-    accelerometerEvents.listen((event) {
-      rawTilt = -event.x;   // Changed axis + sign for Samsung phones
-    });
+    camera.follow(player);
+    camera.viewfinder.zoom = 2.2;        // Very strong zoom
   }
 
   @override
   void update(double dt) {
     super.update(dt);
 
+    // Force zoom every frame
+    camera.viewfinder.zoom = 2.2;
+
     double normalizedTilt = (rawTilt / 8).clamp(-1.0, 1.0);
-    smoothedTilt = smoothedTilt * 0.6 + normalizedTilt * 0.4; // Much faster response
+    smoothedTilt = smoothedTilt * 0.5 + normalizedTilt * 0.5;
 
     player.updateBike(dt, smoothedTilt, isGas, isBrake);
   }
@@ -65,8 +67,22 @@ class RaceRiderGame extends FlameGame with TapCallbacks {
   }
 }
 
+class DebugText extends Component {
+  @override
+  void render(Canvas canvas) {
+    final textPainter = TextPainter(
+      text: const TextSpan(
+        text: "v7 - PINK bike\nZOOM FORCED = 2.2",
+        style: TextStyle(color: Colors.white, fontSize: 36, fontWeight: FontWeight.bold),
+      ),
+      textDirection: TextDirection.ltr,
+    )..layout();
+    textPainter.paint(canvas, const Offset(40, 40));
+  }
+}
+
 // ===================================================================
-// BIKE v3 - GREEN for easy identification
+// BIKE - PINK
 // ===================================================================
 class Bike extends PositionComponent {
   Vector2 velocity = Vector2.zero();
@@ -74,75 +90,36 @@ class Bike extends PositionComponent {
   double angularVelocity = 0.0;
 
   bool onGround = false;
-  double groundAngle = 0.0;
-
-  // ==================== TUNING v3 ====================
-  final double gravity = 42.0;
-  final double airDamping = 0.958;
-  final double groundFriction = 0.86;
-  final double leanStrength = 34.0;           // Stronger lean
-  final double groundLeanMultiplier = 3.1;
-  final double airControl = 0.85;
-  final double acceleration = 48.0;           // Stronger forward
-  final double brakePower = 18.0;             // Weaker brake
-  final double maxSpeed = 58.0;
 
   Bike(Vector2 startPos) {
     position = startPos;
-    size = Vector2(4.5, 2.4);
+    size = Vector2(7.0, 3.5);   // Large visual size
     anchor = Anchor.center;
   }
 
   void updateBike(double dt, double tilt, bool gas, bool brake) {
-    velocity.y += gravity * dt;
+    velocity.y += 45 * dt;
 
-    double torque = tilt * leanStrength;
-
-    if (onGround) {
-      torque *= groundLeanMultiplier;
-      angle = angle * 0.55 + groundAngle * 0.45;
-    } else {
-      torque *= airControl;
-      angularVelocity *= airDamping;
-    }
+    double torque = tilt * 45;
+    if (onGround) torque *= 3.5;
 
     angularVelocity += torque * dt;
     angle += angularVelocity * dt;
 
     if (onGround) {
-      double drive = 0.0;
-      if (gas) drive = acceleration;
-      if (brake) drive = -brakePower;
-
+      double drive = gas ? 62 : (brake ? -16 : 0);
       velocity.x += drive * cos(angle) * dt;
       velocity.y += drive * sin(angle) * dt;
-
-      velocity.x *= groundFriction;
-      velocity.y *= groundFriction * 0.5;
-
-      velocity.x = velocity.x.clamp(-maxSpeed, maxSpeed);
+      velocity.x *= 0.81;
+      velocity.x = velocity.x.clamp(-70, 70);
     }
 
     position += velocity * dt;
-    _checkGround();
-  }
 
-  void _checkGround() {
-    final rearOffset = Vector2(-1.8, 0.75)..rotate(angle);
-    final frontOffset = Vector2(1.8, 0.75)..rotate(angle);
-
-    final rearPos = position + rearOffset;
-    final frontPos = position + frontOffset;
-
-    const groundLevel = 5.0;
-    const tolerance = 1.2;
-
-    onGround = rearPos.y >= groundLevel - tolerance || frontPos.y >= groundLevel - tolerance;
-
-    if (onGround) {
-      angularVelocity *= 0.48;
-      groundAngle = 0.0;
-    }
+    // Simple ground check
+    final rearPos = position + (Vector2(-2.2, 1.0)..rotate(angle));
+    final frontPos = position + (Vector2(2.2, 1.0)..rotate(angle));
+    onGround = rearPos.y > 4.0 || frontPos.y > 4.0;
   }
 
   @override
@@ -151,22 +128,18 @@ class Bike extends PositionComponent {
     canvas.translate(position.x, position.y);
     canvas.rotate(angle);
 
-    // Chassis - GREEN (new version indicator)
-    final chassisPaint = Paint()..color = const Color(0xFF00CC00);
-    canvas.drawRect(const Rect.fromLTWH(-2.25, -0.55, 4.5, 1.1), chassisPaint);
+    // PINK chassis
+    final chassisPaint = Paint()..color = const Color(0xFFFF00AA);
+    canvas.drawRect(const Rect.fromLTWH(-3.5, -0.8, 7.0, 1.6), chassisPaint);
 
     // Rider
-    final riderPaint = Paint()..color = const Color(0xFFFFDD00);
-    canvas.drawRect(const Rect.fromLTWH(-0.75, -1.5, 1.5, 1.3), riderPaint);
+    final riderPaint = Paint()..color = const Color(0xFF00FFEE);
+    canvas.drawRect(const Rect.fromLTWH(-1.1, -2.1, 2.0, 1.8), riderPaint);
 
     // Wheels
     final wheelPaint = Paint()..color = Colors.white;
-    final outline = Paint()..color = Colors.black..style = PaintingStyle.stroke..strokeWidth = 0.16;
-
-    canvas.drawCircle(const Offset(-1.65, 0.7), 0.65, wheelPaint);
-    canvas.drawCircle(const Offset(1.65, 0.7), 0.65, wheelPaint);
-    canvas.drawCircle(const Offset(-1.65, 0.7), 0.65, outline);
-    canvas.drawCircle(const Offset(1.65, 0.7), 0.65, outline);
+    canvas.drawCircle(const Offset(-2.2, 1.0), 0.9, wheelPaint);
+    canvas.drawCircle(const Offset(2.2, 1.0), 0.9, wheelPaint);
 
     canvas.restore();
   }
@@ -187,9 +160,9 @@ class Track extends Component {
   void render(Canvas canvas) {
     final paint = Paint()
       ..color = const Color(0xFF00FF99)
-      ..strokeWidth = 1.4
+      ..strokeWidth = 6.0
       ..style = PaintingStyle.stroke;
-
+    
     final path = Path();
     path.moveTo(points[0].x, points[0].y);
     for (int i = 1; i < points.length; i++) {
