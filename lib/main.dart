@@ -1,5 +1,6 @@
 /* ============================================================================
- * RACERIDER - v7 SCALE FOCUS TEST - PINK bike
+ * RACERIDER - Custom Arcade Physics (Bike Race style)
+ * Engine: Flutter + Flame (No Forge2D for bike)
  * ============================================================================ */
 
 import 'dart:math';
@@ -10,13 +11,12 @@ import 'package:flame/events.dart';
 import 'package:sensors_plus/sensors_plus.dart';
 
 void main() {
-  runApp(GameWidget(game: RaceRiderGame()));
+  runApp(GameWidget(game: RaceRiderGame()));   // Removed const
 }
 
 class RaceRiderGame extends FlameGame with TapCallbacks {
   late Bike player;
   late Track track;
-  late DebugText debugText;
 
   double rawTilt = 0;
   double smoothedTilt = 0;
@@ -25,39 +25,75 @@ class RaceRiderGame extends FlameGame with TapCallbacks {
   bool isBrake = false;
 
   RaceRiderGame();
+  
+  @override
+  void onGameResize(Vector2 size) {
+    super.onGameResize(size);
+    
+    // Set how many world units should be visible horizontally.
+    // Since the bike is 3.8 units wide, 40.0 provides a good field of view.
+    const double visibleWorldWidth = 40.0; 
+    
+    // Calculate the vertical size based on the device's aspect ratio
+    final double aspectRatio = size.x / size.y;
+    
+    camera.viewfinder.visibleGameSize = Vector2(
+      visibleWorldWidth, 
+      visibleWorldWidth / aspectRatio
+    );
+  }
 
   @override
   Future<void> onLoad() async {
     track = Track();
     add(track);
 
-    player = Bike(Vector2(-40, 3.0));
+    player = Bike(Vector2(0, -8));
     add(player);
 
-    debugText = DebugText();
-    add(debugText);
-
+    // Keep the follow logic, but remove the static zoom
     camera.follow(player);
-    camera.viewfinder.zoom = 2.2;        // Very strong zoom
+
+    accelerometerEvents.listen((event) {
+      rawTilt = event.y;
+    });
+  }
+
+
+  @override
+  Future<void> onLoad() async {
+    track = Track();
+    add(track);
+
+    player = Bike(Vector2(0, -8));
+    add(player);
+
+    // Camera setup
+    camera.follow(player);
+
+
+    accelerometerEvents.listen((event) {
+      rawTilt = event.y;
+    });
   }
 
   @override
   void update(double dt) {
     super.update(dt);
 
-    // Force zoom every frame
-    camera.viewfinder.zoom = 2.2;
-
-    double normalizedTilt = (rawTilt / 8).clamp(-1.0, 1.0);
-    smoothedTilt = smoothedTilt * 0.5 + normalizedTilt * 0.5;
+    double normalizedTilt = (rawTilt / 10).clamp(-1.0, 1.0);
+    smoothedTilt += (normalizedTilt - smoothedTilt) * 0.75;
 
     player.updateBike(dt, smoothedTilt, isGas, isBrake);
   }
 
   @override
   void onTapDown(TapDownEvent event) {
-    if (event.localPosition.x > size.x / 2) isGas = true;
-    else isBrake = true;
+    if (event.localPosition.x > size.x / 2) {
+      isGas = true;
+    } else {
+      isBrake = true;
+    }
   }
 
   @override
@@ -67,22 +103,8 @@ class RaceRiderGame extends FlameGame with TapCallbacks {
   }
 }
 
-class DebugText extends Component {
-  @override
-  void render(Canvas canvas) {
-    final textPainter = TextPainter(
-      text: const TextSpan(
-        text: "v7 - PINK bike\nZOOM FORCED = 2.2",
-        style: TextStyle(color: Colors.white, fontSize: 36, fontWeight: FontWeight.bold),
-      ),
-      textDirection: TextDirection.ltr,
-    )..layout();
-    textPainter.paint(canvas, const Offset(40, 40));
-  }
-}
-
 // ===================================================================
-// BIKE - PINK
+// CUSTOM BIKE PHYSICS
 // ===================================================================
 class Bike extends PositionComponent {
   Vector2 velocity = Vector2.zero();
@@ -90,36 +112,78 @@ class Bike extends PositionComponent {
   double angularVelocity = 0.0;
 
   bool onGround = false;
+  double groundAngle = 0.0;
+
+  // ==================== TUNING - CHANGE THESE TO FEEL THE DIFFERENCE ====================
+  final double gravity = 38.0;
+  final double airDamping = 0.965;
+  final double groundFriction = 0.89;
+  final double leanStrength = 19.5;
+  final double groundLeanMultiplier = 2.4;
+  final double airControl = 0.78;
+  final double acceleration = 32.0;
+  final double brakePower = 48.0;
+  final double maxSpeed = 48.0;
 
   Bike(Vector2 startPos) {
     position = startPos;
-    size = Vector2(7.0, 3.5);   // Large visual size
+    size = Vector2(3.8, 1.8);
     anchor = Anchor.center;
   }
 
   void updateBike(double dt, double tilt, bool gas, bool brake) {
-    velocity.y += 45 * dt;
+    velocity.y += gravity * dt;
 
-    double torque = tilt * 45;
-    if (onGround) torque *= 3.5;
+    // Lean control (this is the most important part for Bike Race feel)
+    double torque = tilt * leanStrength;
+
+    if (onGround) {
+      torque *= groundLeanMultiplier;
+      angle = angle * 0.65 + groundAngle * 0.35;
+    } else {
+      torque *= airControl;
+      angularVelocity *= airDamping;
+    }
 
     angularVelocity += torque * dt;
     angle += angularVelocity * dt;
 
+    // Drive / Brake
     if (onGround) {
-      double drive = gas ? 62 : (brake ? -16 : 0);
-      velocity.x += drive * cos(angle) * dt;
-      velocity.y += drive * sin(angle) * dt;
-      velocity.x *= 0.81;
-      velocity.x = velocity.x.clamp(-70, 70);
+      double driveForce = 0.0;
+      if (gas) driveForce = acceleration;
+      if (brake) driveForce = -brakePower;
+
+      velocity.x += driveForce * cos(angle) * dt;
+      velocity.y += driveForce * sin(angle) * dt;
+
+      velocity.x *= groundFriction;
+      velocity.y *= groundFriction * 0.6;
+
+      velocity.x = velocity.x.clamp(-maxSpeed, maxSpeed);
     }
 
     position += velocity * dt;
 
-    // Simple ground check
-    final rearPos = position + (Vector2(-2.2, 1.0)..rotate(angle));
-    final frontPos = position + (Vector2(2.2, 1.0)..rotate(angle));
-    onGround = rearPos.y > 4.0 || frontPos.y > 4.0;
+    _checkGround();
+  }
+
+  void _checkGround() {
+    final rearOffset = Vector2(-1.6, 0.6)..rotate(angle);
+    final frontOffset = Vector2(1.6, 0.6)..rotate(angle);
+
+    final rearPos = position + rearOffset;
+    final frontPos = position + frontOffset;
+
+    const groundLevel = 5.0;
+    const tolerance = 0.9;
+
+    onGround = rearPos.y >= groundLevel - tolerance || frontPos.y >= groundLevel - tolerance;
+
+    if (onGround) {
+      angularVelocity *= 0.45;
+      groundAngle = 0.0;
+    }
   }
 
   @override
@@ -128,18 +192,25 @@ class Bike extends PositionComponent {
     canvas.translate(position.x, position.y);
     canvas.rotate(angle);
 
-    // PINK chassis
-    final chassisPaint = Paint()..color = const Color(0xFFFF00AA);
-    canvas.drawRect(const Rect.fromLTWH(-3.5, -0.8, 7.0, 1.6), chassisPaint);
+    // Chassis (Blue)
+    final chassisPaint = Paint()..color = const Color(0xFF0000FF);
+    canvas.drawRect(const Rect.fromLTWH(-1.9, -0.45, 3.8, 0.9), chassisPaint);
 
     // Rider
-    final riderPaint = Paint()..color = const Color(0xFF00FFEE);
-    canvas.drawRect(const Rect.fromLTWH(-1.1, -2.1, 2.0, 1.8), riderPaint);
+    final riderPaint = Paint()..color = const Color(0xFFFFAA00);
+    canvas.drawRect(const Rect.fromLTWH(-0.6, -1.2, 1.2, 1.0), riderPaint);
 
     // Wheels
     final wheelPaint = Paint()..color = Colors.white;
-    canvas.drawCircle(const Offset(-2.2, 1.0), 0.9, wheelPaint);
-    canvas.drawCircle(const Offset(2.2, 1.0), 0.9, wheelPaint);
+    final wheelOutline = Paint()
+      ..color = Colors.black
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 0.12;
+
+    canvas.drawCircle(const Offset(-1.45, 0.55), 0.55, wheelPaint);
+    canvas.drawCircle(const Offset(1.45, 0.55), 0.55, wheelPaint);
+    canvas.drawCircle(const Offset(-1.45, 0.55), 0.55, wheelOutline);
+    canvas.drawCircle(const Offset(1.45, 0.55), 0.55, wheelOutline);
 
     canvas.restore();
   }
@@ -150,19 +221,23 @@ class Bike extends PositionComponent {
 // ===================================================================
 class Track extends Component {
   final List<Vector2> points = [
-    Vector2(-80, 5), Vector2(20, 5),
-    Vector2(35, -1), Vector2(52, 5),
-    Vector2(70, -4), Vector2(88, -4),
-    Vector2(105, 5), Vector2(300, 5),
+    Vector2(-80, 5),
+    Vector2(20, 5),
+    Vector2(35, -1),
+    Vector2(52, 5),
+    Vector2(70, -4),
+    Vector2(88, -4),
+    Vector2(105, 5),
+    Vector2(300, 5),
   ];
 
   @override
   void render(Canvas canvas) {
     final paint = Paint()
       ..color = const Color(0xFF00FF99)
-      ..strokeWidth = 6.0
+      ..strokeWidth = 0.6
       ..style = PaintingStyle.stroke;
-    
+
     final path = Path();
     path.moveTo(points[0].x, points[0].y);
     for (int i = 1; i < points.length; i++) {
