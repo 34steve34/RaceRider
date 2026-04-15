@@ -18,22 +18,16 @@ class RaceRiderGame extends Forge2DGame with TapDetector {
   double _currentTilt = 0.0;
   bool _isGas = false;
 
-  RaceRiderGame() : super(
-    gravity: Vector2(0, 15.0),
-    camera: CameraComponent.withFixedResolution(width: 800, height: 600),
-  );
-
-  // ✅ Centralized camera scaling logic
-  void _updateCameraZoom(Vector2 size) {
-    // Set zoom to make the bike visible and centered
-    camera.viewfinder.zoom = 20.0;
-  }
+  RaceRiderGame() : super(gravity: Vector2(0, 15.0));
 
   @override
   Future<void> onLoad() async {
     await super.onLoad();
 
-    _updateCameraZoom(size); // ✅ apply initial scaling
+    // Set up camera with fixed resolution
+    camera.viewport = FixedResolutionViewport(Vector2(800, 600));
+    camera.viewfinder.zoom = 20.0;
+    camera.viewfinder.anchor = Anchor.center;
 
     player = Bike(initialPosition: Vector2(0, -2));
     await add(player);
@@ -46,12 +40,6 @@ class RaceRiderGame extends Forge2DGame with TapDetector {
     _subscription = accelerometerEvents.listen((AccelerometerEvent event) {
       _currentTilt = -event.x;
     });
-  }
-
-  @override
-  void onGameResize(Vector2 size) {
-    super.onGameResize(size);
-    _updateCameraZoom(size); // ✅ critical for all devices / rotations
   }
 
   @override
