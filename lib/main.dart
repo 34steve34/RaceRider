@@ -25,7 +25,7 @@ class RaceRiderGame extends Forge2DGame with TapDetector {
     // Higher zoom = zoomed IN (bigger on screen)
     camera.viewfinder
       ..anchor = Anchor.center
-      ..zoom = 50.0;  // ZOOM IN - make everything 50x bigger
+      ..zoom = 350.0;  // ZOOM IN - make everything 50x bigger
   }
 
   @override
