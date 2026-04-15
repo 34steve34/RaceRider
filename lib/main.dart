@@ -1,51 +1,77 @@
+import 'dart:async';
 import 'package:flame/components.dart';
 import 'package:flame/events.dart';
 import 'package:flame/game.dart';
 import 'package:flame_forge2d/flame_forge2d.dart';
 import 'package:forge2d/forge2d.dart' as f2d;
 import 'package:flutter/material.dart';
+import 'package:sensors_plus/sensors_plus.dart';
 
-// --- ADDED STARTING POINT ---
 void main() {
   runApp(GameWidget(game: RaceRiderGame()));
 }
 
 class RaceRiderGame extends Forge2DGame with TapDetector {
   late final Bike player;
+  StreamSubscription<AccelerometerEvent>? _subscription;
+  double _currentTilt = 0.0;
+  bool _isGas = false;
 
   @override
   Future<void> onLoad() async {
     await super.onLoad();
-    
-    // Add the bike to the world
-    player = Bike(initialPosition: Vector2(0, 5));
-    add(player);
-    
-    // Add a simple ground so the bike doesn't fall forever
-    add(Ground());
+
+    // Fixes the scale: Forge2D uses meters. 25.0 zoom makes it visible on mobile.
+    camera.viewfinder.zoom = 25.0;
+    camera.viewfinder.anchor = Anchor.center;
+
+    player = Bike(initialPosition: Vector2(0, 0));
+    await add(player);
+    await add(Ground());
+
+    camera.follow(player);
+
+    // Listen to phone tilt (accelerometer)
+    _subscription = accelerometerEvents.listen((AccelerometerEvent event) {
+      // Typically event.x or event.y depending on orientation
+      // We use -event.x for standard landscape tilt
+      _currentTilt = -event.x; 
+    });
+  }
+
+  @override
+  void update(double dt) {
+    super.update(dt);
+    // Pass the sensor data to the bike every frame
+    player.updateControl(_currentTilt, _isGas, false);
   }
 
   @override
   void onTapDown(TapDownInfo info) {
-    // Example: Trigger gas on tap
-    player.updateControl(0, true, false);
+    _isGas = true;
   }
 
   @override
   void onTapUp(TapUpInfo info) {
-    player.updateControl(0, false, false);
+    _isGas = false;
+  }
+
+  @override
+  void onRemove() {
+    _subscription?.cancel();
+    super.onRemove();
   }
 }
 
 class Ground extends BodyComponent {
   @override
   Body createBody() {
-    final shape = EdgeShape()..set(Vector2(-100, 10), Vector2(100, 10));
+    final shape = EdgeShape()..set(Vector2(-100, 5), Vector2(100, 5));
     final bodyDef = BodyDef()..type = BodyType.static;
-    return world.createBody(bodyDef)..createFixture(FixtureDef(shape, friction: 0.8));
+    final fixtureDef = FixtureDef(shape)..friction = 0.8;
+    return world.createBody(bodyDef)..createFixture(fixtureDef);
   }
 }
-// --- END OF ADDED CLASSES ---
 
 class _Part extends BodyComponent {
   final Vector2 pos;
@@ -57,6 +83,7 @@ class _Part extends BodyComponent {
     final bodyDef = BodyDef()
       ..position = pos
       ..type = BodyType.dynamic;
+    
     if (!isWheel) {
       bodyDef.angularDamping = 1.8;
     }
@@ -104,7 +131,6 @@ class Bike extends Component with HasGameRef<Forge2DGame> {
     await add(_frontWheelComp);
     await add(_rearWheelComp);
 
-    // Wait for bodies to be created before making joints
     final physicsWorld = gameRef.world.physicsWorld;
     frontJoint = _makeJoint(physicsWorld, _chassisComp.body, _frontWheelComp.body, frontPos);
     rearJoint = _makeJoint(physicsWorld, _chassisComp.body, _rearWheelComp.body, rearPos);
@@ -124,16 +150,19 @@ class Bike extends Component with HasGameRef<Forge2DGame> {
   }
 
   void updateControl(double tilt, bool isGas, bool isBrake) {
-    chassisBody.angularVelocity = tilt * 7.0;
+    // TILT - Applied to the chassis
+    chassisBody.angularVelocity = tilt * 0.8; // Reduced multiplier for smoother control
 
+    // GAS
     if (isGas) {
       rearJoint.enableMotor(true);
-      rearJoint.motorSpeed = 55.0; 
-      rearJoint.setMaxMotorTorque(25.0); 
+      rearJoint.motorSpeed = 55.0;
+      rearJoint.setMaxMotorTorque(25.0);
     } else {
-      rearJoint.enableMotor(false); 
+      rearJoint.enableMotor(false);
     }
 
+    // BRAKE
     if (isBrake) {
       rearJoint.enableMotor(true);
       rearJoint.motorSpeed = 0;
@@ -155,10 +184,16 @@ class Bike extends Component with HasGameRef<Forge2DGame> {
     final fLocal = Offset(fPos.x - chassisPos.x, fPos.y - chassisPos.y);
     final rLocal = Offset(rPos.x - chassisPos.x, rPos.y - chassisPos.y);
 
+    canvas.save();
+    // Move canvas to chassis position to draw relative parts
+    canvas.translate(chassisPos.x, chassisPos.y);
+    canvas.rotate(_chassisComp.body.angle);
+
     canvas.drawLine(Offset.zero, fLocal, paint);
     canvas.drawLine(Offset.zero, rLocal, paint);
     canvas.drawLine(fLocal, rLocal, paint);
 
     canvas.drawCircle(Offset.zero, 0.4, Paint()..color = Colors.white);
+    canvas.restore();
   }
 }
