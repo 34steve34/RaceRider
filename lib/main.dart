@@ -21,7 +21,6 @@ class RaceRiderGame extends Forge2DGame with TapDetector {
   Future<void> onLoad() async {
     await super.onLoad();
 
-    // Fixes the scale: Forge2D uses meters. 25.0 zoom makes it visible on mobile.
     camera.viewfinder.zoom = 25.0;
     camera.viewfinder.anchor = Anchor.center;
 
@@ -29,12 +28,9 @@ class RaceRiderGame extends Forge2DGame with TapDetector {
     await add(player);
     await add(Ground());
 
-    camera.follow(player);
+    camera.follow(player.chassisComp);
 
-    // Listen to phone tilt (accelerometer)
     _subscription = accelerometerEvents.listen((AccelerometerEvent event) {
-      // Typically event.x or event.y depending on orientation
-      // We use -event.x for standard landscape tilt
       _currentTilt = -event.x; 
     });
   }
@@ -42,7 +38,6 @@ class RaceRiderGame extends Forge2DGame with TapDetector {
   @override
   void update(double dt) {
     super.update(dt);
-    // Pass the sensor data to the bike every frame
     player.updateControl(_currentTilt, _isGas, false);
   }
 
@@ -89,7 +84,9 @@ class _Part extends BodyComponent {
     }
 
     final body = world.createBody(bodyDef);
-    final shape = CircleShape()..radius = isWheel ? Bike.wheelRadius : 0.4;
+    final shape = isWheel 
+        ? (CircleShape()..radius = 0.5) 
+        : (PolygonShape()..setAsBox(0.4, 0.2, Vector2.zero(), 0));
 
     body.createFixture(FixtureDef(shape)
       ..density = 1.0
@@ -102,98 +99,70 @@ class _Part extends BodyComponent {
 
 class Bike extends Component with HasGameRef<Forge2DGame> {
   final Vector2 initialPosition;
-  late final _Part _chassisComp;
+  late final _Part chassisComp;
   late final _Part _frontWheelComp;
   late final _Part _rearWheelComp;
 
-  late f2d.WheelJoint rearJoint;
-  late f2d.WheelJoint frontJoint;
+  f2d.WheelJoint? rearJoint;
+  f2d.WheelJoint? frontJoint;
 
   static const double wheelBase = 2.8;
-  static const double wheelRadius = 0.5;
-  static const double hz = 18.0; 
-  static const double damping = 0.8;
+  static const double hz = 15.0; 
+  static const double damping = 0.7;
 
   Bike({required this.initialPosition});
-
-  Body get chassisBody => _chassisComp.body;
 
   @override
   Future<void> onLoad() async {
     final frontPos = initialPosition + Vector2(wheelBase / 2, 0.8);
     final rearPos = initialPosition + Vector2(-wheelBase / 2, 0.8);
 
-    _chassisComp = _Part(pos: initialPosition);
+    chassisComp = _Part(pos: initialPosition);
     _frontWheelComp = _Part(pos: frontPos, isWheel: true);
     _rearWheelComp = _Part(pos: rearPos, isWheel: true);
 
-    await add(_chassisComp);
+    // Adding components to the game
+    await add(chassisComp);
     await add(_frontWheelComp);
     await add(_rearWheelComp);
 
-    final physicsWorld = gameRef.world.physicsWorld;
-    frontJoint = _makeJoint(physicsWorld, _chassisComp.body, _frontWheelComp.body, frontPos);
-    rearJoint = _makeJoint(physicsWorld, _chassisComp.body, _rearWheelComp.body, rearPos);
-  }
+    // We must wait for bodies to be created before making joints
+    // This is handled by Forge2DGame's lifecycle, but for joints 
+    // we can use the world object directly.
+    
+    final jointDefFront = f2d.WheelJointDef()
+      ..initialize(chassisComp.body, _frontWheelComp.body, _frontWheelComp.body.position, Vector2(0, 1))
+      ..frequencyHz = hz
+      ..dampingRatio = damping;
 
-  f2d.WheelJoint _makeJoint(f2d.World world, Body bodyA, Body bodyB, Vector2 anchor) {
-    final def = f2d.WheelJointDef()
-      ..initialize(bodyA, bodyB, anchor, Vector2(0, 1))
+    final jointDefRear = f2d.WheelJointDef()
+      ..initialize(chassisComp.body, _rearWheelComp.body, _rearWheelComp.body.position, Vector2(0, 1))
       ..frequencyHz = hz
       ..dampingRatio = damping
-      ..maxMotorTorque = 20.0
-      ..enableMotor = false;
-    
-    final joint = f2d.WheelJoint(def);
-    world.createJoint(joint);
-    return joint;
+      ..enableMotor = true;
+
+    frontJoint = f2d.WheelJoint(jointDefFront);
+    rearJoint = f2d.WheelJoint(jointDefRear);
+
+    gameRef.world.physicsWorld.createJoint(frontJoint!);
+    gameRef.world.physicsWorld.createJoint(rearJoint!);
   }
 
   void updateControl(double tilt, bool isGas, bool isBrake) {
-    // TILT - Applied to the chassis
-    chassisBody.angularVelocity = tilt * 0.8; // Reduced multiplier for smoother control
+    if (!chassisComp.isLoaded) return;
 
-    // GAS
-    if (isGas) {
-      rearJoint.enableMotor(true);
-      rearJoint.motorSpeed = 55.0;
-      rearJoint.setMaxMotorTorque(25.0);
-    } else {
-      rearJoint.enableMotor(false);
+    // TILT
+    chassisComp.body.applyAngularImpulse(tilt * 0.5);
+
+    // GAS/BRAKE logic
+    if (rearJoint != null) {
+      if (isGas) {
+        rearJoint!.setMotorSpeed(-50.0); // Negative usually moves forward in 2D
+        rearJoint!.setMaxMotorTorque(20.0);
+      } else {
+        rearJoint!.setMotorSpeed(0);
+        rearJoint!.setMaxMotorTorque(0.5); // Minimal resistance
+      }
     }
-
-    // BRAKE
-    if (isBrake) {
-      rearJoint.enableMotor(true);
-      rearJoint.motorSpeed = 0;
-      rearJoint.setMaxMotorTorque(150.0);
-    }
-  }
-
-  @override
-  void render(Canvas canvas) {
-    final paint = Paint()
-      ..color = const Color(0xFFFF69B4)
-      ..strokeWidth = 0.15
-      ..style = PaintingStyle.stroke;
-
-    final chassisPos = _chassisComp.body.position;
-    final fPos = _frontWheelComp.body.position;
-    final rPos = _rearWheelComp.body.position;
-
-    final fLocal = Offset(fPos.x - chassisPos.x, fPos.y - chassisPos.y);
-    final rLocal = Offset(rPos.x - chassisPos.x, rPos.y - chassisPos.y);
-
-    canvas.save();
-    // Move canvas to chassis position to draw relative parts
-    canvas.translate(chassisPos.x, chassisPos.y);
-    canvas.rotate(_chassisComp.body.angle);
-
-    canvas.drawLine(Offset.zero, fLocal, paint);
-    canvas.drawLine(Offset.zero, rLocal, paint);
-    canvas.drawLine(fLocal, rLocal, paint);
-
-    canvas.drawCircle(Offset.zero, 0.4, Paint()..color = Colors.white);
-    canvas.restore();
   }
 }
