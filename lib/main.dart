@@ -17,20 +17,17 @@ class RaceRiderGame extends Forge2DGame with TapDetector {
   double _currentTilt = 0.0;
   bool _isGas = false;
 
-  // This is our "Unit of Measure". 
-  // 25 meters will be visible horizontally regardless of phone size.
-  static const double visibleWidthInMeters = 25.0;
-
   RaceRiderGame() : super(gravity: Vector2(0, 15.0));
 
   @override
   Future<void> onLoad() async {
     await super.onLoad();
 
-    // Responsive Zoom Calculation
-    // formula: zoom = screenWidthPixels / desiredVisibleMeters
-    final zoom = size.x / visibleWidthInMeters;
-    camera.viewfinder.zoom = zoom;
+    // ✅ Fixed world size (in "meters")
+    camera.viewport = FixedResolutionViewport(
+      resolution: Vector2(25, 15), // width x height of visible world
+    );
+
     camera.viewfinder.anchor = Anchor.center;
 
     player = Bike(initialPosition: Vector2(0, -2));
@@ -40,16 +37,8 @@ class RaceRiderGame extends Forge2DGame with TapDetector {
     camera.follow(player.chassisComp);
 
     _subscription = accelerometerEvents.listen((AccelerometerEvent event) {
-      _currentTilt = -event.x; 
+      _currentTilt = -event.x;
     });
-  }
-
-  // Handle screen rotation or resizing dynamically
-  @override
-  void onGameResize(Vector2 size) {
-    super.onGameResize(size);
-    // Recalculate zoom whenever the window/screen size changes
-    camera.viewfinder.zoom = size.x / visibleWidthInMeters;
   }
 
   @override
@@ -60,6 +49,7 @@ class RaceRiderGame extends Forge2DGame with TapDetector {
 
   @override
   void onTapDown(TapDownInfo info) => _isGas = true;
+
   @override
   void onTapUp(TapUpInfo info) => _isGas = false;
 
@@ -75,13 +65,16 @@ class Ground extends BodyComponent {
   Body createBody() {
     final shape = EdgeShape()..set(Vector2(-500, 5), Vector2(500, 5));
     final bodyDef = BodyDef()..type = BodyType.static;
-    return world.createBody(bodyDef)..createFixture(FixtureDef(shape)..friction = 0.9);
+
+    return world.createBody(bodyDef)
+      ..createFixture(FixtureDef(shape)..friction = 0.9);
   }
 }
 
 class _Part extends BodyComponent {
   final Vector2 pos;
   final bool isWheel;
+
   _Part({required this.pos, this.isWheel = false});
 
   @override
@@ -89,12 +82,13 @@ class _Part extends BodyComponent {
     final bodyDef = BodyDef()
       ..position = pos
       ..type = BodyType.dynamic;
-    
+
     if (!isWheel) bodyDef.angularDamping = 2.0;
 
     final body = world.createBody(bodyDef);
-    final shape = isWheel 
-        ? (CircleShape()..radius = 0.45) 
+
+    final shape = isWheel
+        ? (CircleShape()..radius = 0.45)
         : (PolygonShape()..setAsBox(1.2, 0.3, Vector2.zero(), 0));
 
     body.createFixture(FixtureDef(shape)
@@ -108,6 +102,7 @@ class _Part extends BodyComponent {
 
 class Bike extends Component with HasGameRef<Forge2DGame> {
   final Vector2 initialPosition;
+
   late final _Part chassisComp;
   late final _Part _frontWheelComp;
   late final _Part _rearWheelComp;
@@ -115,8 +110,8 @@ class Bike extends Component with HasGameRef<Forge2DGame> {
   f2d.WheelJoint? rearJoint;
   f2d.WheelJoint? frontJoint;
 
-  static const double wheelBase = 1.8; 
-  static const double hz = 8.0; 
+  static const double wheelBase = 1.8;
+  static const double hz = 8.0;
   static const double damping = 0.6;
 
   Bike({required this.initialPosition});
@@ -135,12 +130,22 @@ class Bike extends Component with HasGameRef<Forge2DGame> {
     await add(_rearWheelComp);
 
     final jointDefFront = f2d.WheelJointDef()
-      ..initialize(chassisComp.body, _frontWheelComp.body, _frontWheelComp.body.position, Vector2(0, 1))
+      ..initialize(
+        chassisComp.body,
+        _frontWheelComp.body,
+        _frontWheelComp.body.position,
+        Vector2(0, 1),
+      )
       ..frequencyHz = hz
       ..dampingRatio = damping;
 
     final jointDefRear = f2d.WheelJointDef()
-      ..initialize(chassisComp.body, _rearWheelComp.body, _rearWheelComp.body.position, Vector2(0, 1))
+      ..initialize(
+        chassisComp.body,
+        _rearWheelComp.body,
+        _rearWheelComp.body.position,
+        Vector2(0, 1),
+      )
       ..frequencyHz = hz
       ..dampingRatio = damping;
 
@@ -153,11 +158,15 @@ class Bike extends Component with HasGameRef<Forge2DGame> {
 
   void updateControl(double tilt, bool isGas, bool isBrake) {
     if (!chassisComp.isLoaded) return;
+
     chassisComp.body.applyTorque(tilt * 45.0);
+
     final Body rearWheel = _rearWheelComp.body;
+
     if (isGas) {
-      rearWheel.applyTorque(80.0); 
+      rearWheel.applyTorque(80.0);
     }
+
     if (isBrake) {
       rearWheel.angularVelocity *= 0.9;
     }
