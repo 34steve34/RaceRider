@@ -24,8 +24,13 @@ class RaceRiderGame extends Forge2DGame with TapDetector {
   Future<void> onLoad() async {
     await super.onLoad();
 
-    // Set up camera zoom
-    camera.viewfinder.zoom = 20.0;
+    // Dynamically size the zoom so the bike is ~10% of the screen width
+    // in landscape. Bike total physics width ≈ 2.7 units (chassis 2.4 +
+    // wheel overhang 0.3 on each side).
+    const double bikePhysicsWidth = 2.7;
+    const double targetScreenFraction = 0.10;
+    final double screenWidth = size.x; // logical pixels, landscape
+    camera.viewfinder.zoom = (targetScreenFraction * screenWidth) / bikePhysicsWidth;
     camera.viewfinder.anchor = Anchor.center;
 
     player = Bike(initialPosition: Vector2(0, -2));
