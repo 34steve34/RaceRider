@@ -1,5 +1,5 @@
 /* ============================================================================
- * RACERIDER - v10 VISIBLE DEBUG - CYAN bike
+ * RACERIDER - v11 FIXED - MAGENTA bike
  * ============================================================================ */
 
 import 'dart:math';
@@ -25,13 +25,10 @@ class RaceRiderGame extends Forge2DGame with TapCallbacks {
   bool isGas = false;
   bool isBrake = false;
 
-  RaceRiderGame() : super(gravity: Vector2(0, 0), zoom: 6.0);
+  RaceRiderGame() : super(gravity: Vector2(0, 0), zoom: 6.0, backgroundColor: const Color(0xFF112233));
 
   @override
   Future<void> onLoad() async {
-    // Background color so we know something is rendering
-    camera.viewfinder.backgroundColor = const Color(0xFF112233);
-
     track = Track();
     add(track);
 
@@ -59,9 +56,9 @@ class RaceRiderGame extends Forge2DGame with TapCallbacks {
   void onTapDown(TapDownEvent event) {
     final isLeftSide = event.localPosition.x < size.x / 2;
     if (isLeftSide) {
-      isBrake = true;   // Left = Brake (as you requested)
+      isBrake = true;     // Left side = Brake
     } else {
-      isGas = true;     // Right = Gas
+      isGas = true;       // Right side = Gas
     }
   }
 
@@ -73,24 +70,24 @@ class RaceRiderGame extends Forge2DGame with TapCallbacks {
 }
 
 // ===================================================================
-// DEBUG OVERLAY
+// DEBUG TEXT
 // ===================================================================
 class DebugOverlay extends Component {
   @override
   void render(Canvas canvas) {
     final tp = TextPainter(
       text: const TextSpan(
-        text: "v10 - CYAN bike\nLeft = Brake | Right = Gas\nTilt should work",
-        style: TextStyle(color: Colors.yellow, fontSize: 28, fontWeight: FontWeight.bold),
+        text: "v11 - MAGENTA bike\nLeft = Brake | Right = Gas",
+        style: TextStyle(color: Colors.yellow, fontSize: 26, fontWeight: FontWeight.bold),
       ),
       textDirection: TextDirection.ltr,
     )..layout();
-    tp.paint(canvas, const Offset(20, 40));
+    tp.paint(canvas, const Offset(20, 30));
   }
 }
 
 // ===================================================================
-// CUSTOM BIKE
+// CUSTOM BIKE - MAGENTA
 // ===================================================================
 class Bike extends PositionComponent {
   Vector2 velocity = Vector2.zero();
@@ -100,7 +97,7 @@ class Bike extends PositionComponent {
   bool onGround = false;
 
   final double gravity = 42.0;
-  final double leanStrength = 40.0;
+  final double leanStrength = 42.0;
   final double acceleration = 55.0;
   final double brakePower = 20.0;
 
@@ -131,7 +128,6 @@ class Bike extends PositionComponent {
 
     position += velocity * dt;
 
-    // Very visible ground check
     onGround = position.y > 4.0;
     if (onGround) angularVelocity *= 0.6;
   }
@@ -142,11 +138,11 @@ class Bike extends PositionComponent {
     canvas.translate(position.x, position.y);
     canvas.rotate(angle);
 
-    // CYAN chassis - v10 indicator
-    final chassisPaint = Paint()..color = const Color(0xFF00FFFF);
+    // MAGENTA chassis = v11 indicator
+    final chassisPaint = Paint()..color = const Color(0xFFFF00AA);
     canvas.drawRect(const Rect.fromLTWH(-2.75, -0.7, 5.5, 1.4), chassisPaint);
 
-    final riderPaint = Paint()..color = const Color(0xFFFF0088);
+    final riderPaint = Paint()..color = const Color(0xFF00FFFF);
     canvas.drawRect(const Rect.fromLTWH(-0.9, -1.8, 1.8, 1.6), riderPaint);
 
     final wheelPaint = Paint()..color = Colors.white;
@@ -158,7 +154,7 @@ class Bike extends PositionComponent {
 }
 
 // ===================================================================
-// TRACK (now very visible)
+// TRACK - Very visible
 // ===================================================================
 class Track extends BodyComponent {
   @override
@@ -183,11 +179,10 @@ class Track extends BodyComponent {
   void render(Canvas canvas) {
     final paint = Paint()
       ..color = const Color(0xFF00FF88)
-      ..strokeWidth = 8.0
+      ..strokeWidth = 10.0
       ..style = PaintingStyle.stroke;
 
     final path = Path();
-    // Draw a simple visible line for now (we'll improve later)
     path.moveTo(-100, 5);
     path.lineTo(300, 5);
     canvas.drawPath(path, paint);
