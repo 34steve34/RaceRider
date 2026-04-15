@@ -11,7 +11,7 @@ import 'package:flame/events.dart';
 import 'package:sensors_plus/sensors_plus.dart';
 
 void main() {
-  runApp(GameWidget(game: RaceRiderGame()));   
+  runApp(GameWidget(game: RaceRiderGame()));
 }
 
 class RaceRiderGame extends FlameGame with TapCallbacks {
@@ -29,27 +29,23 @@ class RaceRiderGame extends FlameGame with TapCallbacks {
   @override
   void onGameResize(Vector2 size) {
     super.onGameResize(size);
-    
-    // Set how many world units should be visible horizontally.
-    const double visibleWorldWidth = 40.0; 
-    
-    // Calculate the vertical size based on the device's aspect ratio
+
+    const double visibleWorldWidth = 40.0;
     final double aspectRatio = size.x / size.y;
-    
+
     camera.viewfinder.visibleGameSize = Vector2(
-      visibleWorldWidth, 
-      visibleWorldWidth / aspectRatio
+      visibleWorldWidth,
+      visibleWorldWidth / aspectRatio,
     );
   }
 
   @override
   Future<void> onLoad() async {
     track = Track();
-    // CHANGED: Must add to world so the camera can see it!
     world.add(track);
 
-    player = Bike(Vector2(0, -8));
-    // CHANGED: Must add to world so the camera can follow and scale it!
+    // Pass the track points to the bike so it knows where the ground actually is
+    player = Bike(Vector2(0, -8), track.points);
     world.add(player);
 
     // Camera setup
@@ -87,9 +83,20 @@ class RaceRiderGame extends FlameGame with TapCallbacks {
 }
 
 // ===================================================================
+// HELPER CLASS FOR TRACK COLLISIONS
+// ===================================================================
+class TrackInfo {
+  final double y;
+  final double angle;
+  TrackInfo(this.y, this.angle);
+}
+
+// ===================================================================
 // CUSTOM BIKE PHYSICS
 // ===================================================================
 class Bike extends PositionComponent {
+  final List<Vector2> trackPoints;
+
   Vector2 velocity = Vector2.zero();
   double angle = 0.0;
   double angularVelocity = 0.0;
@@ -97,7 +104,7 @@ class Bike extends PositionComponent {
   bool onGround = false;
   double groundAngle = 0.0;
 
-  // ==================== TUNING - CHANGE THESE TO FEEL THE DIFFERENCE ====================
+  // ==================== TUNING ====================
   final double gravity = 38.0;
   final double airDamping = 0.965;
   final double groundFriction = 0.89;
@@ -108,7 +115,7 @@ class Bike extends PositionComponent {
   final double brakePower = 48.0;
   final double maxSpeed = 48.0;
 
-  Bike(Vector2 startPos) {
+  Bike(Vector2 startPos, this.trackPoints) {
     position = startPos;
     size = Vector2(3.8, 1.8);
     anchor = Anchor.center;
@@ -131,7 +138,7 @@ class Bike extends PositionComponent {
     angularVelocity += torque * dt;
     angle += angularVelocity * dt;
 
-    // Drive / Brake
+    // Drive / Brake (Now only happens if physically touching the track)
     if (onGround) {
       double driveForce = 0.0;
       if (gas) driveForce = acceleration;
@@ -152,21 +159,74 @@ class Bike extends PositionComponent {
   }
 
   void _checkGround() {
-    final rearOffset = Vector2(-1.6, 0.6)..rotate(angle);
-    final frontOffset = Vector2(1.6, 0.6)..rotate(angle);
+    // Match these exactly to where the visual wheels are drawn
+    final rearOffset = Vector2(-1.45, 0.55)..rotate(angle);
+    final frontOffset = Vector2(1.45, 0.55)..rotate(angle);
 
     final rearPos = position + rearOffset;
     final frontPos = position + frontOffset;
 
-    const groundLevel = 5.0;
-    const tolerance = 0.9;
+    // Find the height and slope of the track segment exactly under each wheel
+    final rearGround = _getTrackInfoAtX(rearPos.x);
+    final frontGround = _getTrackInfoAtX(frontPos.x);
 
-    onGround = rearPos.y >= groundLevel - tolerance || frontPos.y >= groundLevel - tolerance;
+    const wheelRadius = 0.55;
+
+    bool rearTouching = (rearPos.y + wheelRadius) >= rearGround.y;
+    bool frontTouching = (frontPos.y + wheelRadius) >= frontGround.y;
+
+    onGround = rearTouching || frontTouching;
 
     if (onGround) {
-      angularVelocity *= 0.45;
-      groundAngle = 0.0;
+      // Average the slope if both wheels are touching
+      if (rearTouching && frontTouching) {
+        groundAngle = (rearGround.angle + frontGround.angle) / 2;
+      } else if (rearTouching) {
+        groundAngle = rearGround.angle;
+      } else {
+        groundAngle = frontGround.angle;
+      }
+
+      angularVelocity *= 0.45; // Dampen spinning when hitting ground
+
+      // Solid ground collision: push the bike up if it sinks into the line
+      double pushUp = 0;
+      if (rearTouching) {
+        double penetration = (rearPos.y + wheelRadius) - rearGround.y;
+        if (penetration > pushUp) pushUp = penetration;
+      }
+      if (frontTouching) {
+        double penetration = (frontPos.y + wheelRadius) - frontGround.y;
+        if (penetration > pushUp) pushUp = penetration;
+      }
+
+      if (pushUp > 0) {
+        position.y -= pushUp;
+        // Kill downward velocity to prevent bouncing, but allow upward velocity (climbing hills)
+        if (velocity.y > 0) {
+          velocity.y = 0;
+        }
+      }
     }
+  }
+
+  // Raycasts straight down to find the specific track segment under a given X coordinate
+  TrackInfo _getTrackInfoAtX(double x) {
+    if (x <= trackPoints.first.x) return TrackInfo(trackPoints.first.y, 0);
+    if (x >= trackPoints.last.x) return TrackInfo(trackPoints.last.y, 0);
+
+    for (int i = 0; i < trackPoints.length - 1; i++) {
+      final p1 = trackPoints[i];
+      final p2 = trackPoints[i + 1];
+      if (x >= p1.x && x < p2.x) {
+        // Interpolate exactly where the line is between these two points
+        double t = (x - p1.x) / (p2.x - p1.x);
+        double trackY = p1.y + t * (p2.y - p1.y);
+        double slopeAngle = atan2(p2.y - p1.y, p2.x - p1.x);
+        return TrackInfo(trackY, slopeAngle);
+      }
+    }
+    return TrackInfo(0, 0);
   }
 
   @override
@@ -175,7 +235,7 @@ class Bike extends PositionComponent {
     canvas.translate(position.x, position.y);
     canvas.rotate(angle);
 
-    // Chassis (Blue)
+    // Chassis
     final chassisPaint = Paint()..color = const Color(0xFF0000FF);
     canvas.drawRect(const Rect.fromLTWH(-1.9, -0.45, 3.8, 0.9), chassisPaint);
 
