@@ -20,18 +20,20 @@ class RaceRiderGame extends Forge2DGame with TapDetector {
 
   RaceRiderGame() : super(gravity: Vector2(0, 15.0));
 
+  // Forge2DGame resets camera.viewfinder.zoom inside its own onGameResize,
+  // which fires AFTER onLoad — so any zoom set in onLoad gets clobbered.
+  // Fix: override onGameResize and re-apply our zoom after super runs.
+  @override
+  void onGameResize(Vector2 size) {
+    super.onGameResize(size); // Forge2DGame resets zoom here; we override below
+    // Bike physics width ≈ 2.7 units. Target: 10% of landscape screen width.
+    camera.viewfinder.zoom = (0.10 * size.x) / 2.7;
+    camera.viewfinder.anchor = Anchor.center;
+  }
+
   @override
   Future<void> onLoad() async {
     await super.onLoad();
-
-    // Dynamically size the zoom so the bike is ~10% of the screen width
-    // in landscape. Bike total physics width ≈ 2.7 units (chassis 2.4 +
-    // wheel overhang 0.3 on each side).
-    const double bikePhysicsWidth = 2.7;
-    const double targetScreenFraction = 0.10;
-    final double screenWidth = size.x; // logical pixels, landscape
-    camera.viewfinder.zoom = (targetScreenFraction * screenWidth) / bikePhysicsWidth;
-    camera.viewfinder.anchor = Anchor.center;
 
     player = Bike(initialPosition: Vector2(0, -2));
     await add(player);
