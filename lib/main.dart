@@ -8,7 +8,13 @@ import 'package:flutter/material.dart';
 import 'package:sensors_plus/sensors_plus.dart';
 
 void main() {
-  runApp(GameWidget(game: RaceRiderGame()));
+  runApp(
+    MaterialApp(
+      home: Scaffold(
+        body: GameWidget(game: RaceRiderGame()),
+      ),
+    ),
+  );
 }
 
 class RaceRiderGame extends Forge2DGame with TapDetector {
