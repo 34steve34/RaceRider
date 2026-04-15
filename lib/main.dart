@@ -24,7 +24,7 @@ class RaceRiderGame extends Forge2DGame with TapDetector {
     await super.onLoad();
 
     // ✅ Fixed world size (in "meters")
-    camera.viewport = FixedResolutionViewport(
+    camera.viewport = FixedResolutionViewportComponent(
       resolution: Vector2(25, 15), // width x height of visible world
     );
 
