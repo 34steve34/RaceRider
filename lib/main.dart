@@ -28,9 +28,11 @@ class RaceRiderGame extends Forge2DGame with TapDetector {
     await add(player);
     await add(Ground());
 
+    // Focus camera on the chassis component
     camera.follow(player.chassisComp);
 
     _subscription = accelerometerEvents.listen((AccelerometerEvent event) {
+      // Landscape orientation tilt mapping
       _currentTilt = -event.x; 
     });
   }
@@ -79,8 +81,10 @@ class _Part extends BodyComponent {
       ..position = pos
       ..type = BodyType.dynamic;
     
+    // Higher damping on chassis prevents infinite wobbling
     if (!isWheel) {
-      bodyDef.angularDamping = 1.8;
+      bodyDef.angularDamping = 1.5;
+      bodyDef.linearDamping = 0.2;
     }
 
     final body = world.createBody(bodyDef);
@@ -103,11 +107,12 @@ class Bike extends Component with HasGameRef<Forge2DGame> {
   late final _Part _frontWheelComp;
   late final _Part _rearWheelComp;
 
+  // We keep the joints for suspension logic, but strip the motor logic
   f2d.WheelJoint? rearJoint;
   f2d.WheelJoint? frontJoint;
 
   static const double wheelBase = 2.8;
-  static const double hz = 15.0; 
+  static const double hz = 12.0; // Lower Hz for softer, more realistic suspension
   static const double damping = 0.7;
 
   Bike({required this.initialPosition});
@@ -121,25 +126,23 @@ class Bike extends Component with HasGameRef<Forge2DGame> {
     _frontWheelComp = _Part(pos: frontPos, isWheel: true);
     _rearWheelComp = _Part(pos: rearPos, isWheel: true);
 
-    // Adding components to the game
     await add(chassisComp);
     await add(_frontWheelComp);
     await add(_rearWheelComp);
 
-    // We must wait for bodies to be created before making joints
-    // This is handled by Forge2DGame's lifecycle, but for joints 
-    // we can use the world object directly.
-    
+    // Initializing passive joints
+    // These act as spring/pivot constraints only.
     final jointDefFront = f2d.WheelJointDef()
       ..initialize(chassisComp.body, _frontWheelComp.body, _frontWheelComp.body.position, Vector2(0, 1))
       ..frequencyHz = hz
-      ..dampingRatio = damping;
+      ..dampingRatio = damping
+      ..enableMotor = false; // Stripped Forge2D motor
 
     final jointDefRear = f2d.WheelJointDef()
       ..initialize(chassisComp.body, _rearWheelComp.body, _rearWheelComp.body.position, Vector2(0, 1))
       ..frequencyHz = hz
       ..dampingRatio = damping
-      ..enableMotor = true;
+      ..enableMotor = false; // Stripped Forge2D motor
 
     frontJoint = f2d.WheelJoint(jointDefFront);
     rearJoint = f2d.WheelJoint(jointDefRear);
@@ -151,22 +154,25 @@ class Bike extends Component with HasGameRef<Forge2DGame> {
   void updateControl(double tilt, bool isGas, bool isBrake) {
     if (!chassisComp.isLoaded) return;
 
-    // TILT - Apply impulse for air control/leaning
-    chassisComp.body.applyAngularImpulse(tilt * 0.5);
+    // 1. LEANING (Custom Torque)
+    // Instead of forcing velocity, we apply torque based on tilt
+    chassisComp.body.applyTorque(tilt * 35.0);
 
-    // GAS/BRAKE logic
-    final joint = rearJoint;
-    if (joint != null) {
-      if (isGas) {
-        joint.motorSpeed = -55.0; // Assignment, not a method call
-        joint.maxMotorTorque = 25.0; // Assignment, not a method call
-      } else if (isBrake) {
-        joint.motorSpeed = 0;
-        joint.maxMotorTorque = 150.0; // High torque to lock the wheel
-      } else {
-        joint.motorSpeed = 0;
-        joint.maxMotorTorque = 0.5; // Rolling resistance
-      }
+    // 2. DRIVE LOGIC (Custom physics)
+    final Body rearWheel = _rearWheelComp.body;
+    
+    if (isGas) {
+      // Apply a direct torque to the wheel.
+      // Newton's 3rd Law: The chassis will receive an equal and opposite torque,
+      // which is what causes the front end to lift (wheelie) naturally.
+      rearWheel.applyTorque(75.0); 
+    }
+
+    if (isBrake) {
+      // Custom braking by applying a counter-velocity impulse or damping
+      rearWheel.angularVelocity *= 0.85; 
+      // Apply a small counter-torque to keep it locked on slopes
+      rearWheel.applyTorque(-rearWheel.angularVelocity * 10.0);
     }
   }
 }
