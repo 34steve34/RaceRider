@@ -151,17 +151,21 @@ class Bike extends Component with HasGameRef<Forge2DGame> {
   void updateControl(double tilt, bool isGas, bool isBrake) {
     if (!chassisComp.isLoaded) return;
 
-    // TILT
+    // TILT - Apply impulse for air control/leaning
     chassisComp.body.applyAngularImpulse(tilt * 0.5);
 
     // GAS/BRAKE logic
-    if (rearJoint != null) {
+    final joint = rearJoint;
+    if (joint != null) {
       if (isGas) {
-        rearJoint!.setMotorSpeed(-50.0); // Negative usually moves forward in 2D
-        rearJoint!.setMaxMotorTorque(20.0);
+        joint.motorSpeed = -55.0; // Assignment, not a method call
+        joint.maxMotorTorque = 25.0; // Assignment, not a method call
+      } else if (isBrake) {
+        joint.motorSpeed = 0;
+        joint.maxMotorTorque = 150.0; // High torque to lock the wheel
       } else {
-        rearJoint!.setMotorSpeed(0);
-        rearJoint!.setMaxMotorTorque(0.5); // Minimal resistance
+        joint.motorSpeed = 0;
+        joint.maxMotorTorque = 0.5; // Rolling resistance
       }
     }
   }
