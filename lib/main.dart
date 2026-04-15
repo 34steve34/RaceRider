@@ -24,8 +24,9 @@ class RaceRiderGame extends Forge2DGame with TapDetector {
   void _updateCameraZoom(Vector2 size) {
     if (size.x == 0 || size.y == 0) return;
 
-    const visibleWidth = 25.0;
-    const visibleHeight = 15.0;
+    // Smaller values = more zoom (fewer world units visible)
+    const visibleWidth = 10.0;  // Show only 10 world units horizontally
+    const visibleHeight = 6.0;  // Show only 6 world units vertically
 
     final zoomX = size.x / visibleWidth;
     final zoomY = size.y / visibleHeight;
