@@ -1,6 +1,5 @@
 /* ============================================================================
- * RACERIDER - v9 HYBRID (Custom Bike Physics + Forge2D Track)
- * Purple bike + big text = new version
+ * RACERIDER - v10 VISIBLE DEBUG - CYAN bike
  * ============================================================================ */
 
 import 'dart:math';
@@ -12,12 +11,13 @@ import 'package:flame_forge2d/flame_forge2d.dart';
 import 'package:sensors_plus/sensors_plus.dart';
 
 void main() {
-  runApp(GameWidget(game: RaceRiderGame()));   // Fixed const error
+  runApp(GameWidget(game: RaceRiderGame()));
 }
 
 class RaceRiderGame extends Forge2DGame with TapCallbacks {
   late Bike player;
   late Track track;
+  late DebugOverlay debug;
 
   double rawTilt = 0.0;
   double smoothedTilt = 0.0;
@@ -25,22 +25,24 @@ class RaceRiderGame extends Forge2DGame with TapCallbacks {
   bool isGas = false;
   bool isBrake = false;
 
-  RaceRiderGame() : super(gravity: Vector2(0, 0)); // We handle gravity ourselves
+  RaceRiderGame() : super(gravity: Vector2(0, 0), zoom: 6.0);
 
   @override
   Future<void> onLoad() async {
+    // Background color so we know something is rendering
+    camera.viewfinder.backgroundColor = const Color(0xFF112233);
+
     track = Track();
     add(track);
 
-    player = Bike(Vector2(-35, 2));
+    player = Bike(Vector2(-25, 0));
     add(player);
 
-    camera.follow(player);
-    camera.viewfinder.zoom = 5.5;        // Good starting zoom
+    debug = DebugOverlay();
+    add(debug);
 
-    accelerometerEvents.listen((event) {
-      rawTilt = -event.x;
-    });
+    camera.follow(player);
+    camera.viewfinder.zoom = 5.0;
   }
 
   @override
@@ -48,7 +50,7 @@ class RaceRiderGame extends Forge2DGame with TapCallbacks {
     super.update(dt);
 
     double normalizedTilt = (rawTilt / 8.0).clamp(-1.0, 1.0);
-    smoothedTilt = smoothedTilt * 0.45 + normalizedTilt * 0.55; // fast response
+    smoothedTilt = smoothedTilt * 0.4 + normalizedTilt * 0.6;
 
     player.updateBike(dt, smoothedTilt, isGas, isBrake);
   }
@@ -57,9 +59,9 @@ class RaceRiderGame extends Forge2DGame with TapCallbacks {
   void onTapDown(TapDownEvent event) {
     final isLeftSide = event.localPosition.x < size.x / 2;
     if (isLeftSide) {
-      isGas = true;      // Left = Gas + Lean Left
+      isBrake = true;   // Left = Brake (as you requested)
     } else {
-      isBrake = true;    // Right = Brake + Lean Right
+      isGas = true;     // Right = Gas
     }
   }
 
@@ -71,7 +73,24 @@ class RaceRiderGame extends Forge2DGame with TapCallbacks {
 }
 
 // ===================================================================
-// CUSTOM BIKE PHYSICS (Hybrid)
+// DEBUG OVERLAY
+// ===================================================================
+class DebugOverlay extends Component {
+  @override
+  void render(Canvas canvas) {
+    final tp = TextPainter(
+      text: const TextSpan(
+        text: "v10 - CYAN bike\nLeft = Brake | Right = Gas\nTilt should work",
+        style: TextStyle(color: Colors.yellow, fontSize: 28, fontWeight: FontWeight.bold),
+      ),
+      textDirection: TextDirection.ltr,
+    )..layout();
+    tp.paint(canvas, const Offset(20, 40));
+  }
+}
+
+// ===================================================================
+// CUSTOM BIKE
 // ===================================================================
 class Bike extends PositionComponent {
   Vector2 velocity = Vector2.zero();
@@ -79,39 +98,27 @@ class Bike extends PositionComponent {
   double angularVelocity = 0.0;
 
   bool onGround = false;
-  double groundAngle = 0.0;
 
-  // TUNING
   final double gravity = 42.0;
-  final double leanStrength = 38.0;
-  final double groundLeanMultiplier = 3.2;
-  final double airControl = 0.84;
-  final double acceleration = 52.0;
-  final double brakePower = 18.0;
-  final double maxSpeed = 60.0;
+  final double leanStrength = 40.0;
+  final double acceleration = 55.0;
+  final double brakePower = 20.0;
 
   Bike(Vector2 startPos) {
     position = startPos;
-    size = Vector2(5.2, 2.6);
+    size = Vector2(5.5, 2.8);
     anchor = Anchor.center;
   }
 
   void updateBike(double dt, double tilt, bool gas, bool brake) {
     velocity.y += gravity * dt;
 
-    // Lean control
     double torque = tilt * leanStrength;
-    if (onGround) {
-      torque *= groundLeanMultiplier;
-    } else {
-      torque *= airControl;
-      angularVelocity *= 0.96;
-    }
+    if (!onGround) angularVelocity *= 0.96;
 
     angularVelocity += torque * dt;
     angle += angularVelocity * dt;
 
-    // Drive
     if (onGround) {
       double drive = 0.0;
       if (gas) drive = acceleration;
@@ -119,24 +126,14 @@ class Bike extends PositionComponent {
 
       velocity.x += drive * cos(angle) * dt;
       velocity.y += drive * sin(angle) * dt;
-
-      velocity.x *= 0.84;
-      velocity.x = velocity.x.clamp(-maxSpeed, maxSpeed);
+      velocity.x *= 0.83;
     }
 
     position += velocity * dt;
-    _checkGround();
-  }
 
-  void _checkGround() {
-    final rearPos = position + (Vector2(-1.9, 0.8)..rotate(angle));
-    final frontPos = position + (Vector2(1.9, 0.8)..rotate(angle));
-
-    onGround = rearPos.y > 4.5 || frontPos.y > 4.5;
-
-    if (onGround) {
-      angularVelocity *= 0.5;
-    }
+    // Very visible ground check
+    onGround = position.y > 4.0;
+    if (onGround) angularVelocity *= 0.6;
   }
 
   @override
@@ -145,25 +142,23 @@ class Bike extends PositionComponent {
     canvas.translate(position.x, position.y);
     canvas.rotate(angle);
 
-    // PURPLE chassis (v9 indicator)
-    final chassisPaint = Paint()..color = const Color(0xFFAA00FF);
-    canvas.drawRect(const Rect.fromLTWH(-2.6, -0.65, 5.2, 1.3), chassisPaint);
+    // CYAN chassis - v10 indicator
+    final chassisPaint = Paint()..color = const Color(0xFF00FFFF);
+    canvas.drawRect(const Rect.fromLTWH(-2.75, -0.7, 5.5, 1.4), chassisPaint);
 
-    // Rider
-    final riderPaint = Paint()..color = const Color(0xFFFFEE00);
-    canvas.drawRect(const Rect.fromLTWH(-0.8, -1.7, 1.6, 1.5), riderPaint);
+    final riderPaint = Paint()..color = const Color(0xFFFF0088);
+    canvas.drawRect(const Rect.fromLTWH(-0.9, -1.8, 1.8, 1.6), riderPaint);
 
-    // Wheels
     final wheelPaint = Paint()..color = Colors.white;
-    canvas.drawCircle(const Offset(-1.85, 0.75), 0.72, wheelPaint);
-    canvas.drawCircle(const Offset(1.85, 0.75), 0.72, wheelPaint);
+    canvas.drawCircle(const Offset(-1.9, 0.85), 0.78, wheelPaint);
+    canvas.drawCircle(const Offset(1.9, 0.85), 0.78, wheelPaint);
 
     canvas.restore();
   }
 }
 
 // ===================================================================
-// FORGE2D TRACK (for accurate ground)
+// TRACK (now very visible)
 // ===================================================================
 class Track extends BodyComponent {
   @override
@@ -171,15 +166,14 @@ class Track extends BodyComponent {
     final body = world.createBody(BodyDef()..type = BodyType.static);
 
     final points = [
-      Vector2(-100, 5), Vector2(-20, 5),
-      Vector2(-15, 3.5), Vector2(-10, 2.0), Vector2(-5, 3.5), Vector2(0, 5),
-      Vector2(20, 5), Vector2(40, 5),
-      Vector2(45, 4.0), Vector2(50, 1.5), Vector2(55, 4.0), Vector2(60, 5),
-      Vector2(80, 5), Vector2(200, 5),
+      Vector2(-100, 5), Vector2(-30, 5),
+      Vector2(-25, 3), Vector2(-15, 5), Vector2(0, 5),
+      Vector2(20, 5), Vector2(40, 3), Vector2(55, 5),
+      Vector2(80, 5), Vector2(120, 2), Vector2(160, 5), Vector2(300, 5),
     ];
 
     for (int i = 0; i < points.length - 1; i++) {
-      body.createFixture(FixtureDef(EdgeShape()..set(points[i], points[i + 1]))
+      body.createFixture(FixtureDef(EdgeShape()..set(points[i], points[i+1]))
         ..friction = 0.9);
     }
     return body;
@@ -187,12 +181,15 @@ class Track extends BodyComponent {
 
   @override
   void render(Canvas canvas) {
-    // You can improve this visual later
     final paint = Paint()
-      ..color = const Color(0xFF00FF99)
-      ..strokeWidth = 4.0
+      ..color = const Color(0xFF00FF88)
+      ..strokeWidth = 8.0
       ..style = PaintingStyle.stroke;
-    
-    // Simple line for now
+
+    final path = Path();
+    // Draw a simple visible line for now (we'll improve later)
+    path.moveTo(-100, 5);
+    path.lineTo(300, 5);
+    canvas.drawPath(path, paint);
   }
 }
