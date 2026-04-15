@@ -1,7 +1,50 @@
 import 'package:flame/components.dart';
+import 'package:flame/events.dart';
 import 'package:flame_forge2d/flame_forge2d.dart';
 import 'package:forge2d/forge2d.dart' as f2d;
 import 'package:flutter/material.dart';
+
+// --- ADDED STARTING POINT ---
+void main() {
+  runApp(GameWidget(game: RaceRiderGame()));
+}
+
+class RaceRiderGame extends Forge2DGame with TapDetector {
+  late final Bike player;
+
+  @override
+  Future<void> onLoad() async {
+    await super.onLoad();
+    
+    // Add the bike to the world
+    player = Bike(initialPosition: Vector2(0, 5));
+    add(player);
+    
+    // Add a simple ground so the bike doesn't fall forever
+    add(Ground());
+  }
+
+  @override
+  void onTapDown(TapDownInfo info) {
+    // Example: Trigger gas on tap
+    player.updateControl(0, true, false);
+  }
+
+  @override
+  void onTapUp(TapUpInfo info) {
+    player.updateControl(0, false, false);
+  }
+}
+
+class Ground extends BodyComponent {
+  @override
+  Body createBody() {
+    final shape = EdgeShape()..set(Vector2(-100, 10), Vector2(100, 10));
+    final bodyDef = BodyDef()..type = BodyType.static;
+    return world.createBody(bodyDef)..createFixture(FixtureDef(shape, friction: 0.8));
+  }
+}
+// --- END OF ADDED CLASSES ---
 
 class _Part extends BodyComponent {
   final Vector2 pos;
@@ -60,6 +103,7 @@ class Bike extends Component with HasGameRef<Forge2DGame> {
     await add(_frontWheelComp);
     await add(_rearWheelComp);
 
+    // Wait for bodies to be created before making joints
     final physicsWorld = gameRef.world.physicsWorld;
     frontJoint = _makeJoint(physicsWorld, _chassisComp.body, _frontWheelComp.body, frontPos);
     rearJoint = _makeJoint(physicsWorld, _chassisComp.body, _rearWheelComp.body, rearPos);
@@ -79,19 +123,16 @@ class Bike extends Component with HasGameRef<Forge2DGame> {
   }
 
   void updateControl(double tilt, bool isGas, bool isBrake) {
-    // TILT
     chassisBody.angularVelocity = tilt * 7.0;
 
-    // GAS
     if (isGas) {
       rearJoint.enableMotor(true);
-      rearJoint.motorSpeed = 55.0; // Positive = Forward
-      rearJoint.setMaxMotorTorque(25.0); // Subtle wheelie torque
+      rearJoint.motorSpeed = 55.0; 
+      rearJoint.setMaxMotorTorque(25.0); 
     } else {
-      rearJoint.enableMotor(false); // Free roll backwards on hills
+      rearJoint.enableMotor(false); 
     }
 
-    // BRAKE
     if (isBrake) {
       rearJoint.enableMotor(true);
       rearJoint.motorSpeed = 0;
@@ -101,7 +142,6 @@ class Bike extends Component with HasGameRef<Forge2DGame> {
 
   @override
   void render(Canvas canvas) {
-    // Draw visual frame (Pink lines) connecting the 3 points
     final paint = Paint()
       ..color = const Color(0xFFFF69B4)
       ..strokeWidth = 0.15
@@ -111,7 +151,6 @@ class Bike extends Component with HasGameRef<Forge2DGame> {
     final fPos = _frontWheelComp.body.position;
     final rPos = _rearWheelComp.body.position;
 
-    // Relative offsets for drawing
     final fLocal = Offset(fPos.x - chassisPos.x, fPos.y - chassisPos.y);
     final rLocal = Offset(rPos.x - chassisPos.x, rPos.y - chassisPos.y);
 
@@ -119,7 +158,6 @@ class Bike extends Component with HasGameRef<Forge2DGame> {
     canvas.drawLine(Offset.zero, rLocal, paint);
     canvas.drawLine(fLocal, rLocal, paint);
 
-    // Head circle
     canvas.drawCircle(Offset.zero, 0.4, Paint()..color = Colors.white);
   }
 }
