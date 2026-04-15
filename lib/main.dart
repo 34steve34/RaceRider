@@ -22,12 +22,10 @@ class RaceRiderGame extends Forge2DGame with TapDetector {
 
   // ✅ Centralized camera scaling logic
   void _updateCameraZoom(Vector2 size) {
-    // Set a fixed zoom level - higher zoom = more zoomed in (fewer world units visible)
-    // zoom = 1.0 means 1 pixel = 1 world unit
-    // zoom = 10.0 means 10 pixels = 1 world unit (zoomed in 10x)
+    // Higher zoom = zoomed IN (bigger on screen)
     camera.viewfinder
       ..anchor = Anchor.center
-      ..zoom = 8.0;  // Zoomed in 8x - should show ~10-15 world units horizontally
+      ..zoom = 50.0;  // ZOOM IN - make everything 50x bigger
   }
 
   @override
@@ -40,6 +38,8 @@ class RaceRiderGame extends Forge2DGame with TapDetector {
     await add(player);
     await add(Ground());
 
+    // Wait a frame to ensure bike is fully loaded before following
+    await Future.delayed(Duration.zero);
     camera.follow(player.chassisComp);
 
     _subscription = accelerometerEvents.listen((AccelerometerEvent event) {
