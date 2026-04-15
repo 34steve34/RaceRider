@@ -24,8 +24,7 @@ class RaceRiderGame extends Forge2DGame with TapDetector {
   Future<void> onLoad() async {
     await super.onLoad();
 
-    // Set up camera with fixed resolution
-    camera.viewport = FixedResolutionViewport(Vector2(800, 600));
+    // Set up camera zoom
     camera.viewfinder.zoom = 20.0;
     camera.viewfinder.anchor = Anchor.center;
 
