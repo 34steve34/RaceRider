@@ -1,5 +1,5 @@
 /* ============================================================================
- * RACERIDER - v11 FIXED - MAGENTA bike
+ * RACERIDER - v12 FIXED - ORANGE bike
  * ============================================================================ */
 
 import 'dart:math';
@@ -25,10 +25,13 @@ class RaceRiderGame extends Forge2DGame with TapCallbacks {
   bool isGas = false;
   bool isBrake = false;
 
-  RaceRiderGame() : super(gravity: Vector2(0, 0), zoom: 6.0, backgroundColor: const Color(0xFF112233));
+  RaceRiderGame() : super(gravity: Vector2(0, 0), zoom: 6.0);
 
   @override
   Future<void> onLoad() async {
+    // Background color using a simple component instead
+    add(Background());
+
     track = Track();
     add(track);
 
@@ -39,7 +42,7 @@ class RaceRiderGame extends Forge2DGame with TapCallbacks {
     add(debug);
 
     camera.follow(player);
-    camera.viewfinder.zoom = 5.0;
+    camera.viewfinder.zoom = 5.2;
   }
 
   @override
@@ -56,9 +59,9 @@ class RaceRiderGame extends Forge2DGame with TapCallbacks {
   void onTapDown(TapDownEvent event) {
     final isLeftSide = event.localPosition.x < size.x / 2;
     if (isLeftSide) {
-      isBrake = true;     // Left side = Brake
+      isBrake = true;     // Left = Brake
     } else {
-      isGas = true;       // Right side = Gas
+      isGas = true;       // Right = Gas
     }
   }
 
@@ -66,6 +69,17 @@ class RaceRiderGame extends Forge2DGame with TapCallbacks {
   void onTapUp(TapUpEvent event) {
     isGas = false;
     isBrake = false;
+  }
+}
+
+// Simple background
+class Background extends Component {
+  @override
+  void render(Canvas canvas) {
+    canvas.drawRect(
+      Rect.fromLTWH(0, 0, gameRef.size.x, gameRef.size.y),
+      Paint()..color = const Color(0xFF112233),
+    );
   }
 }
 
@@ -77,7 +91,7 @@ class DebugOverlay extends Component {
   void render(Canvas canvas) {
     final tp = TextPainter(
       text: const TextSpan(
-        text: "v11 - MAGENTA bike\nLeft = Brake | Right = Gas",
+        text: "v12 - ORANGE bike\nLeft = Brake | Right = Gas",
         style: TextStyle(color: Colors.yellow, fontSize: 26, fontWeight: FontWeight.bold),
       ),
       textDirection: TextDirection.ltr,
@@ -87,7 +101,7 @@ class DebugOverlay extends Component {
 }
 
 // ===================================================================
-// CUSTOM BIKE - MAGENTA
+// CUSTOM BIKE - ORANGE
 // ===================================================================
 class Bike extends PositionComponent {
   Vector2 velocity = Vector2.zero();
@@ -138,8 +152,8 @@ class Bike extends PositionComponent {
     canvas.translate(position.x, position.y);
     canvas.rotate(angle);
 
-    // MAGENTA chassis = v11 indicator
-    final chassisPaint = Paint()..color = const Color(0xFFFF00AA);
+    // ORANGE chassis = v12 indicator
+    final chassisPaint = Paint()..color = const Color(0xFFFF8800);
     canvas.drawRect(const Rect.fromLTWH(-2.75, -0.7, 5.5, 1.4), chassisPaint);
 
     final riderPaint = Paint()..color = const Color(0xFF00FFFF);
@@ -154,7 +168,7 @@ class Bike extends PositionComponent {
 }
 
 // ===================================================================
-// TRACK - Very visible
+// TRACK
 // ===================================================================
 class Track extends BodyComponent {
   @override
