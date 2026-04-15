@@ -36145,8 +36145,8 @@ s.a.set(this,a)}}
 A.fV.prototype={
 mO(a){var s,r,q,p=a.a,o=p[0]
 if(o===0||p[1]===0)return
-s=o/25
-r=p[1]/15
+s=o/10
+r=p[1]/6
 p=this.k4.ax
 p.ax=B.bi
 p.kE()
