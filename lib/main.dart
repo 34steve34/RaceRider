@@ -22,18 +22,12 @@ class RaceRiderGame extends Forge2DGame with TapDetector {
 
   // ✅ Centralized camera scaling logic
   void _updateCameraZoom(Vector2 size) {
-    if (size.x == 0 || size.y == 0) return;
-
-    // Smaller values = more zoom (fewer world units visible)
-    const visibleWidth = 10.0;  // Show only 10 world units horizontally
-    const visibleHeight = 6.0;  // Show only 6 world units vertically
-
-    final zoomX = size.x / visibleWidth;
-    final zoomY = size.y / visibleHeight;
-
+    // Set a fixed zoom level - higher zoom = more zoomed in (fewer world units visible)
+    // zoom = 1.0 means 1 pixel = 1 world unit
+    // zoom = 10.0 means 10 pixels = 1 world unit (zoomed in 10x)
     camera.viewfinder
       ..anchor = Anchor.center
-      ..zoom = zoomX < zoomY ? zoomX : zoomY; // keeps aspect ratio safe
+      ..zoom = 8.0;  // Zoomed in 8x - should show ~10-15 world units horizontally
   }
 
   @override
@@ -81,11 +75,52 @@ class RaceRiderGame extends Forge2DGame with TapDetector {
 class Ground extends BodyComponent {
   @override
   Body createBody() {
-    final shape = EdgeShape()..set(Vector2(-500, 5), Vector2(500, 5));
-    final bodyDef = BodyDef()..type = BodyType.static;
-
-    return world.createBody(bodyDef)
-      ..createFixture(FixtureDef(shape)..friction = 0.9);
+    final body = world.createBody(BodyDef()..type = BodyType.static);
+    
+    // Create a track with bumps and features
+    final List<Vector2> points = [
+      // Starting flat section
+      Vector2(-100, 5),
+      Vector2(-20, 5),
+      
+      // First bump
+      Vector2(-15, 3.5),
+      Vector2(-10, 2),
+      Vector2(-5, 3.5),
+      Vector2(0, 5),
+      
+      // Flat section
+      Vector2(20, 5),
+      Vector2(40, 5),
+      
+      // Second bump (bigger)
+      Vector2(45, 4),
+      Vector2(50, 1.5),
+      Vector2(55, 4),
+      Vector2(60, 5),
+      
+      // Flat section
+      Vector2(80, 5),
+      Vector2(100, 5),
+      
+      // Third bump (small)
+      Vector2(105, 4.2),
+      Vector2(110, 3.5),
+      Vector2(115, 4.2),
+      Vector2(120, 5),
+      
+      // Final flat section
+      Vector2(200, 5),
+      Vector2(500, 5),
+    ];
+    
+    // Create edge segments between consecutive points
+    for (int i = 0; i < points.length - 1; i++) {
+      final shape = EdgeShape()..set(points[i], points[i + 1]);
+      body.createFixture(FixtureDef(shape)..friction = 0.9);
+    }
+    
+    return body;
   }
 }
 
