@@ -1,5 +1,5 @@
 /* ============================================================================
- * RACERIDER - v21 - TRACK POSITION FIX (no bike color change)
+ * RACERIDER - v22 - TRACK POSITION FIX (no bike color change)
  * Goal: Green line in the middle of the screen, bike clearly visible above it
  * ============================================================================ */
 
@@ -40,16 +40,16 @@ class RaceRiderGame extends Forge2DGame with TapCallbacks {
     debug = DebugOverlay();
     add(debug);
 
-    camera.follow(player);
-
-    // Set camera to look at the bike and track area
+    // Don't use camera.follow() - we'll update it manually
     camera.viewfinder.zoom = 5.5;
-    camera.viewfinder.position = player.position;  // Follow the bike's position
   }
 
   @override
   void update(double dt) {
     super.update(dt);
+
+    // Manually update camera to follow the bike
+    camera.viewfinder.position = player.position;
 
     double normalizedTilt = (rawTilt / 8.0).clamp(-1.0, 1.0);
     smoothedTilt = smoothedTilt * 0.4 + normalizedTilt * 0.6;
@@ -86,7 +86,7 @@ class DebugOverlay extends Component {
   void render(Canvas canvas) {
     final tp = TextPainter(
       text: const TextSpan(
-        text: "v21 - TRACK FIX\nGreen line should now be in the middle\nLeft=Brake | Right=Gas",
+        text: "v22 - TRACK FIX\nGreen line should now be in the middle\nLeft=Brake | Right=Gas",
         style: TextStyle(color: Colors.yellow, fontSize: 24, fontWeight: FontWeight.bold),
       ),
       textDirection: TextDirection.ltr,
