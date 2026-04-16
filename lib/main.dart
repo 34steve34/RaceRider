@@ -42,9 +42,9 @@ class RaceRiderGame extends Forge2DGame with TapCallbacks {
 
     camera.follow(player);
 
-    // FORCE the camera to look at a good area
+    // Set camera to look at the bike and track area
     camera.viewfinder.zoom = 5.5;
-    camera.viewfinder.position = Vector2(0, 10);   // look at the play area
+    camera.viewfinder.position = player.position;  // Follow the bike's position
   }
 
   @override
