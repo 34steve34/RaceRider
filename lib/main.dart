@@ -49,13 +49,43 @@ class RaceRiderGame extends Forge2DGame with TapCallbacks {
   void update(double dt) {
     super.update(dt);
 
-    // Manually update camera to follow the bike
-    camera.viewfinder.position = player.position;
-
     double normalizedTilt = (rawTilt / 8.0).clamp(-1.0, 1.0);
     smoothedTilt = smoothedTilt * 0.4 + normalizedTilt * 0.6;
 
     player.updateBike(dt, smoothedTilt, isGas, isBrake);
+  }
+
+  @override
+  void render(Canvas canvas) {
+    super.render(canvas);
+    
+    // Apply camera transform manually
+    canvas.save();
+    canvas.translate(size.x / 2, size.y / 2);  // Center of screen
+    canvas.scale(camera.viewfinder.zoom);
+    canvas.translate(-player.position.x, -player.position.y);  // Follow bike
+    
+    // Draw track
+    final trackPaint = Paint()
+      ..color = const Color(0xFF00FF88)
+      ..strokeWidth = 2.0
+      ..style = PaintingStyle.stroke;
+    canvas.drawLine(const Offset(-100, 12), const Offset(300, 12), trackPaint);
+    
+    // Draw bike
+    canvas.save();
+    canvas.translate(player.position.x, player.position.y);
+    canvas.rotate(player.angle);
+    
+    final chassisPaint = Paint()..color = const Color(0xFFFF8800);
+    canvas.drawRect(const Rect.fromLTWH(-3.25, -0.8, 6.5, 1.6), chassisPaint);
+    
+    final wheelPaint = Paint()..color = Colors.white;
+    canvas.drawCircle(const Offset(-2.1, 0.95), 0.85, wheelPaint);
+    canvas.drawCircle(const Offset(2.1, 0.95), 0.85, wheelPaint);
+    
+    canvas.restore();
+    canvas.restore();
   }
 
   @override
