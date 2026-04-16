@@ -1,5 +1,5 @@
 /* ============================================================================
- * RACERIDER - v15 BIG ORANGE bike + forced visibility
+ * RACERIDER - v16 FIXED - ORANGE bike
  * ============================================================================ */
 
 import 'dart:math';
@@ -33,14 +33,14 @@ class RaceRiderGame extends Forge2DGame with TapCallbacks {
     track = Track();
     add(track);
 
-    player = Bike(Vector2(-20, -5));   // Spawn higher up so it's visible
+    player = Bike(Vector2(-20, -8));   // Spawn higher so it's visible
     add(player);
 
     debug = DebugOverlay();
     add(debug);
 
     camera.follow(player);
-    camera.viewfinder.zoom = 4.8;   // Bigger zoom
+    camera.viewfinder.zoom = 4.8;
   }
 
   @override
@@ -67,22 +67,28 @@ class RaceRiderGame extends Forge2DGame with TapCallbacks {
   }
 }
 
-// Background
-class Background extends Component {
+// ===================================================================
+// BACKGROUND (Fixed)
+// ===================================================================
+class Background extends Component with HasGameRef<Forge2DGame> {
   @override
   void render(Canvas canvas) {
-    canvas.drawRect(Rect.fromLTWH(0, 0, gameRef.size.x, gameRef.size.y), 
-      Paint()..color = const Color(0xFF112233));
+    canvas.drawRect(
+      Rect.fromLTWH(0, 0, gameRef.size.x, gameRef.size.y),
+      Paint()..color = const Color(0xFF112233),
+    );
   }
 }
 
-// Debug Text
+// ===================================================================
+// DEBUG TEXT
+// ===================================================================
 class DebugOverlay extends Component {
   @override
   void render(Canvas canvas) {
     final tp = TextPainter(
       text: const TextSpan(
-        text: "v15 - BIG ORANGE bike\nLeft = Brake | Right = Gas\nTilt phone left/right",
+        text: "v16 - ORANGE bike\nLeft = Brake | Right = Gas\nTilt phone left/right",
         style: TextStyle(color: Colors.yellow, fontSize: 24, fontWeight: FontWeight.bold),
       ),
       textDirection: TextDirection.ltr,
@@ -92,7 +98,7 @@ class DebugOverlay extends Component {
 }
 
 // ===================================================================
-// BIG ORANGE BIKE
+// CUSTOM BIKE - ORANGE
 // ===================================================================
 class Bike extends PositionComponent {
   Vector2 velocity = Vector2.zero();
@@ -108,7 +114,7 @@ class Bike extends PositionComponent {
 
   Bike(Vector2 startPos) {
     position = startPos;
-    size = Vector2(6.5, 3.2);   // Even bigger
+    size = Vector2(6.5, 3.2);
     anchor = Anchor.center;
   }
 
@@ -116,67 +122,4 @@ class Bike extends PositionComponent {
     velocity.y += gravity * dt;
 
     double torque = tilt * leanStrength;
-    if (!onGround) angularVelocity *= 0.96;
-
-    angularVelocity += torque * dt;
-    angle += angularVelocity * dt;
-
-    if (onGround) {
-      double drive = gas ? acceleration : (brake ? -brakePower : 0);
-      velocity.x += drive * cos(angle) * dt;
-      velocity.y += drive * sin(angle) * dt;
-      velocity.x *= 0.82;
-    }
-
-    position += velocity * dt;
-
-    onGround = position.y > 4.5;
-    if (onGround) angularVelocity *= 0.55;
-  }
-
-  @override
-  void render(Canvas canvas) {
-    canvas.save();
-    canvas.translate(position.x, position.y);
-    canvas.rotate(angle);
-
-    // BIG ORANGE chassis
-    final chassisPaint = Paint()..color = const Color(0xFFFF8800);
-    canvas.drawRect(const Rect.fromLTWH(-3.25, -0.8, 6.5, 1.6), chassisPaint);
-
-    // Rider
-    final riderPaint = Paint()..color = const Color(0xFF00FFFF);
-    canvas.drawRect(const Rect.fromLTWH(-1.0, -2.1, 2.0, 1.8), riderPaint);
-
-    // Wheels
-    final wheelPaint = Paint()..color = Colors.white;
-    canvas.drawCircle(const Offset(-2.1, 0.95), 0.85, wheelPaint);
-    canvas.drawCircle(const Offset(2.1, 0.95), 0.85, wheelPaint);
-
-    canvas.restore();
-  }
-}
-
-// ===================================================================
-// TRACK
-// ===================================================================
-class Track extends BodyComponent {
-  @override
-  Body createBody() {
-    final body = world.createBody(BodyDef()..type = BodyType.static);
-    final points = [
-      Vector2(-100, 5), Vector2(300, 5)
-    ];
-    body.createFixture(FixtureDef(EdgeShape()..set(points[0], points[1]))..friction = 0.9);
-    return body;
-  }
-
-  @override
-  void render(Canvas canvas) {
-    final paint = Paint()
-      ..color = const Color(0xFF00FF88)
-      ..strokeWidth = 12.0
-      ..style = PaintingStyle.stroke;
-    canvas.drawLine(const Offset(-100, 5), const Offset(300, 5), paint);
-  }
-}
+    if (!onGround) angularVelocity *=
