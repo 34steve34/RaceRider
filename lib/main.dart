@@ -50,6 +50,9 @@ class RaceRiderGame extends Forge2DGame with TapCallbacks {
 
     // Manually update camera to follow the bike
     camera.viewfinder.position = player.position;
+    
+    // Debug output
+    print('Bike pos: ${player.position}, Camera pos: ${camera.viewfinder.position}, Camera zoom: ${camera.viewfinder.zoom}');
 
     double normalizedTilt = (rawTilt / 8.0).clamp(-1.0, 1.0);
     smoothedTilt = smoothedTilt * 0.4 + normalizedTilt * 0.6;
