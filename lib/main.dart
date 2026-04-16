@@ -76,12 +76,9 @@ class RaceRiderGame extends Forge2DGame with TapCallbacks {
 class Background extends Component with HasGameRef<RaceRiderGame> {
   @override
   void render(Canvas canvas) {
-    // Draw background in screen space (not affected by camera)
-    canvas.save();
-    canvas.resetTransform();
-    canvas.drawRect(Rect.fromLTWH(0, 0, gameRef.size.x, gameRef.size.y), 
+    // Draw background - will be affected by camera but that's okay
+    canvas.drawRect(Rect.fromLTWH(-1000, -1000, 3000, 3000), 
       Paint()..color = const Color(0xFF112233));
-    canvas.restore();
   }
 }
 
