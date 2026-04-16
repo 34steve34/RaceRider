@@ -1,5 +1,5 @@
 /* ============================================================================
- * RACERIDER - v25 - TRACK POSITION FIX (no bike color change)
+ * RACERIDER - v26 - TRACK POSITION FIX (no bike color change)
  * Goal: Green line in the middle of the screen, bike clearly visible above it
  * ============================================================================ */
 
@@ -142,7 +142,7 @@ class DebugOverlay extends Component with HasGameRef<RaceRiderGame> {
   void render(Canvas canvas) {
     final tp = TextPainter(
       text: TextSpan(
-        text: "v25 - TRACK FIX\n"
+        text: "v26 - TRACK FIX\n"
             "Green line should now be in the middle\n"
             "Left=Brake | Right=Gas\n"
             "Bike pos: ${gameRef.player.position}\n"
@@ -166,8 +166,13 @@ class Bike extends PositionComponent {
 
   final double gravity = 42.0;
   final double leanStrength = 45.0;
-  final double acceleration = 58.0;
+  final double acceleration = 116.0;  // Doubled from 58.0
   final double brakePower = 22.0;
+  
+  // Suspension parameters
+  final double suspensionRestLength = 1.5;
+  final double suspensionStiffness = 800.0;
+  final double suspensionDamping = 50.0;
 
   Bike(Vector2 startPos) {
     position = startPos;
@@ -193,13 +198,63 @@ class Bike extends PositionComponent {
 
     position += velocity * dt;
 
-    // Check if bike is on the track (y >= 12)
-    onGround = position.y >= 11.5;
-    if (onGround) {
-      position.y = 11.5;  // Clamp to track level
-      velocity.y = 0;     // Stop falling
+    // Check collision with track - raycast downward from bike
+    double trackHeightAtBike = getTrackHeightAt(position.x);
+    double bikeBottomY = position.y + 0.95;  // Wheel radius
+    
+    if (bikeBottomY >= trackHeightAtBike) {
+      // Bike is on or below track
+      onGround = true;
+      
+      // Apply suspension force
+      double compression = bikeBottomY - trackHeightAtBike;
+      if (compression > 0) {
+        double springForce = compression * suspensionStiffness;
+        double dampingForce = velocity.y * suspensionDamping;
+        double totalForce = springForce - dampingForce;
+        velocity.y -= totalForce * dt;
+      }
+      
+      // Clamp to track surface
+      position.y = trackHeightAtBike - 0.95;
       angularVelocity *= 0.55;
+    } else {
+      onGround = false;
     }
+  }
+  
+  // Get track height at a given x position
+  double getTrackHeightAt(double x) {
+    const double baseTrackY = 12.0;
+    
+    // Bump 1 at x=-20 to -10
+    if (x >= -20 && x <= -10) {
+      if (x < -15) {
+        return baseTrackY - 2.0 * (x + 20) / 5;  // Going up
+      } else {
+        return baseTrackY - 2.0 * (-10 - x) / 5;  // Going down
+      }
+    }
+    
+    // Bump 2 at x=30 to 40
+    if (x >= 30 && x <= 40) {
+      if (x < 35) {
+        return baseTrackY - 3.0 * (x - 30) / 5;  // Going up
+      } else {
+        return baseTrackY - 3.0 * (40 - x) / 5;  // Going down
+      }
+    }
+    
+    // Bump 3 at x=80 to 90
+    if (x >= 80 && x <= 90) {
+      if (x < 85) {
+        return baseTrackY - 1.5 * (x - 80) / 5;  // Going up
+      } else {
+        return baseTrackY - 1.5 * (90 - x) / 5;  // Going down
+      }
+    }
+    
+    return baseTrackY;
   }
 
   @override
