@@ -1,5 +1,5 @@
 /* ============================================================================
- * RACERIDER - v12 FIXED - ORANGE bike
+ * RACERIDER - v13 FIXED - ORANGE bike
  * ============================================================================ */
 
 import 'dart:math';
@@ -29,7 +29,7 @@ class RaceRiderGame extends Forge2DGame with TapCallbacks {
 
   @override
   Future<void> onLoad() async {
-    // Background color using a simple component instead
+    // Background
     add(Background());
 
     track = Track();
@@ -72,14 +72,15 @@ class RaceRiderGame extends Forge2DGame with TapCallbacks {
   }
 }
 
-// Simple background
+// ===================================================================
+// BACKGROUND
+// ===================================================================
 class Background extends Component {
   @override
   void render(Canvas canvas) {
-    canvas.drawRect(
-      Rect.fromLTWH(0, 0, gameRef.size.x, gameRef.size.y),
-      Paint()..color = const Color(0xFF112233),
-    );
+    // Use gameRef.size safely
+    final rect = Rect.fromLTWH(0, 0, game.size.x, game.size.y);
+    canvas.drawRect(rect, Paint()..color = const Color(0xFF112233));
   }
 }
 
@@ -91,7 +92,7 @@ class DebugOverlay extends Component {
   void render(Canvas canvas) {
     final tp = TextPainter(
       text: const TextSpan(
-        text: "v12 - ORANGE bike\nLeft = Brake | Right = Gas",
+        text: "v13 - ORANGE bike\nLeft = Brake | Right = Gas",
         style: TextStyle(color: Colors.yellow, fontSize: 26, fontWeight: FontWeight.bold),
       ),
       textDirection: TextDirection.ltr,
@@ -152,8 +153,7 @@ class Bike extends PositionComponent {
     canvas.translate(position.x, position.y);
     canvas.rotate(angle);
 
-    // ORANGE chassis = v12 indicator
-    final chassisPaint = Paint()..color = const Color(0xFFFF8800);
+    final chassisPaint = Paint()..color = const Color(0xFFFF8800); // ORANGE
     canvas.drawRect(const Rect.fromLTWH(-2.75, -0.7, 5.5, 1.4), chassisPaint);
 
     final riderPaint = Paint()..color = const Color(0xFF00FFFF);
