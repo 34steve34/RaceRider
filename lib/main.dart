@@ -35,7 +35,8 @@ class RaceRiderGame extends Forge2DGame with TapCallbacks {
     add(track);
 
     player = Bike(Vector2(0, 6));        // clearly above the track
-    add(player);
+    // Don't add player to the scene - we'll render it manually
+    // add(player);
 
     debug = DebugOverlay();
     add(debug);
@@ -49,10 +50,26 @@ class RaceRiderGame extends Forge2DGame with TapCallbacks {
   void update(double dt) {
     super.update(dt);
 
+    // Update camera position to follow bike
+    camera.viewfinder.position = player.position;
+
     double normalizedTilt = (rawTilt / 8.0).clamp(-1.0, 1.0);
     smoothedTilt = smoothedTilt * 0.4 + normalizedTilt * 0.6;
 
     player.updateBike(dt, smoothedTilt, isGas, isBrake);
+  }
+
+  @override
+  void onTapDown(TapDownEvent event) {
+    final isLeftSide = event.localPosition.x < size.x / 2;
+    if (isLeftSide) isBrake = true;
+    else isGas = true;
+  }
+
+  @override
+  void onTapUp(TapUpEvent event) {
+    isGas = false;
+    isBrake = false;
   }
 
   @override
@@ -65,12 +82,32 @@ class RaceRiderGame extends Forge2DGame with TapCallbacks {
     canvas.scale(camera.viewfinder.zoom);
     canvas.translate(-player.position.x, -player.position.y);  // Follow bike
     
-    // Draw track
+    // Draw track with bumps
     final trackPaint = Paint()
       ..color = const Color(0xFF00FF88)
       ..strokeWidth = 2.0
       ..style = PaintingStyle.stroke;
+    
+    // Main track line
     canvas.drawLine(const Offset(-100, 12), const Offset(300, 12), trackPaint);
+    
+    // Bumps on the track
+    final bumpPaint = Paint()
+      ..color = const Color(0xFF00FF88)
+      ..strokeWidth = 3.0
+      ..style = PaintingStyle.stroke;
+    
+    // Bump 1 at x=-20
+    canvas.drawLine(const Offset(-20, 12), const Offset(-15, 10), bumpPaint);
+    canvas.drawLine(const Offset(-15, 10), const Offset(-10, 12), bumpPaint);
+    
+    // Bump 2 at x=30
+    canvas.drawLine(const Offset(30, 12), const Offset(35, 9), bumpPaint);
+    canvas.drawLine(const Offset(35, 9), const Offset(40, 12), bumpPaint);
+    
+    // Bump 3 at x=80
+    canvas.drawLine(const Offset(80, 12), const Offset(85, 10.5), bumpPaint);
+    canvas.drawLine(const Offset(85, 10.5), const Offset(90, 12), bumpPaint);
     
     // Draw bike
     canvas.save();
@@ -86,19 +123,6 @@ class RaceRiderGame extends Forge2DGame with TapCallbacks {
     
     canvas.restore();
     canvas.restore();
-  }
-
-  @override
-  void onTapDown(TapDownEvent event) {
-    final isLeftSide = event.localPosition.x < size.x / 2;
-    if (isLeftSide) isBrake = true;
-    else isGas = true;
-  }
-
-  @override
-  void onTapUp(TapUpEvent event) {
-    isGas = false;
-    isBrake = false;
   }
 }
 
