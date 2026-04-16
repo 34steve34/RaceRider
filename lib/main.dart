@@ -1,5 +1,5 @@
 /* ============================================================================
- * RACERIDER - v23 - TRACK POSITION FIX (no bike color change)
+ * RACERIDER - v24 - TRACK POSITION FIX (no bike color change)
  * Goal: Green line in the middle of the screen, bike clearly visible above it
  * ============================================================================ */
 
@@ -89,7 +89,7 @@ class DebugOverlay extends Component with HasGameRef<RaceRiderGame> {
   void render(Canvas canvas) {
     final tp = TextPainter(
       text: TextSpan(
-        text: "v23 - TRACK FIX\n"
+        text: "v24 - TRACK FIX\n"
             "Green line should now be in the middle\n"
             "Left=Brake | Right=Gas\n"
             "Bike pos: ${gameRef.player.position}\n"
@@ -140,8 +140,13 @@ class Bike extends PositionComponent {
 
     position += velocity * dt;
 
-    onGround = position.y > 10.5;
-    if (onGround) angularVelocity *= 0.55;
+    // Check if bike is on the track (y >= 12)
+    onGround = position.y >= 11.5;
+    if (onGround) {
+      position.y = 11.5;  // Clamp to track level
+      velocity.y = 0;     // Stop falling
+      angularVelocity *= 0.55;
+    }
   }
 
   @override
