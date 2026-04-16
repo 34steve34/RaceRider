@@ -24431,9 +24431,9 @@ p=new A.k(new Float64Array(2))
 o=new A.k(new Float64Array(2))
 n=l.k3.go.Gt(new A.w4(B.v,p,o))
 l=new A.k(new Float64Array(2))
-l.am(-100,5)
+l.am(-100,8)
 p=new A.k(new Float64Array(2))
-p.am(300,5)
+p.am(300,8)
 m=[l,p]
 p=A.Mk()
 l=m[0]
@@ -35721,7 +35721,7 @@ p.zB(null,null,null,null,null,null,!0)
 q.Hc=p
 q.cn(p)
 p=new A.k(new Float64Array(2))
-p.am(-20,-8)
+p.am(-10,2)
 o=new Float64Array(2)
 n=A.Fa()
 m=new A.k(new Float64Array(2))
@@ -35735,7 +35735,7 @@ n=n.d
 n.d3(p)
 n.aF()
 p=new A.k(new Float64Array(2))
-p.am(6.5,3.2)
+p.am(7.5,3.5)
 o.sT(p)
 o.ay=B.cZ
 o.mf()
@@ -35750,7 +35750,7 @@ p.f2()
 p=p.ax
 p.cn(new A.ka(o,p,1/0,!1,!1,0,null,new A.aJ([]),new A.aJ([])))
 o=new A.k(new Float64Array(2))
-o.l0(4.8)
+o.l0(5.5)
 p=p.at.e
 p.d3(o)
 p.aF()
@@ -35770,18 +35770,18 @@ m=n.a
 n.sn(m[1]+42*a)
 l=q.p2
 if(!l)q.p1*=0.96
-r=q.p1+r*45*a
+r=q.p1+r*48*a
 q.p1=r
 r=q.ok+r*a
 q.ok=r
-if(l){if(p)k=58
-else k=o?-22:0
+if(l){if(p)k=60
+else k=o?-24:0
 n.sm(m[0]+k*Math.cos(r)*a)
 n.sn(m[1]+k*Math.sin(q.ok)*a)
 n.sm(m[0]*0.82)}r=q.at.d
 r.d3(r.G(0,n.q(0,a)))
 r.aF()
-r=r.a[1]>4.5
+r=r.a[1]>4.8
 q.p2=r
 if(r)q.p1*=0.55}}
 A.nl.prototype={
@@ -35805,21 +35805,21 @@ r=A.cg()
 r.r=B.oy.ag()
 a.fu(B.uH,r)
 q=A.cg()
-q.r=B.oC.ag()
+q.r=B.oB.ag()
 a.fu(B.uI,q)
 p=A.cg()
 p.r=B.a8.ag()
-a.nc(B.tL,0.85,p)
-a.nc(B.tN,0.85,p)
+a.nc(B.tL,0.95,p)
+a.nc(B.tO,0.95,p)
 o.restore()}}
 A.qC.prototype={
 eT(a){var s
 $.av()
 s=A.cg()
 s.r=B.oI.ag()
-s.c=12
+s.c=14
 s.b=B.jC
-a.jG(B.tO,B.tK,s)}}
+a.jG(B.tN,B.tK,s)}}
 A.r5.prototype={
 bT(){var s=this.ns$
 return s==null?this.pu():s}}
@@ -37224,9 +37224,9 @@ B.a6=new A.jC(1,"hardEdge")
 B.bx=new A.jC(3,"antiAliasWithSaveLayer")
 B.m=new A.wL(0,"sRGB")
 B.a7=new A.aC(1,1,0,1,B.m)
+B.oy=new A.aC(1,1,0,0,B.m)
 B.d9=new A.aC(0,0,0,0,B.m)
-B.oy=new A.aC(1,1,0.5333333333333333,0,B.m)
-B.oC=new A.aC(1,0,1,1,B.m)
+B.oB=new A.aC(1,1,1,0,B.m)
 B.oE=new A.aC(1,0.18823529411764706,0.18823529411764706,0.18823529411764706,B.m)
 B.oH=new A.aC(1,0.06666666666666667,0.13333333333333333,0.2,B.m)
 B.oI=new A.aC(1,0,1,0.5333333333333333,B.m)
@@ -37924,9 +37924,9 @@ B.oM=new A.aC(1,1,0.9333333333333333,0.34509803921568627,B.m)
 B.ox=new A.aC(1,1,0.9215686274509803,0.23137254901960785,B.m)
 B.oJ=new A.aC(1,0.9921568627450981,0.8470588235294118,0.20784313725490197,B.m)
 B.oD=new A.aC(1,0.984313725490196,0.7529411764705882,0.17647058823529413,B.m)
-B.oB=new A.aC(1,0.9764705882352941,0.6588235294117647,0.1450980392156863,B.m)
+B.oC=new A.aC(1,0.9764705882352941,0.6588235294117647,0.1450980392156863,B.m)
 B.oz=new A.aC(1,0.9607843137254902,0.4980392156862745,0.09019607843137255,B.m)
-B.cB=new A.bO([50,B.oA,100,B.oN,200,B.oF,300,B.oG,400,B.oM,500,B.ox,600,B.oJ,700,B.oD,800,B.oB,900,B.oz],A.a6("bO<j,aC>"))
+B.cB=new A.bO([50,B.oA,100,B.oN,200,B.oF,300,B.oG,400,B.oM,500,B.ox,600,B.oJ,700,B.oD,800,B.oC,900,B.oz],A.a6("bO<j,aC>"))
 B.tB={Abort:0,Again:1,AltLeft:2,AltRight:3,ArrowDown:4,ArrowLeft:5,ArrowRight:6,ArrowUp:7,AudioVolumeDown:8,AudioVolumeMute:9,AudioVolumeUp:10,Backquote:11,Backslash:12,Backspace:13,BracketLeft:14,BracketRight:15,BrightnessDown:16,BrightnessUp:17,BrowserBack:18,BrowserFavorites:19,BrowserForward:20,BrowserHome:21,BrowserRefresh:22,BrowserSearch:23,BrowserStop:24,CapsLock:25,Comma:26,ContextMenu:27,ControlLeft:28,ControlRight:29,Convert:30,Copy:31,Cut:32,Delete:33,Digit0:34,Digit1:35,Digit2:36,Digit3:37,Digit4:38,Digit5:39,Digit6:40,Digit7:41,Digit8:42,Digit9:43,DisplayToggleIntExt:44,Eject:45,End:46,Enter:47,Equal:48,Escape:49,Esc:50,F1:51,F10:52,F11:53,F12:54,F13:55,F14:56,F15:57,F16:58,F17:59,F18:60,F19:61,F2:62,F20:63,F21:64,F22:65,F23:66,F24:67,F3:68,F4:69,F5:70,F6:71,F7:72,F8:73,F9:74,Find:75,Fn:76,FnLock:77,GameButton1:78,GameButton10:79,GameButton11:80,GameButton12:81,GameButton13:82,GameButton14:83,GameButton15:84,GameButton16:85,GameButton2:86,GameButton3:87,GameButton4:88,GameButton5:89,GameButton6:90,GameButton7:91,GameButton8:92,GameButton9:93,GameButtonA:94,GameButtonB:95,GameButtonC:96,GameButtonLeft1:97,GameButtonLeft2:98,GameButtonMode:99,GameButtonRight1:100,GameButtonRight2:101,GameButtonSelect:102,GameButtonStart:103,GameButtonThumbLeft:104,GameButtonThumbRight:105,GameButtonX:106,GameButtonY:107,GameButtonZ:108,Help:109,Home:110,Hyper:111,Insert:112,IntlBackslash:113,IntlRo:114,IntlYen:115,KanaMode:116,KeyA:117,KeyB:118,KeyC:119,KeyD:120,KeyE:121,KeyF:122,KeyG:123,KeyH:124,KeyI:125,KeyJ:126,KeyK:127,KeyL:128,KeyM:129,KeyN:130,KeyO:131,KeyP:132,KeyQ:133,KeyR:134,KeyS:135,KeyT:136,KeyU:137,KeyV:138,KeyW:139,KeyX:140,KeyY:141,KeyZ:142,KeyboardLayoutSelect:143,Lang1:144,Lang2:145,Lang3:146,Lang4:147,Lang5:148,LaunchApp1:149,LaunchApp2:150,LaunchAssistant:151,LaunchControlPanel:152,LaunchMail:153,LaunchScreenSaver:154,MailForward:155,MailReply:156,MailSend:157,MediaFastForward:158,MediaPause:159,MediaPlay:160,MediaPlayPause:161,MediaRecord:162,MediaRewind:163,MediaSelect:164,MediaStop:165,MediaTrackNext:166,MediaTrackPrevious:167,MetaLeft:168,MetaRight:169,MicrophoneMuteToggle:170,Minus:171,NonConvert:172,NumLock:173,Numpad0:174,Numpad1:175,Numpad2:176,Numpad3:177,Numpad4:178,Numpad5:179,Numpad6:180,Numpad7:181,Numpad8:182,Numpad9:183,NumpadAdd:184,NumpadBackspace:185,NumpadClear:186,NumpadClearEntry:187,NumpadComma:188,NumpadDecimal:189,NumpadDivide:190,NumpadEnter:191,NumpadEqual:192,NumpadMemoryAdd:193,NumpadMemoryClear:194,NumpadMemoryRecall:195,NumpadMemoryStore:196,NumpadMemorySubtract:197,NumpadMultiply:198,NumpadParenLeft:199,NumpadParenRight:200,NumpadSubtract:201,Open:202,PageDown:203,PageUp:204,Paste:205,Pause:206,Period:207,Power:208,PrintScreen:209,PrivacyScreenToggle:210,Props:211,Quote:212,Resume:213,ScrollLock:214,Select:215,SelectTask:216,Semicolon:217,ShiftLeft:218,ShiftRight:219,ShowAllWindows:220,Slash:221,Sleep:222,Space:223,Super:224,Suspend:225,Tab:226,Turbo:227,Undo:228,WakeUp:229,ZoomToggle:230}
 B.mj=new A.e(458907)
 B.m_=new A.e(458873)
@@ -38209,11 +38209,11 @@ B.tt=new A.p7(3,"transform")
 B.tx=new A.B1(0,"traditional")
 B.k=new A.J(0,0)
 B.tJ=new A.J(20,30)
-B.tK=new A.J(300,5)
-B.tL=new A.J(-2.1,0.95)
+B.tK=new A.J(300,8)
+B.tL=new A.J(-2.4,1.05)
 B.tM=new A.J(1/0,0)
-B.tN=new A.J(2.1,0.95)
-B.tO=new A.J(-100,5)
+B.tN=new A.J(-100,8)
+B.tO=new A.J(2.4,1.05)
 B.w=new A.dT(0,"iOs")
 B.az=new A.dT(1,"android")
 B.b5=new A.dT(2,"linux")
@@ -38255,8 +38255,8 @@ B.uE=new A.ir(3,"scale")
 B.uF=new A.ir(4,"unknown")
 B.D=new A.W(0,0,0,0)
 B.uG=new A.W(-1e9,-1e9,1e9,1e9)
-B.uH=new A.W(-3.25,-0.8,3.25,0.8)
-B.uI=new A.W(-1,-2.1,1,-0.30000000000000004)
+B.uH=new A.W(-3.75,-0.9,3.75,0.9)
+B.uI=new A.W(-1.1,-2.4,1.1999999999999997,-0.3999999999999999)
 B.aE=new A.h0(0,"idle")
 B.n8=new A.h0(1,"transientCallbacks")
 B.n9=new A.h0(2,"midFrameMicrotasks")
@@ -38348,8 +38348,8 @@ B.nt=new A.qw(1,"even")
 B.vt=new A.bA(-1,-1)
 B.tp=new A.p1(1,1,0.9215686274509803,0.23137254901960785,B.m)
 B.p5=new A.on(700)
-B.vv=new A.iH(B.tp,null,24,B.p5)
-B.vu=new A.ha("v18 - ORANGE bike\nLeft = Brake | Right = Gas\nTilt phone left/right",B.aK,B.vv)
+B.vv=new A.iH(B.tp,null,26,B.p5)
+B.vu=new A.ha("v20 - BIG RED bike\nLeft = Brake | Right = Gas\nTilt phone left/right",B.aK,B.vv)
 B.vw=new A.iH(null,null,null,null)
 B.nu=new A.F7(0,"parent")
 B.vx=new A.qA(0,"clamp")
