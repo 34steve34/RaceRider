@@ -1,5 +1,5 @@
 /* ============================================================================
- * RACERIDER - v13 FIXED - ORANGE bike
+ * RACERIDER - v14 FIXED - ORANGE bike
  * ============================================================================ */
 
 import 'dart:math';
@@ -29,9 +29,7 @@ class RaceRiderGame extends Forge2DGame with TapCallbacks {
 
   @override
   Future<void> onLoad() async {
-    // Background
     add(Background());
-
     track = Track();
     add(track);
 
@@ -73,13 +71,12 @@ class RaceRiderGame extends Forge2DGame with TapCallbacks {
 }
 
 // ===================================================================
-// BACKGROUND
+// BACKGROUND (Fixed)
 // ===================================================================
-class Background extends Component {
+class Background extends Component with HasGameRef<Forge2DGame> {
   @override
   void render(Canvas canvas) {
-    // Use gameRef.size safely
-    final rect = Rect.fromLTWH(0, 0, game.size.x, game.size.y);
+    final rect = Rect.fromLTWH(0, 0, gameRef.size.x, gameRef.size.y);
     canvas.drawRect(rect, Paint()..color = const Color(0xFF112233));
   }
 }
@@ -92,7 +89,7 @@ class DebugOverlay extends Component {
   void render(Canvas canvas) {
     final tp = TextPainter(
       text: const TextSpan(
-        text: "v13 - ORANGE bike\nLeft = Brake | Right = Gas",
+        text: "v14 - ORANGE bike\nLeft = Brake | Right = Gas",
         style: TextStyle(color: Colors.yellow, fontSize: 26, fontWeight: FontWeight.bold),
       ),
       textDirection: TextDirection.ltr,
