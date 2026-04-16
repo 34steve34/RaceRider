@@ -84,13 +84,18 @@ class Background extends Component with HasGameRef<Forge2DGame> {
 }
 
 // Debug Text
-class DebugOverlay extends Component {
+class DebugOverlay extends Component with HasGameRef<Forge2DGame> {
   @override
   void render(Canvas canvas) {
     final tp = TextPainter(
-      text: const TextSpan(
-        text: "v22 - TRACK FIX\nGreen line should now be in the middle\nLeft=Brake | Right=Gas",
-        style: TextStyle(color: Colors.yellow, fontSize: 24, fontWeight: FontWeight.bold),
+      text: TextSpan(
+        text: "v22 - TRACK FIX\n"
+            "Green line should now be in the middle\n"
+            "Left=Brake | Right=Gas\n"
+            "Bike pos: ${gameRef.player.position}\n"
+            "Camera pos: ${gameRef.camera.viewfinder.position}\n"
+            "Camera zoom: ${gameRef.camera.viewfinder.zoom}",
+        style: const TextStyle(color: Colors.yellow, fontSize: 16, fontWeight: FontWeight.bold),
       ),
       textDirection: TextDirection.ltr,
     )..layout();
