@@ -1,5 +1,5 @@
 /* ============================================================================
- * RACERIDER - v24 - TRACK POSITION FIX (no bike color change)
+ * RACERIDER - v25 - TRACK POSITION FIX (no bike color change)
  * Goal: Green line in the middle of the screen, bike clearly visible above it
  * ============================================================================ */
 
@@ -40,8 +40,9 @@ class RaceRiderGame extends Forge2DGame with TapCallbacks {
     debug = DebugOverlay();
     add(debug);
 
-    // Don't use camera.follow() - we'll update it manually
+    // Set up camera properly
     camera.viewfinder.zoom = 5.5;
+    camera.viewfinder.anchor = Anchor.center;
   }
 
   @override
@@ -50,9 +51,6 @@ class RaceRiderGame extends Forge2DGame with TapCallbacks {
 
     // Manually update camera to follow the bike
     camera.viewfinder.position = player.position;
-    
-    // Debug output
-    print('Bike pos: ${player.position}, Camera pos: ${camera.viewfinder.position}, Camera zoom: ${camera.viewfinder.zoom}');
 
     double normalizedTilt = (rawTilt / 8.0).clamp(-1.0, 1.0);
     smoothedTilt = smoothedTilt * 0.4 + normalizedTilt * 0.6;
@@ -75,11 +73,15 @@ class RaceRiderGame extends Forge2DGame with TapCallbacks {
 }
 
 // Background
-class Background extends Component with HasGameRef<Forge2DGame> {
+class Background extends Component with HasGameRef<RaceRiderGame> {
   @override
   void render(Canvas canvas) {
+    // Draw background in screen space (not affected by camera)
+    canvas.save();
+    canvas.resetTransform();
     canvas.drawRect(Rect.fromLTWH(0, 0, gameRef.size.x, gameRef.size.y), 
       Paint()..color = const Color(0xFF112233));
+    canvas.restore();
   }
 }
 
@@ -89,7 +91,7 @@ class DebugOverlay extends Component with HasGameRef<RaceRiderGame> {
   void render(Canvas canvas) {
     final tp = TextPainter(
       text: TextSpan(
-        text: "v24 - TRACK FIX\n"
+        text: "v25 - TRACK FIX\n"
             "Green line should now be in the middle\n"
             "Left=Brake | Right=Gas\n"
             "Bike pos: ${gameRef.player.position}\n"
