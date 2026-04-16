@@ -1,5 +1,5 @@
 /* ============================================================================
- * RACERIDER - v22 - TRACK POSITION FIX (no bike color change)
+ * RACERIDER - v23 - TRACK POSITION FIX (no bike color change)
  * Goal: Green line in the middle of the screen, bike clearly visible above it
  * ============================================================================ */
 
@@ -84,12 +84,12 @@ class Background extends Component with HasGameRef<Forge2DGame> {
 }
 
 // Debug Text
-class DebugOverlay extends Component with HasGameRef<Forge2DGame> {
+class DebugOverlay extends Component with HasGameRef<RaceRiderGame> {
   @override
   void render(Canvas canvas) {
     final tp = TextPainter(
       text: TextSpan(
-        text: "v22 - TRACK FIX\n"
+        text: "v23 - TRACK FIX\n"
             "Green line should now be in the middle\n"
             "Left=Brake | Right=Gas\n"
             "Bike pos: ${gameRef.player.position}\n"
