@@ -1,9 +1,10 @@
 /* ============================================================================
- * RACERIDER - v26 - TRACK POSITION FIX (no bike color change)
- * Goal: Green line in the middle of the screen, bike clearly visible above it
+ * RACERIDER - v27 - PER-WHEEL RAYCASTING + 3-UNIT BIKE
+ * Goal: Exact 2012 Bike Race feel on arbitrary tracks
  * ============================================================================ */
 
 import 'dart:math';
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flame/game.dart';
 import 'package:flame/components.dart';
@@ -17,7 +18,8 @@ void main() {
 
 class RaceRiderGame extends Forge2DGame with TapCallbacks {
   late Bike player;
-  late Track track;
+  late List<TrackSegment> trackSegments;
+  late TrackRenderer trackRenderer;
   late DebugOverlay debug;
 
   double rawTilt = 0.0;
@@ -26,37 +28,67 @@ class RaceRiderGame extends Forge2DGame with TapCallbacks {
   bool isGas = false;
   bool isBrake = false;
 
+  late StreamSubscription<AccelerometerEvent> _accelSubscription;
+
   RaceRiderGame() : super(gravity: Vector2(0, 0), zoom: 5.0);
 
   @override
   Future<void> onLoad() async {
     add(Background());
-    track = Track();
-    add(track);
 
-    player = Bike(Vector2(0, 6));        // clearly above the track
-    // Don't add player to the scene - we'll render it manually
-    // add(player);
+    trackSegments = _generateRandomTrack();
+    trackRenderer = TrackRenderer();
+    add(trackRenderer);
 
+    player = Bike(Vector2(0, 6));
     debug = DebugOverlay();
     add(debug);
 
-    // Set up camera properly
     camera.viewfinder.zoom = 5.5;
     camera.viewfinder.anchor = Anchor.center;
+
+    // Accelerometer (portrait mode)
+    _accelSubscription = accelerometerEvents.listen((AccelerometerEvent event) {
+      rawTilt = -event.x; // negative = natural lean direction on most phones
+    });
+  }
+
+  @override
+  void onRemove() {
+    _accelSubscription.cancel();
+    super.onRemove();
+  }
+
+  List<TrackSegment> _generateRandomTrack() {
+    final segments = <TrackSegment>[];
+    double x = -300.0;
+    double y = 12.0;
+    final rng = Random();
+
+    // Starting flat
+    segments.add(TrackSegment(x, y, x + 200, y));
+    x += 200;
+
+    for (int i = 0; i < 80; i++) {
+      final dx = 40.0 + rng.nextDouble() * 60.0;
+      final dy = -8.0 + rng.nextDouble() * 16.0; // big hills possible
+      segments.add(TrackSegment(x, y, x + dx, y + dy));
+      x += dx;
+      y += dy;
+    }
+    return segments;
   }
 
   @override
   void update(double dt) {
     super.update(dt);
 
-    // Update camera position to follow bike
     camera.viewfinder.position = player.position;
 
     double normalizedTilt = (rawTilt / 8.0).clamp(-1.0, 1.0);
     smoothedTilt = smoothedTilt * 0.4 + normalizedTilt * 0.6;
 
-    player.updateBike(dt, smoothedTilt, isGas, isBrake);
+    player.updateBike(dt, smoothedTilt, isGas, isBrake, trackSegments);
   }
 
   @override
@@ -75,193 +107,16 @@ class RaceRiderGame extends Forge2DGame with TapCallbacks {
   @override
   void render(Canvas canvas) {
     super.render(canvas);
-    
-    // Apply camera transform manually
+
     canvas.save();
-    canvas.translate(size.x / 2, size.y / 2);  // Center of screen
+    canvas.translate(size.x / 2, size.y / 2);
     canvas.scale(camera.viewfinder.zoom);
-    canvas.translate(-player.position.x, -player.position.y);  // Follow bike
-    
-    // Draw track with bumps
-    final trackPaint = Paint()
-      ..color = const Color(0xFF00FF88)
-      ..strokeWidth = 2.0
-      ..style = PaintingStyle.stroke;
-    
-    // Main track line
-    canvas.drawLine(const Offset(-100, 12), const Offset(300, 12), trackPaint);
-    
-    // Bumps on the track
-    final bumpPaint = Paint()
-      ..color = const Color(0xFF00FF88)
-      ..strokeWidth = 3.0
-      ..style = PaintingStyle.stroke;
-    
-    // Bump 1 at x=-20
-    canvas.drawLine(const Offset(-20, 12), const Offset(-15, 10), bumpPaint);
-    canvas.drawLine(const Offset(-15, 10), const Offset(-10, 12), bumpPaint);
-    
-    // Bump 2 at x=30
-    canvas.drawLine(const Offset(30, 12), const Offset(35, 9), bumpPaint);
-    canvas.drawLine(const Offset(35, 9), const Offset(40, 12), bumpPaint);
-    
-    // Bump 3 at x=80
-    canvas.drawLine(const Offset(80, 12), const Offset(85, 10.5), bumpPaint);
-    canvas.drawLine(const Offset(85, 10.5), const Offset(90, 12), bumpPaint);
-    
-    // Draw bike
+    canvas.translate(-player.position.x, -player.position.y);
+
+    // Bike (manual draw - wheels now sit exactly on the raycast track)
     canvas.save();
     canvas.translate(player.position.x, player.position.y);
     canvas.rotate(player.angle);
-    
-    final chassisPaint = Paint()..color = const Color(0xFFFF8800);
-    canvas.drawRect(const Rect.fromLTWH(-3.25, -0.8, 6.5, 1.6), chassisPaint);
-    
-    final wheelPaint = Paint()..color = Colors.white;
-    canvas.drawCircle(const Offset(-2.1, 0.95), 0.85, wheelPaint);
-    canvas.drawCircle(const Offset(2.1, 0.95), 0.85, wheelPaint);
-    
-    canvas.restore();
-    canvas.restore();
-  }
-}
-
-// Background
-class Background extends Component with HasGameRef<RaceRiderGame> {
-  @override
-  void render(Canvas canvas) {
-    // Draw background - will be affected by camera but that's okay
-    canvas.drawRect(Rect.fromLTWH(-1000, -1000, 3000, 3000), 
-      Paint()..color = const Color(0xFF112233));
-  }
-}
-
-// Debug Text
-class DebugOverlay extends Component with HasGameRef<RaceRiderGame> {
-  @override
-  void render(Canvas canvas) {
-    final tp = TextPainter(
-      text: TextSpan(
-        text: "v26 - TRACK FIX\n"
-            "Green line should now be in the middle\n"
-            "Left=Brake | Right=Gas\n"
-            "Bike pos: ${gameRef.player.position}\n"
-            "Camera pos: ${gameRef.camera.viewfinder.position}\n"
-            "Camera zoom: ${gameRef.camera.viewfinder.zoom}",
-        style: const TextStyle(color: Colors.yellow, fontSize: 16, fontWeight: FontWeight.bold),
-      ),
-      textDirection: TextDirection.ltr,
-    )..layout();
-    tp.paint(canvas, const Offset(20, 30));
-  }
-}
-
-// Bike (unchanged color)
-class Bike extends PositionComponent {
-  Vector2 velocity = Vector2.zero();
-  double angle = 0.0;
-  double angularVelocity = 0.0;
-
-  bool onGround = false;
-
-  final double gravity = 42.0;
-  final double leanStrength = 45.0;
-  final double acceleration = 116.0;  // Doubled from 58.0
-  final double brakePower = 22.0;
-  
-  // Suspension parameters
-  final double suspensionRestLength = 1.5;
-  final double suspensionStiffness = 800.0;
-  final double suspensionDamping = 50.0;
-
-  Bike(Vector2 startPos) {
-    position = startPos;
-    size = Vector2(6.5, 3.2);
-    anchor = Anchor.center;
-  }
-
-  void updateBike(double dt, double tilt, bool gas, bool brake) {
-    velocity.y += gravity * dt;
-
-    double torque = tilt * leanStrength;
-    if (!onGround) angularVelocity *= 0.96;
-
-    angularVelocity += torque * dt;
-    angle += angularVelocity * dt;
-
-    if (onGround) {
-      double drive = gas ? acceleration : (brake ? -brakePower : 0);
-      velocity.x += drive * cos(angle) * dt;
-      velocity.y += drive * sin(angle) * dt;
-      velocity.x *= 0.82;
-    }
-
-    position += velocity * dt;
-
-    // Check collision with track - raycast downward from bike
-    double trackHeightAtBike = getTrackHeightAt(position.x);
-    double bikeBottomY = position.y + 0.95;  // Wheel radius
-    
-    if (bikeBottomY >= trackHeightAtBike) {
-      // Bike is on or below track
-      onGround = true;
-      
-      // Apply suspension force
-      double compression = bikeBottomY - trackHeightAtBike;
-      if (compression > 0) {
-        double springForce = compression * suspensionStiffness;
-        double dampingForce = velocity.y * suspensionDamping;
-        double totalForce = springForce - dampingForce;
-        velocity.y -= totalForce * dt;
-      }
-      
-      // Clamp to track surface
-      position.y = trackHeightAtBike - 0.95;
-      angularVelocity *= 0.55;
-    } else {
-      onGround = false;
-    }
-  }
-  
-  // Get track height at a given x position
-  double getTrackHeightAt(double x) {
-    const double baseTrackY = 12.0;
-    
-    // Bump 1 at x=-20 to -10
-    if (x >= -20 && x <= -10) {
-      if (x < -15) {
-        return baseTrackY - 2.0 * (x + 20) / 5;  // Going up
-      } else {
-        return baseTrackY - 2.0 * (-10 - x) / 5;  // Going down
-      }
-    }
-    
-    // Bump 2 at x=30 to 40
-    if (x >= 30 && x <= 40) {
-      if (x < 35) {
-        return baseTrackY - 3.0 * (x - 30) / 5;  // Going up
-      } else {
-        return baseTrackY - 3.0 * (40 - x) / 5;  // Going down
-      }
-    }
-    
-    // Bump 3 at x=80 to 90
-    if (x >= 80 && x <= 90) {
-      if (x < 85) {
-        return baseTrackY - 1.5 * (x - 80) / 5;  // Going up
-      } else {
-        return baseTrackY - 1.5 * (90 - x) / 5;  // Going down
-      }
-    }
-    
-    return baseTrackY;
-  }
-
-  @override
-  void render(Canvas canvas) {
-    canvas.save();
-    canvas.translate(position.x, position.y);
-    canvas.rotate(angle);
 
     final chassisPaint = Paint()..color = const Color(0xFFFF8800);
     canvas.drawRect(const Rect.fromLTWH(-3.25, -0.8, 6.5, 1.6), chassisPaint);
@@ -274,25 +129,167 @@ class Bike extends PositionComponent {
     canvas.drawCircle(const Offset(2.1, 0.95), 0.85, wheelPaint);
 
     canvas.restore();
+    canvas.restore();
   }
 }
 
-// Track - moved way down
-class Track extends BodyComponent {
-  @override
-  Body createBody() {
-    final body = world.createBody(BodyDef()..type = BodyType.static);
-    final points = [Vector2(-100, 12), Vector2(300, 12)];   // lowered significantly
-    body.createFixture(FixtureDef(EdgeShape()..set(points[0], points[1]))..friction = 0.9);
-    return body;
-  }
+// ====================== TRACK ======================
 
+class TrackSegment {
+  final double xStart, yStart, xEnd, yEnd;
+  TrackSegment(this.xStart, this.yStart, this.xEnd, this.yEnd);
+}
+
+class TrackRenderer extends Component with HasGameRef<RaceRiderGame> {
   @override
   void render(Canvas canvas) {
     final paint = Paint()
       ..color = const Color(0xFF00FF88)
       ..strokeWidth = 16.0
       ..style = PaintingStyle.stroke;
-    canvas.drawLine(const Offset(-100, 12), const Offset(300, 12), paint);
+
+    for (final seg in gameRef.trackSegments) {
+      canvas.drawLine(
+        Offset(seg.xStart, seg.yStart),
+        Offset(seg.xEnd, seg.yEnd),
+        paint,
+      );
+    }
+  }
+}
+
+// ====================== DEBUG ======================
+
+class DebugOverlay extends Component with HasGameRef<RaceRiderGame> {
+  @override
+  void render(Canvas canvas) {
+    final tp = TextPainter(
+      text: TextSpan(
+        text: "v27 - RAYCAST 3-UNIT BIKE\n"
+            "Left=Brake | Right=Gas\n"
+            "Bike pos: ${gameRef.player.position}\n"
+            "Angle: ${gameRef.player.angle.toStringAsFixed(2)}\n"
+            "Camera zoom: ${gameRef.camera.viewfinder.zoom}",
+        style: const TextStyle(color: Colors.yellow, fontSize: 16, fontWeight: FontWeight.bold),
+      ),
+      textDirection: TextDirection.ltr,
+    )..layout();
+    tp.paint(canvas, const Offset(20, 30));
+  }
+}
+
+// ====================== BIKE (raycasting version) ======================
+
+class Bike extends PositionComponent {
+  Vector2 velocity = Vector2.zero();
+  double angle = 0.0;
+  double angularVelocity = 0.0;
+  bool onGround = false;
+
+  final double gravity = 42.0;
+  final double leanStrength = 45.0;
+  final double acceleration = 116.0;
+  final double brakePower = 22.0;
+
+  // 3-unit bike parameters
+  final double wheelbase = 4.2;
+  final double wheelYOffset = 0.95;   // local y offset of wheel centers
+  final double wheelRadius = 0.85;
+  final double suspensionStiffness = 800.0;
+  final double suspensionDamping = 50.0;
+
+  Bike(Vector2 startPos) {
+    position = startPos;
+    size = Vector2(6.5, 3.2);
+    anchor = Anchor.center;
+  }
+
+  void updateBike(double dt, double tilt, bool gas, bool brake, List<TrackSegment> trackSegments) {
+    velocity.y += gravity * dt;
+
+    // Lean torque (exactly like original)
+    double torque = tilt * leanStrength;
+    if (!onGround) angularVelocity *= 0.96;
+    angularVelocity += torque * dt;
+    angle += angularVelocity * dt;
+
+    // Integrate position
+    position += velocity * dt;
+
+    // === PER-WHEEL RAYCAST SUSPENSION ===
+    onGround = false;
+    double totalFy = 0.0;      // upward force accumulator
+    double totalTorque = 0.0;  // torque from differential suspension
+
+    Vector2 rotateOffset(Vector2 local, double a) {
+      final c = cos(a);
+      final s = sin(a);
+      return Vector2(local.x * c - local.y * s, local.x * s + local.y * c);
+    }
+
+    // Rear wheel raycast
+    final localRear = Vector2(-wheelbase / 2, wheelYOffset);
+    final rearOffset = rotateOffset(localRear, angle);
+    final rearWheelX = position.x + rearOffset.x;
+    final rearWheelY = position.y + rearOffset.y;
+    final rearTrackY = _getTrackHeightAt(rearWheelX, trackSegments);
+    final rearDesiredY = rearTrackY - wheelRadius;
+
+    double rearCompression = rearWheelY - rearDesiredY;
+    if (rearCompression > 0) {
+      double spring = rearCompression * suspensionStiffness;
+      double damp = velocity.y * suspensionDamping;
+      double forceUp = spring - damp;
+      totalFy -= forceUp;           // push chassis up (y-down coordinate)
+      totalTorque += rearOffset.x * forceUp;
+      onGround = true;
+    }
+
+    // Front wheel raycast
+    final localFront = Vector2(wheelbase / 2, wheelYOffset);
+    final frontOffset = rotateOffset(localFront, angle);
+    final frontWheelX = position.x + frontOffset.x;
+    final frontWheelY = position.y + frontOffset.y;
+    final frontTrackY = _getTrackHeightAt(frontWheelX, trackSegments);
+    final frontDesiredY = frontTrackY - wheelRadius;
+
+    double frontCompression = frontWheelY - frontDesiredY;
+    if (frontCompression > 0) {
+      double spring = frontCompression * suspensionStiffness;
+      double damp = velocity.y * suspensionDamping;
+      double forceUp = spring - damp;
+      totalFy -= forceUp;
+      totalTorque += frontOffset.x * forceUp;
+      onGround = true;
+    }
+
+    // Apply suspension forces
+    velocity.y += totalFy * dt;
+    angularVelocity += totalTorque * 0.012 * dt; // tuned inertia factor
+
+    // Drive / brake (only when at least one wheel on ground)
+    if (onGround) {
+      double drive = gas ? acceleration : (brake ? -brakePower : 0);
+      velocity.x += drive * cos(angle) * dt;
+      velocity.y += drive * sin(angle) * dt;
+      velocity.x *= 0.82; // ground friction
+    }
+  }
+
+  double _getTrackHeightAt(double x, List<TrackSegment> segments) {
+    for (final seg in segments) {
+      final minX = min(seg.xStart, seg.xEnd);
+      final maxX = max(seg.xStart, seg.xEnd);
+      if (x >= minX && x <= maxX) {
+        final t = (x - seg.xStart) / (seg.xEnd - seg.xStart);
+        return seg.yStart + t * (seg.yEnd - seg.yStart);
+      }
+    }
+    return segments.isNotEmpty ? segments.last.yEnd : 12.0;
+  }
+
+  @override
+  void render(Canvas canvas) {
+    // (bike is drawn manually in RaceRiderGame.render)
   }
 }
