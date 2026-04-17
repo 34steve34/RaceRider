@@ -34,7 +34,7 @@ class RaceRiderGame extends Forge2DGame with TapCallbacks {
   Future<void> onLoad() async {
     add(Background());
     trackSegments = _generateRandomTrack();
-    player = Bike(Vector2(-40, 8.5));
+    player = Bike(Vector2(-40, 0.0));  // Spawn well above the track
     add(DebugOverlay());
 
     camera.viewfinder.zoom = 5.3;
