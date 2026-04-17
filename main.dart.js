@@ -10691,7 +10691,7 @@ b5.d=new A.Fy()
 b5=new A.fy(b0,-2147483647,b4,new A.b0([]),new A.b0([]))
 s=A.RB()
 r=new A.n(new Float64Array(2))
-r.ly(5)
+r.ly(5.3)
 q=s.ax.at.e
 q.d1(r)
 q.aF()
@@ -34275,7 +34275,7 @@ var $async$ea=A.F(function(a,b){if(a===1)return A.B(b,r)
 for(;;)switch(s){case 0:q.dI(new A.nk(0,null,new A.b0([]),new A.b0([])))
 q.o0=q.BS()
 p=new A.n(new Float64Array(2))
-p.aP(0,8)
+p.aP(-30,9)
 o=new Float64Array(2)
 n=A.Kk()
 m=new A.n(new Float64Array(2))
@@ -34298,7 +34298,7 @@ q.dI(new A.nN(null,0,null,new A.b0([]),new A.b0([])))
 p=q.k4.ax
 o=p.at
 n=new A.n(new Float64Array(2))
-n.ly(5.2)
+n.ly(5.3)
 m=o.e
 m.d1(n)
 m.aF()
@@ -34315,9 +34315,9 @@ s===$&&A.c()
 s.ah()
 this.qe()},
 BS(){var s,r,q,p,o,n=A.d([],t.h5)
-n.push(new A.lI(-600,12,-200,12))
-for(s=-200,r=12,q=0;q<100;++q,r=o,s=p){p=s+(48+B.cZ.wk()*52)
-o=r+(-8+B.cZ.wk()*16)
+n.push(new A.lI(-700,12,-250,12))
+for(s=-250,r=12,q=0;q<100;++q,r=o,s=p){p=s+(48+B.cZ.wk()*55)
+o=r+(-8+B.cZ.wk()*17)
 n.push(new A.lI(s,r,p,o))}return n},
 aa(a){var s,r,q,p,o,n,m=this
 m.yU(a)
@@ -34327,7 +34327,7 @@ r=m.k4.ax.at.f
 r.d1(s.at.d.fe(0))
 r.aF()
 q=B.d.hX(m.vp/9,-1,1)
-r=m.o1*0.48+q*0.52
+r=m.o1*0.5+q*0.5
 m.o1=r
 s=m.cM
 p=m.o2
@@ -34351,7 +34351,7 @@ s.translate(-r[0],-r[1])
 $.aF()
 p=A.cT()
 p.r=B.ox.an()
-p.c=20
+p.c=4
 p.b=B.jt
 r=i.o0
 r===$&&A.c()
@@ -34378,7 +34378,7 @@ a.vd(B.tE,0.85,j)
 s.restore()
 s.restore()}}
 A.C0.prototype={
-$1(a){this.a.vp=-a.b},
+$1(a){this.a.vp=a.b},
 $S:233}
 A.nk.prototype={
 ek(a){var s
@@ -34396,14 +34396,14 @@ s===$&&A.c()
 s=s.p2
 r=p.gf9().cM
 r===$&&A.c()
-q=A.NT(A.NV(B.vo,"v30 - TRACK CENTERED\nTilt: "+o+"\nAngle: "+n+"\nOnGround: "+s+"\nBike Y: "+B.d.N(r.at.d.a[1],1)),B.x)
+q=A.NT(A.NV(B.vo,"v31\nTilt: "+o+"\nAngle: "+n+"\nOnGround: "+s+"\nBike Y: "+B.d.N(r.at.d.a[1],1)),B.x)
 q.wb()
 q.bP(a,B.tB)}}
 A.jC.prototype={
 La(a,b,c,d,a0){var s,r,q,p,o,n,m,l,k,j,i,h,g=this,f=g.k4,e=f.a
 f.sp(e[1]+38*a)
-s=g.p1=g.p1+b*55*a
-s=g.p2?g.p1=s*0.78:g.p1=s*0.965
+s=g.p1=g.p1+b*58*a
+s=g.p2?g.p1=s*0.72:g.p1=s*0.96
 g.ok=g.ok+s*a
 s=g.at.d
 r=new A.n(new Float64Array(2))
@@ -34424,9 +34424,9 @@ r=s[0]
 o=p.a
 n=o[0]
 m=s[1]+o[1]-(g.rt(r+n,a0)-0.85)
-if(m>0){l=0-(m*1250-e[1]*95)
-k=0+o[0]*m*1.4
-g.p2=!0}else{l=m>-2.5?0+(m+2.5)*650:0
+if(m>0){l=0-(m*1450-e[1]*110)
+k=0+o[0]*m*1.5
+g.p2=!0}else{l=m>-2.8?0+(m+2.8)*820:0
 k=0}r=new A.n(new Float64Array(2))
 r.aP(2.15,0.95)
 j=q.$2(r,g.ok)
@@ -34434,16 +34434,16 @@ r=s[0]
 q=j.a
 o=q[0]
 i=s[1]+q[1]-(g.rt(r+o,a0)-0.85)
-if(i>0){l-=i*1250*0.9-e[1]*95
-k+=q[0]*i*1.2
-g.p2=!0}else if(i>-2.5)l+=(i+2.5)*650*0.85
+if(i>0){l-=i*1450*0.92-e[1]*110
+k+=q[0]*i*1.3
+g.p2=!0}else if(i>-2.8)l+=(i+2.8)*820*0.9
 f.sp(e[1]+l*a)
-g.p1=g.p1+k*0.018*a
-if(g.p2){if(c)h=128
-else h=d?-34:0
+g.p1=g.p1+k*0.016*a
+if(g.p2){if(c)h=130
+else h=d?-35:0
 f.sq(e[0]+h*Math.cos(g.ok)*a)
 f.sp(e[1]+h*Math.sin(g.ok)*a)
-f.sq(e[0]*0.87)}},
+f.sq(e[0]*0.88)}},
 rt(a,b){var s,r,q,p,o
 for(s=b.length,r=0;r<s;++r){q=b[r]
 p=q.a
