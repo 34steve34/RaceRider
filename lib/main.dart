@@ -1,5 +1,6 @@
 /* ============================================================================
- * RACERIDER - v32 - TARGET-ANGLE TILT + ANTI-TUNNELING + GENTLE MAGNET
+ * RACERIDER - v33 - REAL MULTI-DIRECTIONAL RAYCAST ENGINE (True Bike Race style)
+ * 3-point bike + proper raycasting in multiple directions. Ready for walls/loops.
  * ============================================================================ */
 
 import 'dart:math';
@@ -41,7 +42,7 @@ class RaceRiderGame extends Forge2DGame with TapCallbacks {
     camera.viewfinder.position = player.position;
 
     _accelSubscription = accelerometerEvents.listen((AccelerometerEvent event) {
-      rawTilt = event.y;   // your preferred direction
+      rawTilt = event.y;
     });
   }
 
@@ -102,12 +103,11 @@ class RaceRiderGame extends Forge2DGame with TapCallbacks {
     canvas.scale(camera.viewfinder.zoom);
     canvas.translate(-player.position.x, -player.position.y);
 
-    // Thin track
+    // Track
     final trackPaint = Paint()
       ..color = const Color(0xFF00FF88)
       ..strokeWidth = 4.0
       ..style = PaintingStyle.stroke;
-
     for (final seg in trackSegments) {
       canvas.drawLine(Offset(seg.xStart, seg.yStart), Offset(seg.xEnd, seg.yEnd), trackPaint);
     }
@@ -128,7 +128,138 @@ class RaceRiderGame extends Forge2DGame with TapCallbacks {
   }
 }
 
-// Background + TrackSegment + DebugOverlay (unchanged from v31)
+// ====================== CORE RAYCASTING ======================
+class RaycastResult {
+  final bool hit;
+  final double distance;
+  final Vector2 point;
+  final Vector2 normal;
+  RaycastResult(this.hit, this.distance, this.point, this.normal);
+}
+
+RaycastResult castRay(Vector2 start, Vector2 dir, List<TrackSegment> segments, {double maxDist = 30.0}) {
+  RaycastResult best = RaycastResult(false, maxDist, Vector2.zero(), Vector2.zero());
+  final end = start + dir.normalized() * maxDist;
+
+  for (final seg in segments) {
+    final p1 = Vector2(seg.xStart, seg.yStart);
+    final p2 = Vector2(seg.xEnd, seg.yEnd);
+
+    final den = (start.x - end.x) * (p1.y - p2.y) - (start.y - end.y) * (p1.x - p2.x);
+    if (den.abs() < 1e-9) continue;
+
+    final t = ((start.x - p1.x) * (p1.y - p2.y) - (start.y - p1.y) * (p1.x - p2.x)) / den;
+    final u = -((start.x - end.x) * (start.y - p1.y) - (start.y - end.y) * (start.x - p1.x)) / den;
+
+    if (t >= 0 && t <= 1 && u >= 0 && u <= 1) {
+      final hitPoint = start + (end - start) * t;
+      final dist = (hitPoint - start).length;
+      if (dist < best.distance) {
+        final normal = (p2 - p1)..rotate(-pi / 2)..normalize();
+        best = RaycastResult(true, dist, hitPoint, normal);
+      }
+    }
+  }
+  return best;
+}
+
+// ====================== BIKE - 3 POINT REAL PHYSICS ======================
+class Bike extends PositionComponent {
+  Vector2 velocity = Vector2.zero();
+  double angle = 0.0;
+  double angularVelocity = 0.0;
+  bool onGround = false;
+
+  final double gravity = 38.0;
+  final double leanStrength = 110.0;
+  final double acceleration = 130.0;
+  final double brakePower = 35.0;
+
+  final double wheelbase = 4.3;
+  final double wheelRadius = 0.85;
+  final double suspensionStiffness = 1800.0;
+  final double suspensionDamping = 140.0;
+  final double magnetDistance = 1.15;
+  final double magnetStrength = 420.0;
+
+  Bike(Vector2 startPos) {
+    position = startPos;
+    size = Vector2(6.5, 3.2);
+    anchor = Anchor.center;
+  }
+
+  void updateBike(double dt, double targetTilt, bool gas, bool brake, List<TrackSegment> segments) {
+    velocity.y += gravity * dt;
+
+    // Target angle lean (smooth, natural feel)
+    double desiredAngle = targetTilt * 0.75;
+    double angleError = desiredAngle - angle;
+    angularVelocity += angleError * leanStrength * dt;
+
+    if (onGround) angularVelocity *= 0.76;
+    else angularVelocity *= 0.965;
+
+    angle += angularVelocity * dt;
+
+    // Move
+    position += velocity * dt;
+
+    onGround = false;
+    double totalFy = 0.0;
+    double totalTorque = 0.0;
+
+    Vector2 rotate(Vector2 local) {
+      final c = cos(angle), s = sin(angle);
+      return Vector2(local.x * c - local.y * s, local.x * s + local.y * c);
+    }
+
+    // === REAR WHEEL - Multi raycast ===
+    final rearLocal = Vector2(-wheelbase / 2, 0.95);
+    final rearPos = position + rotate(rearLocal);
+    final down = Vector2(0, 1);
+    final velDir = velocity.length > 5 ? velocity.normalized() : Vector2(1, 0);
+
+    var result = castRay(rearPos, down, segments);
+    if (result.hit) {
+      if (result.distance < wheelRadius) {
+        double penetration = wheelRadius - result.distance;
+        totalFy -= penetration * suspensionStiffness - velocity.y * suspensionDamping;
+        totalTorque += (rearPos.x - position.x) * penetration * 1.8;
+        onGround = true;
+      } else if (result.distance < magnetDistance + wheelRadius) {
+        totalFy -= (result.distance - wheelRadius - magnetDistance) * magnetStrength;
+      }
+    }
+
+    // === FRONT WHEEL - Multi raycast ===
+    final frontLocal = Vector2(wheelbase / 2, 0.95);
+    final frontPos = position + rotate(frontLocal);
+
+    result = castRay(frontPos, down, segments);
+    if (result.hit) {
+      if (result.distance < wheelRadius) {
+        double penetration = wheelRadius - result.distance;
+        totalFy -= penetration * suspensionStiffness * 0.95 - velocity.y * suspensionDamping;
+        totalTorque += (frontPos.x - position.x) * penetration * 1.6;
+        onGround = true;
+      } else if (result.distance < magnetDistance + wheelRadius) {
+        totalFy -= (result.distance - wheelRadius - magnetDistance) * magnetStrength * 0.9;
+      }
+    }
+
+    velocity.y += totalFy * dt;
+    angularVelocity += totalTorque * 0.018 * dt;
+
+    if (onGround) {
+      double drive = gas ? acceleration : (brake ? -brakePower : 0);
+      velocity.x += drive * cos(angle) * dt;
+      velocity.y += drive * sin(angle) * dt;
+      velocity.x *= 0.88;
+    }
+  }
+}
+
+// Background & Debug
 class Background extends Component {
   @override
   void render(Canvas canvas) {
@@ -146,126 +277,14 @@ class DebugOverlay extends Component with HasGameRef<RaceRiderGame> {
   void render(Canvas canvas) {
     final tp = TextPainter(
       text: TextSpan(
-        text: "v32\nTilt: ${gameRef.smoothedTilt.toStringAsFixed(2)}\nAngle: ${gameRef.player.angle.toStringAsFixed(2)}\nOnGround: ${gameRef.player.onGround}",
+        text: "v33 - REAL RAYCAST\n"
+            "Tilt: ${gameRef.smoothedTilt.toStringAsFixed(2)}\n"
+            "Angle: ${gameRef.player.angle.toStringAsFixed(2)}\n"
+            "OnGround: ${gameRef.player.onGround}",
         style: const TextStyle(color: Colors.yellow, fontSize: 15, fontWeight: FontWeight.bold),
       ),
       textDirection: TextDirection.ltr,
     )..layout();
     tp.paint(canvas, const Offset(20, 20));
-  }
-}
-
-// Bike - improved physics
-class Bike extends PositionComponent {
-  Vector2 velocity = Vector2.zero();
-  double angle = 0.0;
-  double angularVelocity = 0.0;
-  bool onGround = false;
-
-  final double gravity = 38.0;
-  final double leanStrength = 95.0;           // spring strength toward target tilt
-  final double acceleration = 130.0;
-  final double brakePower = 35.0;
-
-  final double wheelbase = 4.3;
-  final double wheelYOffset = 0.95;
-  final double wheelRadius = 0.85;
-  final double suspensionStiffness = 1680.0;
-  final double suspensionDamping = 125.0;
-  final double magnetDistance = 1.1;           // very gentle, like original BR
-  final double magnetStrength = 380.0;
-
-  Bike(Vector2 startPos) {
-    position = startPos;
-    size = Vector2(6.5, 3.2);
-    anchor = Anchor.center;
-  }
-
-  void updateBike(double dt, double targetTilt, bool gas, bool brake, List<TrackSegment> trackSegments) {
-    velocity.y += gravity * dt;
-
-    // === NEW: Target-angle lean (exactly like Bike Race) ===
-    double angleError = targetTilt * 0.78 - angle;           // target lean is proportional to phone tilt
-    double torque = angleError * leanStrength;
-    angularVelocity += torque * dt;
-
-    if (onGround) {
-      angularVelocity *= 0.74;
-    } else {
-      angularVelocity *= 0.965;
-    }
-    angle += angularVelocity * dt;
-
-    // === Raycast BEFORE final position move (prevents tunneling) ===
-    position += velocity * dt * 0.5;   // half-step for better prediction
-
-    onGround = false;
-    double totalFy = 0.0;
-    double totalTorque = 0.0;
-
-    Vector2 rotateOffset(Vector2 local, double a) {
-      final c = cos(a), s = sin(a);
-      return Vector2(local.x * c - local.y * s, local.x * s + local.y * c);
-    }
-
-    // Rear wheel
-    final rearOffset = rotateOffset(Vector2(-wheelbase / 2, wheelYOffset), angle);
-    final rearX = position.x + rearOffset.x;
-    final rearY = position.y + rearOffset.y;
-    final trackY = _getTrackHeightAt(rearX, trackSegments);
-    final desiredY = trackY - wheelRadius;
-    double comp = rearY - desiredY;
-
-    if (comp > 0) {
-      totalFy -= (comp * suspensionStiffness - velocity.y * suspensionDamping);
-      totalTorque += rearOffset.x * comp * 1.6;
-      onGround = true;
-    } else if (comp > -magnetDistance) {
-      totalFy += (comp + magnetDistance) * magnetStrength;   // gentle magnet
-    } else if (comp < -3.0) {   // deep tunnel protection
-      position.y = trackY - wheelYOffset;
-      velocity.y = velocity.y * 0.2;
-    }
-
-    // Front wheel (identical logic)
-    final frontOffset = rotateOffset(Vector2(wheelbase / 2, wheelYOffset), angle);
-    final frontX = position.x + frontOffset.x;
-    final frontY = position.y + frontOffset.y;
-    final fTrackY = _getTrackHeightAt(frontX, trackSegments);
-    final fDesiredY = fTrackY - wheelRadius;
-    double fComp = frontY - fDesiredY;
-
-    if (fComp > 0) {
-      totalFy -= (fComp * suspensionStiffness * 0.92 - velocity.y * suspensionDamping);
-      totalTorque += frontOffset.x * fComp * 1.3;
-      onGround = true;
-    } else if (fComp > -magnetDistance) {
-      totalFy += (fComp + magnetDistance) * magnetStrength * 0.9;
-    } else if (fComp < -3.0) {
-      position.y = fTrackY - wheelYOffset;
-      velocity.y = velocity.y * 0.2;
-    }
-
-    velocity.y += totalFy * dt;
-    angularVelocity += totalTorque * 0.014 * dt;
-
-    position += velocity * dt * 0.5;   // finish the half-step
-
-    if (onGround) {
-      double drive = gas ? acceleration : (brake ? -brakePower : 0);
-      velocity.x += drive * cos(angle) * dt;
-      velocity.y += drive * sin(angle) * dt;
-      velocity.x *= 0.88;
-    }
-  }
-
-  double _getTrackHeightAt(double x, List<TrackSegment> segments) {
-    for (final seg in segments) {
-      if (x >= min(seg.xStart, seg.xEnd) && x <= max(seg.xStart, seg.xEnd)) {
-        final t = (x - seg.xStart) / (seg.xEnd - seg.xStart);
-        return seg.yStart + t * (seg.yEnd - seg.yStart);
-      }
-    }
-    return segments.last.yEnd;
   }
 }
