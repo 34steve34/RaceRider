@@ -1,6 +1,5 @@
 /* ============================================================================
- * RACERIDER - v30 - TRACK CENTERED EXACTLY LIKE ORIGINAL v26
- * + No more wild spin + Tilt now drives bike + Camera follows jumps
+ * RACERIDER - v31 - THIN TRACK + NO FALL THROUGH + TILT FIXED + NO WILD SPIN
  * ============================================================================ */
 
 import 'dart:math';
@@ -28,7 +27,7 @@ class RaceRiderGame extends Forge2DGame with TapCallbacks {
 
   late StreamSubscription<AccelerometerEvent> _accelSubscription;
 
-  RaceRiderGame() : super(gravity: Vector2(0, 0), zoom: 5.0);
+  RaceRiderGame() : super(gravity: Vector2(0, 0), zoom: 5.3);
 
   @override
   Future<void> onLoad() async {
@@ -36,15 +35,15 @@ class RaceRiderGame extends Forge2DGame with TapCallbacks {
 
     trackSegments = _generateRandomTrack();
 
-    player = Bike(Vector2(0, 8.0));   // clearly above track
+    player = Bike(Vector2(-30, 9.0));   // safely above track
     add(DebugOverlay());
 
-    camera.viewfinder.zoom = 5.2;
+    camera.viewfinder.zoom = 5.3;
     camera.viewfinder.anchor = Anchor.center;
     camera.viewfinder.position = player.position;
 
     _accelSubscription = accelerometerEvents.listen((AccelerometerEvent event) {
-      rawTilt = -event.y;   // landscape mode
+      rawTilt = event.y;   // ← Flipped sign for your desired control
     });
   }
 
@@ -56,16 +55,16 @@ class RaceRiderGame extends Forge2DGame with TapCallbacks {
 
   List<TrackSegment> _generateRandomTrack() {
     final segments = <TrackSegment>[];
-    double x = -600.0;
-    double y = 12.0;                      // ← EXACTLY like your original v26
+    double x = -700.0;
+    double y = 12.0;
     final rng = Random();
 
-    segments.add(TrackSegment(x, y, x + 400, y));
-    x += 400;
+    segments.add(TrackSegment(x, y, x + 450, y));
+    x += 450;
 
     for (int i = 0; i < 100; i++) {
-      final dx = 48.0 + rng.nextDouble() * 52.0;
-      final dy = -8.0 + rng.nextDouble() * 16.0;
+      final dx = 48.0 + rng.nextDouble() * 55.0;
+      final dy = -8.0 + rng.nextDouble() * 17.0;
       segments.add(TrackSegment(x, y, x + dx, y + dy));
       x += dx;
       y += dy;
@@ -76,11 +75,10 @@ class RaceRiderGame extends Forge2DGame with TapCallbacks {
   @override
   void update(double dt) {
     super.update(dt);
-
     camera.viewfinder.position = player.position;
 
     double normalizedTilt = (rawTilt / 9.0).clamp(-1.0, 1.0);
-    smoothedTilt = smoothedTilt * 0.48 + normalizedTilt * 0.52;
+    smoothedTilt = smoothedTilt * 0.5 + normalizedTilt * 0.5;
 
     player.updateBike(dt, smoothedTilt, isGas, isBrake, trackSegments);
   }
@@ -101,16 +99,15 @@ class RaceRiderGame extends Forge2DGame with TapCallbacks {
   void render(Canvas canvas) {
     super.render(canvas);
 
-    // === EXACT centering style from your original v26 ===
     canvas.save();
     canvas.translate(size.x / 2, size.y / 2);
     canvas.scale(camera.viewfinder.zoom);
     canvas.translate(-player.position.x, -player.position.y);
 
-    // Draw track (manual - now guaranteed to be in the middle)
+    // Thin green track - exactly like original feel
     final trackPaint = Paint()
       ..color = const Color(0xFF00FF88)
-      ..strokeWidth = 20.0
+      ..strokeWidth = 4.0      // ← Much thinner now
       ..style = PaintingStyle.stroke;
 
     for (final seg in trackSegments) {
@@ -121,7 +118,7 @@ class RaceRiderGame extends Forge2DGame with TapCallbacks {
       );
     }
 
-    // Draw bike
+    // Bike
     canvas.save();
     canvas.translate(player.position.x, player.position.y);
     canvas.rotate(player.angle);
@@ -161,7 +158,7 @@ class DebugOverlay extends Component with HasGameRef<RaceRiderGame> {
   void render(Canvas canvas) {
     final tp = TextPainter(
       text: TextSpan(
-        text: "v30 - TRACK CENTERED\n"
+        text: "v31\n"
             "Tilt: ${gameRef.smoothedTilt.toStringAsFixed(2)}\n"
             "Angle: ${gameRef.player.angle.toStringAsFixed(2)}\n"
             "OnGround: ${gameRef.player.onGround}\n"
@@ -182,17 +179,17 @@ class Bike extends PositionComponent {
   bool onGround = false;
 
   final double gravity = 38.0;
-  final double leanStrength = 55.0;
-  final double acceleration = 128.0;
-  final double brakePower = 34.0;
+  final double leanStrength = 58.0;
+  final double acceleration = 130.0;
+  final double brakePower = 35.0;
 
   final double wheelbase = 4.3;
   final double wheelYOffset = 0.95;
   final double wheelRadius = 0.85;
-  final double suspensionStiffness = 1250.0;
-  final double suspensionDamping = 95.0;
-  final double magnetDistance = 2.5;
-  final double magnetStrength = 650.0;
+  final double suspensionStiffness = 1450.0;
+  final double suspensionDamping = 110.0;
+  final double magnetDistance = 2.8;
+  final double magnetStrength = 820.0;
 
   Bike(Vector2 startPos) {
     position = startPos;
@@ -203,14 +200,13 @@ class Bike extends PositionComponent {
   void updateBike(double dt, double tilt, bool gas, bool brake, List<TrackSegment> trackSegments) {
     velocity.y += gravity * dt;
 
-    // Lean torque (now actually drives the bike)
     double torque = tilt * leanStrength;
     angularVelocity += torque * dt;
 
     if (onGround) {
-      angularVelocity *= 0.78;   // strong ground damping = no wild spin
+      angularVelocity *= 0.72;     // strong damping = almost no wild spin
     } else {
-      angularVelocity *= 0.965;
+      angularVelocity *= 0.96;
     }
     angle += angularVelocity * dt;
 
@@ -225,7 +221,7 @@ class Bike extends PositionComponent {
       return Vector2(local.x * c - local.y * s, local.x * s + local.y * c);
     }
 
-    // Rear wheel raycast + magnet
+    // Rear wheel
     final rearOffset = rotateOffset(Vector2(-wheelbase / 2, wheelYOffset), angle);
     final rearX = position.x + rearOffset.x;
     final rearY = position.y + rearOffset.y;
@@ -235,7 +231,7 @@ class Bike extends PositionComponent {
 
     if (comp > 0) {
       totalFy -= (comp * suspensionStiffness - velocity.y * suspensionDamping);
-      totalTorque += rearOffset.x * comp * 1.4;
+      totalTorque += rearOffset.x * comp * 1.5;
       onGround = true;
     } else if (comp > -magnetDistance) {
       totalFy += (comp + magnetDistance) * magnetStrength;
@@ -250,21 +246,21 @@ class Bike extends PositionComponent {
     double fComp = frontY - fDesiredY;
 
     if (fComp > 0) {
-      totalFy -= (fComp * suspensionStiffness * 0.9 - velocity.y * suspensionDamping);
-      totalTorque += frontOffset.x * fComp * 1.2;
+      totalFy -= (fComp * suspensionStiffness * 0.92 - velocity.y * suspensionDamping);
+      totalTorque += frontOffset.x * fComp * 1.3;
       onGround = true;
     } else if (fComp > -magnetDistance) {
-      totalFy += (fComp + magnetDistance) * magnetStrength * 0.85;
+      totalFy += (fComp + magnetDistance) * magnetStrength * 0.9;
     }
 
     velocity.y += totalFy * dt;
-    angularVelocity += totalTorque * 0.018 * dt;
+    angularVelocity += totalTorque * 0.016 * dt;
 
     if (onGround) {
       double drive = gas ? acceleration : (brake ? -brakePower : 0);
       velocity.x += drive * cos(angle) * dt;
       velocity.y += drive * sin(angle) * dt;
-      velocity.x *= 0.87;
+      velocity.x *= 0.88;
     }
   }
 
