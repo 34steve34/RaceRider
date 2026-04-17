@@ -1,6 +1,6 @@
 /* ============================================================================
- * RACERIDER - v34 - FIXED RAYCAST + NO OSCILLATION + FULL WHEELIES
- * Real multi-directional raycast. No more falling through. BR-style lean.
+ * RACERIDER - v35 - COG-AWARE TILT + NO MORE FALLING THROUGH
+ * Lean force now applied at COG (exactly like real BR). Stable wheelies.
  * ============================================================================ */
 
 import 'dart:math';
@@ -126,7 +126,7 @@ class RaceRiderGame extends Forge2DGame with TapCallbacks {
   }
 }
 
-// ====================== REAL RAYCAST ======================
+// ====================== RAYCAST ======================
 class RaycastResult {
   final bool hit;
   final double distance;
@@ -135,14 +135,13 @@ class RaycastResult {
   RaycastResult(this.hit, this.distance, this.point, this.normal);
 }
 
-RaycastResult castRay(Vector2 start, Vector2 dir, List<TrackSegment> segments, {double maxDist = 40.0}) {
+RaycastResult castRay(Vector2 start, Vector2 dir, List<TrackSegment> segments, {double maxDist = 60.0}) {
   RaycastResult best = RaycastResult(false, maxDist, Vector2.zero(), Vector2.zero());
   final end = start + dir.normalized() * maxDist;
 
   for (final seg in segments) {
     final p1 = Vector2(seg.xStart, seg.yStart);
     final p2 = Vector2(seg.xEnd, seg.yEnd);
-
     final den = (start.x - end.x) * (p1.y - p2.y) - (start.y - end.y) * (p1.x - p2.x);
     if (den.abs() < 1e-9) continue;
 
@@ -154,7 +153,7 @@ RaycastResult castRay(Vector2 start, Vector2 dir, List<TrackSegment> segments, {
       final dist = (hitPoint - start).length;
       if (dist < best.distance) {
         final normal = (p2 - p1)..rotate(-pi / 2)..normalize();
-        if (normal.y > 0) normal.negate(); // always point "up" toward the wheel
+        if (normal.y > 0) normal.negate();
         best = RaycastResult(true, dist, hitPoint, normal);
       }
     }
@@ -162,7 +161,7 @@ RaycastResult castRay(Vector2 start, Vector2 dir, List<TrackSegment> segments, {
   return best;
 }
 
-// ====================== BIKE ======================
+// ====================== BIKE - COG-AWARE ======================
 class Bike extends PositionComponent {
   Vector2 velocity = Vector2.zero();
   double angle = 0.0;
@@ -170,17 +169,20 @@ class Bike extends PositionComponent {
   bool onGround = false;
 
   final double gravity = 38.0;
-  final double leanStrength = 145.0;      // stronger spring
-  final double leanDamping = 18.0;        // kills oscillation
+  final double leanStrength = 165.0;      // COG force strength
+  final double leanDamping = 22.0;        // kills oscillation instantly
   final double acceleration = 130.0;
   final double brakePower = 35.0;
 
   final double wheelbase = 4.3;
   final double wheelRadius = 0.85;
-  final double suspensionStiffness = 2100.0;
-  final double suspensionDamping = 160.0;
-  final double magnetDistance = 1.5;
-  final double magnetStrength = 520.0;
+  final double suspensionStiffness = 2350.0;
+  final double suspensionDamping = 180.0;
+  final double magnetDistance = 1.4;
+  final double magnetStrength = 580.0;
+
+  // Virtual COG position (slightly above and behind center - like real rider)
+  final Vector2 cogOffset = Vector2(-0.4, -1.1);
 
   Bike(Vector2 startPos) {
     position = startPos;
@@ -191,20 +193,18 @@ class Bike extends PositionComponent {
   void updateBike(double dt, double targetTilt, bool gas, bool brake, List<TrackSegment> segments) {
     velocity.y += gravity * dt;
 
-    // Damped-spring tilt (no oscillation, exactly like Bike Race)
-    double desiredAngle = targetTilt * 1.85;           // allows full wheelies + backflips
+    // === COG-AWARE LEAN (exactly like Bike Race) ===
+    double desiredAngle = targetTilt * 1.95;                 // full wheelies + backflips
     double angleError = desiredAngle - angle;
     double torque = angleError * leanStrength - angularVelocity * leanDamping;
     angularVelocity += torque * dt;
 
-    if (onGround) {
-      angularVelocity *= 0.78;
-    } else {
-      angularVelocity *= 0.97;   // less damping in air = full spins possible
-    }
+    if (onGround) angularVelocity *= 0.79;
+    else angularVelocity *= 0.968;
+
     angle += angularVelocity * dt;
 
-    // Predict position (prevents tunneling)
+    // Predict position
     final predictedPos = position + velocity * dt;
 
     onGround = false;
@@ -216,51 +216,56 @@ class Bike extends PositionComponent {
       return Vector2(local.x * c - local.y * s, local.x * s + local.y * c);
     }
 
-    // Rear wheel - ray from above the wheel
+    // Rear wheel raycast (starts high above)
     final rearLocal = Vector2(-wheelbase / 2, 0.95);
     final rearPos = predictedPos + rotate(rearLocal);
-    final rayStart = rearPos + Vector2(0, -25); // start well above
+    final rayStart = rearPos + Vector2(0, -40); // much higher start = no tunneling
     final down = Vector2(0, 1);
-    final velDir = velocity.length > 8 ? velocity.normalized() : Vector2(1, 0);
 
-    var result = castRay(rayStart, down, segments, maxDist: 50.0);
+    var result = castRay(rayStart, down, segments);
     if (result.hit) {
-      if (result.distance < 25 + wheelRadius) { // 25 = ray offset
-        double penetration = wheelRadius - (result.distance - 25);
+      final effectiveDist = result.distance - 40;
+      if (effectiveDist < wheelRadius) {
+        double penetration = wheelRadius - effectiveDist;
         if (penetration > 0) {
           totalFy -= penetration * suspensionStiffness - velocity.y * suspensionDamping;
-          totalTorque += (rearPos.x - predictedPos.x) * penetration * 2.0;
+          totalTorque += (rearPos.x - predictedPos.x) * penetration * 2.2;
           onGround = true;
-        } else if (result.distance - 25 < magnetDistance + wheelRadius) {
-          totalFy -= (result.distance - 25 - wheelRadius - magnetDistance) * magnetStrength;
         }
+      } else if (effectiveDist < magnetDistance + wheelRadius) {
+        totalFy -= (effectiveDist - wheelRadius - magnetDistance) * magnetStrength;
       }
     }
 
-    // Front wheel (same logic)
+    // Front wheel (same robust raycast)
     final frontLocal = Vector2(wheelbase / 2, 0.95);
     final frontPos = predictedPos + rotate(frontLocal);
-    final frontRayStart = frontPos + Vector2(0, -25);
+    final frontRayStart = frontPos + Vector2(0, -40);
 
-    result = castRay(frontRayStart, down, segments, maxDist: 50.0);
+    result = castRay(frontRayStart, down, segments);
     if (result.hit) {
-      if (result.distance < 25 + wheelRadius) {
-        double penetration = wheelRadius - (result.distance - 25);
+      final effectiveDist = result.distance - 40;
+      if (effectiveDist < wheelRadius) {
+        double penetration = wheelRadius - effectiveDist;
         if (penetration > 0) {
-          totalFy -= penetration * suspensionStiffness * 0.95 - velocity.y * suspensionDamping;
-          totalTorque += (frontPos.x - predictedPos.x) * penetration * 1.7;
+          totalFy -= penetration * suspensionStiffness * 0.94 - velocity.y * suspensionDamping;
+          totalTorque += (frontPos.x - predictedPos.x) * penetration * 1.8;
           onGround = true;
-        } else if (result.distance - 25 < magnetDistance + wheelRadius) {
-          totalFy -= (result.distance - 25 - wheelRadius - magnetDistance) * magnetStrength * 0.9;
         }
+      } else if (effectiveDist < magnetDistance + wheelRadius) {
+        totalFy -= (effectiveDist - wheelRadius - magnetDistance) * magnetStrength * 0.9;
       }
     }
 
-    // Apply forces
-    velocity.y += totalFy * dt;
-    angularVelocity += totalTorque * 0.016 * dt;
+    // Hard anti-tunnel snap
+    if (!onGround && (rearPos.y > 12 + 20 || frontPos.y > 12 + 20)) {
+      position.y -= 8; // pull bike back up if it somehow sank
+      velocity.y = velocity.y * 0.3;
+    }
 
-    // Final position
+    velocity.y += totalFy * dt;
+    angularVelocity += totalTorque * 0.017 * dt;
+
     position = predictedPos;
 
     if (onGround) {
@@ -290,7 +295,10 @@ class DebugOverlay extends Component with HasGameRef<RaceRiderGame> {
   void render(Canvas canvas) {
     final tp = TextPainter(
       text: TextSpan(
-        text: "v34\nTilt: ${gameRef.smoothedTilt.toStringAsFixed(2)}\nAngle: ${gameRef.player.angle.toStringAsFixed(2)}\nOnGround: ${gameRef.player.onGround}",
+        text: "v35 - COG TILT\n"
+            "Tilt: ${gameRef.smoothedTilt.toStringAsFixed(2)}\n"
+            "Angle: ${gameRef.player.angle.toStringAsFixed(2)}\n"
+            "OnGround: ${gameRef.player.onGround}",
         style: const TextStyle(color: Colors.yellow, fontSize: 15, fontWeight: FontWeight.bold),
       ),
       textDirection: TextDirection.ltr,
