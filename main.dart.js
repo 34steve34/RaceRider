@@ -10693,7 +10693,7 @@ b5.d=new A.Fy()
 b5=new A.fy(b0,-2147483647,b4,new A.b0([]),new A.b0([]))
 s=A.RC()
 r=new A.k(new Float64Array(2))
-r.lA(2.8)
+r.lA(2.4)
 q=s.ax.at.e
 q.d1(r)
 q.aH()
@@ -25590,7 +25590,7 @@ A.u9.prototype={
 gkV(){var s,r=this.d
 if(r===0)return B.k
 s=this.a
-if(!isFinite(s.c.ghg()))return B.tH
+if(!isFinite(s.c.ghg()))return B.tJ
 return new A.K(r*(this.c-s.c.ghg()),0)},
 EE(a,b,c){var s,r,q=this,p=q.c
 if(b===p&&a===p){q.c=q.a.m6(a,b,c)
@@ -34324,7 +34324,7 @@ var $async$ea=A.F(function(a,b){if(a===1)return A.B(b,r)
 for(;;)switch(s){case 0:q.dI(new A.nk(0,null,new A.b0([]),new A.b0([])))
 q.o2=q.BS()
 p=new A.k(new Float64Array(2))
-p.aJ(-80,-20)
+p.aJ(-90,-35)
 o=new Float64Array(2)
 n=A.Kk()
 m=new A.k(new Float64Array(2))
@@ -34338,7 +34338,7 @@ n=n.d
 n.d1(p)
 n.aH()
 p=new A.k(new Float64Array(2))
-p.aJ(16,8)
+p.aJ(17,9)
 o.sS(p)
 o.ay=B.aF
 o.mY()
@@ -34347,7 +34347,7 @@ q.dI(new A.nN(null,0,null,new A.b0([]),new A.b0([])))
 p=q.k4.ax
 o=p.at
 n=new A.k(new Float64Array(2))
-n.lA(2.8)
+n.lA(2.4)
 m=o.e
 m.d1(n)
 m.aH()
@@ -34364,9 +34364,9 @@ s===$&&A.c()
 s.al()
 this.qg()},
 BS(){var s,r,q,p,o,n=A.d([],t.h5)
-n.push(new A.lI(-700,30,-250,30))
-for(s=-250,r=30,q=0;q<100;++q,r=o,s=p){p=s+(55+B.d_.wk()*65)
-o=r+(-9+B.d_.wk()*19)
+n.push(new A.lI(-700,35,-250,35))
+for(s=-250,r=35,q=0;q<100;++q,r=o,s=p){p=s+(58+B.d_.wk()*68)
+o=r+(-10+B.d_.wk()*20)
 n.push(new A.lI(s,r,p,o))}return n},
 ac(a){var s,r,q,p,o,n,m=this
 m.yU(a)
@@ -34376,7 +34376,7 @@ r=m.k4.ax.at.f
 r.d1(s.at.d.fe(0))
 r.aH()
 q=B.d.fE(m.vp/9,-1,1)
-r=m.o3*0.48+q*0.52
+r=m.o3*0.45+q*0.55
 m.o3=r
 s=m.dk
 p=m.o4
@@ -34400,7 +34400,7 @@ s.translate(-r[0],-r[1])
 $.aF()
 p=A.ce()
 p.r=B.oB.ai()
-p.c=9
+p.c=10
 p.b=B.b1
 p.d=B.va
 r=g.o2
@@ -34419,25 +34419,25 @@ l=A.ce()
 l.r=B.oq.ai()
 k=A.ce()
 k.r=B.or.ai()
-k.c=2.5
+k.c=3.5
 k.b=B.b1
 j=A.ce()
 j.r=B.aJ.ai()
 i=A.ce()
 i.r=B.d2.ai()
 i.b=B.b1
-i.c=1.8
+i.c=2.2
 a.fI(B.uE,l)
 h=A.ce()
 h.r=B.oy.ai()
 a.fI(B.uF,h)
 a.i6(B.tK,B.tI,k)
-a.i6(B.tL,B.tJ,k)
-a.i6(B.tG,B.tM,k)
-a.ka(B.js,1.65,j)
-a.ka(B.jt,1.65,j)
-a.ka(B.js,1.1,i)
-a.ka(B.jt,1.1,i)
+a.i6(B.tM,B.tF,k)
+a.i6(B.tL,B.tH,k)
+a.ka(B.js,2.1,j)
+a.ka(B.jt,2.1,j)
+a.ka(B.js,1.35,i)
+a.ka(B.jt,1.35,i)
 s.restore()
 s.restore()}}
 A.C1.prototype={
@@ -34470,7 +34470,7 @@ k.p(0,s)
 i=A.PF(k,b2)
 s=i.a
 h=2.1-s
-if(h>0.02){g=new Float64Array(2)
+if(h>0.015){g=new Float64Array(2)
 g[1]=l[1]
 g[0]=l[0]
 new A.k(g).a1(i.b)
@@ -34483,7 +34483,7 @@ s=new Float64Array(2)
 d=new A.k(s)
 s[1]=f[1]
 s[0]=f[0]
-d.a2(h*0.85)
+d.a2(h*0.88)
 s=new Float64Array(2)
 q=new A.k(s)
 s[1]=j[1]
@@ -34499,7 +34499,7 @@ b=new Float64Array(2)
 a=new A.k(b)
 b[1]=j[1]
 b[0]=j[0]
-a.a2(1.65)
+a.a2(1.4)
 b=new Float64Array(2)
 a0=new A.k(b)
 j=d.a
@@ -34521,7 +34521,7 @@ b=new Float64Array(2)
 a=new A.k(b)
 b[1]=g[1]
 b[0]=g[0]
-a.a2(0.68)
+a.a2(0.62)
 b=new Float64Array(2)
 a0=new A.k(b)
 j=d.a
@@ -34530,7 +34530,7 @@ b[0]=j[0]
 a0.a1(a)
 a6.k4=a0
 a6.p2=!0
-n+=(l[0]-s[0])*h*2.8}else if(s<5.300000000000001){l=new Float64Array(2)
+n+=(l[0]-s[0])*h*2.8}else if(s<5.6){l=new Float64Array(2)
 j=i.b.a
 l[1]=j[1]
 l[0]=j[0]
@@ -34543,7 +34543,7 @@ d=a6.k4
 l=new Float64Array(2)
 l[1]=j[1]
 l[0]=j[0]
-new A.k(l).a2((5.300000000000001-s)*620*0.55)
+new A.k(l).a2((5.6-s)*680*0.58)
 s=new Float64Array(2)
 b=new A.k(s)
 s[1]=l[1]
@@ -34565,7 +34565,7 @@ a2.p(0,s)
 a3=A.PF(a2,b2)
 s=a3.a
 a4=2.1-s
-if(a4>0.02){g=new Float64Array(2)
+if(a4>0.015){g=new Float64Array(2)
 g[1]=l[1]
 g[0]=l[0]
 new A.k(g).a1(a3.b)
@@ -34578,7 +34578,7 @@ s=new Float64Array(2)
 d=new A.k(s)
 s[1]=f[1]
 s[0]=f[0]
-d.a2(a4*0.82)
+d.a2(a4*0.85)
 s=new Float64Array(2)
 q=new A.k(s)
 s[1]=j[1]
@@ -34594,7 +34594,7 @@ b=new Float64Array(2)
 a=new A.k(b)
 b[1]=j[1]
 b[0]=j[0]
-a.a2(1.55)
+a.a2(1.35)
 b=new Float64Array(2)
 a0=new A.k(b)
 j=d.a
@@ -34616,7 +34616,7 @@ b=new Float64Array(2)
 a=new A.k(b)
 b[1]=g[1]
 b[0]=g[0]
-a.a2(0.65)
+a.a2(0.59)
 b=new Float64Array(2)
 a0=new A.k(b)
 j=d.a
@@ -34625,7 +34625,7 @@ b[0]=j[0]
 a0.a1(a)
 a6.k4=a0
 a6.p2=!0
-n+=(l[0]-s[0])*a4*2.1}else if(s<5.300000000000001){l=new Float64Array(2)
+n+=(l[0]-s[0])*a4*2.1}else if(s<5.6){l=new Float64Array(2)
 j=a3.b.a
 l[1]=j[1]
 l[0]=j[0]
@@ -34638,7 +34638,7 @@ d=a6.k4
 l=new Float64Array(2)
 l[1]=j[1]
 l[0]=j[0]
-new A.k(l).a2((5.300000000000001-s)*620*0.48)
+new A.k(l).a2((5.6-s)*680*0.5)
 s=new Float64Array(2)
 b=new A.k(s)
 s[1]=l[1]
@@ -34653,14 +34653,14 @@ a.p(0,b)
 a6.k4=a}}a7.d1(q)
 a7.aH()
 a6.p1=a6.p1+n*0.018*a8
-if(a6.p2){if(b0)a5=420
-else a5=b1?-95:0
+if(a6.p2){if(b0)a5=480
+else a5=b1?-110:0
 a7=a6.k4
 a7.sq(a7.a[0]+a5*Math.cos(a6.ok)*a8)
 a7=a6.k4
 a7.st(a7.a[1]+a5*Math.sin(a6.ok)*a8)
 a7=a6.k4
-a7.sq(a7.a[0]*0.84)}else{a7=a6.k4
+a7.sq(a7.a[0]*0.965)}else{a7=a6.k4
 a7.sq(a7.a[0]*0.98)}},
 ty(a){var s,r=Math.cos(this.ok),q=Math.sin(this.ok),p=a.a,o=p[0]
 p=p[1]
@@ -34680,9 +34680,9 @@ p===$&&A.c()
 p=B.d.O(p.ok,2)
 s=this.ghi().dk
 s===$&&A.c()
-r=A.NT(A.NV(B.vx,"v38 - BIG & FAST\nTilt: "+q+"\nAngle: "+p+"\nOnGround: "+s.p2),B.x)
+r=A.NT(A.NV(B.vx,"v39 - BIG, FAST & STABLE\nTilt: "+q+"\nAngle: "+p+"\nOnGround: "+s.p2),B.x)
 r.wb()
-r.bQ(a,B.tF)}}
+r.bQ(a,B.tG)}}
 A.rf.prototype={
 cP(){var s=this.oc$
 return s==null?this.yE():s}}
@@ -37163,16 +37163,16 @@ B.to=new A.p_(0,"clipRect")
 B.tp=new A.p_(3,"transform")
 B.tt=new A.AT(0,"traditional")
 B.k=new A.K(0,0)
-B.tF=new A.K(20,20)
-B.js=new A.K(-4.2,2.1)
-B.tG=new A.K(4.5,-2.6)
-B.tH=new A.K(1/0,0)
-B.tI=new A.K(-2.8,2.2)
-B.tJ=new A.K(6.2,2.1)
-B.tK=new A.K(-5,0.5)
-B.jt=new A.K(5.1,2.1)
-B.tL=new A.K(4.8,-0.8)
-B.tM=new A.K(7,-3.8)
+B.tF=new A.K(9.1,3.3)
+B.tG=new A.K(20,20)
+B.tH=new A.K(10.4,-4.6)
+B.js=new A.K(-5.4,3.15)
+B.tI=new A.K(-4.1,3.4)
+B.tJ=new A.K(1/0,0)
+B.tK=new A.K(-7.8,0.8)
+B.tL=new A.K(7.1,-3.4)
+B.jt=new A.K(5.4,3.15)
+B.tM=new A.K(6.8,-1.1)
 B.v=new A.dZ(0,"iOs")
 B.aw=new A.dZ(1,"android")
 B.b_=new A.dZ(2,"linux")
@@ -37212,8 +37212,8 @@ B.uB=new A.iy(1,"scroll")
 B.uC=new A.iy(3,"scale")
 B.uD=new A.iy(4,"unknown")
 B.C=new A.W(0,0,0,0)
-B.uE=new A.W(-5.5,-1.8,5.5,0.9999999999999998)
-B.uF=new A.W(-4.2,-3.4,1.2999999999999998,-1.7999999999999998)
+B.uE=new A.W(-8.2,-2.4,8.3,1.2000000000000002)
+B.uF=new A.W(-6.1,-4.1,1.7000000000000002,-2.0999999999999996)
 B.uG=new A.W(-1e9,-1e9,1e9,1e9)
 B.aB=new A.h5(0,"idle")
 B.n2=new A.h5(1,"transientCallbacks")
