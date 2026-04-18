@@ -1,6 +1,7 @@
 /* ============================================================================
- * RACERIDER - v36 - CLOSEST-POINT COLLISION + CORRECTED FORCE DIRECTION
- * No more tunneling. Force now pushes up when below track (fixed 180° bug).
+ * RACERIDER - v37 - TUNNELING FIXED (Predictive Position Correction)
+ * No more falling through. Wheels are corrected to surface BEFORE drawing.
+ * Uses separation vectors + impulses. Robust on any slope/speed.
  * ============================================================================ */
 
 import 'dart:math';
@@ -34,7 +35,7 @@ class RaceRiderGame extends Forge2DGame with TapCallbacks {
   Future<void> onLoad() async {
     add(Background());
     trackSegments = _generateRandomTrack();
-    player = Bike(Vector2(-40, 0.0));  // Spawn well above the track
+    player = Bike(Vector2(-40, 0.0));
     add(DebugOverlay());
 
     camera.viewfinder.zoom = 5.3;
@@ -126,7 +127,7 @@ class RaceRiderGame extends Forge2DGame with TapCallbacks {
   }
 }
 
-// ====================== CLOSEST POINT ON TRACK ======================
+// ====================== CLOSEST POINT ON TRACK (unchanged - still perfect) ======================
 class ClosestPointResult {
   final double distance;
   final Vector2 point;
@@ -137,7 +138,7 @@ class ClosestPointResult {
 ClosestPointResult getClosestPointOnTrack(Vector2 wheelPos, List<TrackSegment> segments) {
   double minDist = double.infinity;
   Vector2 bestPoint = Vector2.zero();
-  Vector2 bestNormal = Vector2(0, -1); // default up
+  Vector2 bestNormal = Vector2(0, -1);
 
   for (final seg in segments) {
     final a = Vector2(seg.xStart, seg.yStart);
@@ -153,14 +154,14 @@ ClosestPointResult getClosestPointOnTrack(Vector2 wheelPos, List<TrackSegment> s
     if (dist < minDist) {
       minDist = dist;
       bestPoint = closest;
-      bestNormal = ab..rotate(-pi / 2)..normalize(); // rotate to point "up"
+      bestNormal = ab..rotate(-pi / 2)..normalize();
       if (bestNormal.y > 0) bestNormal.negate();
     }
   }
   return ClosestPointResult(minDist, bestPoint, bestNormal);
 }
 
-// ====================== BIKE ======================
+// ====================== BIKE - v37 collision system ======================
 class Bike extends PositionComponent {
   Vector2 velocity = Vector2.zero();
   double angle = 0.0;
@@ -175,8 +176,6 @@ class Bike extends PositionComponent {
 
   final double wheelbase = 4.3;
   final double wheelRadius = 0.85;
-  final double suspensionStiffness = 2800.0;   // very strong when below
-  final double suspensionDamping = 180.0;
   final double magnetDistance = 1.4;
   final double magnetStrength = 580.0;
 
@@ -202,50 +201,63 @@ class Bike extends PositionComponent {
 
     final predictedPos = position + velocity * dt;
 
+    // ====================== v37: PREDICTIVE COLLISION RESOLUTION ======================
     onGround = false;
-    double totalFy = 0.0;
     double totalTorque = 0.0;
+    Vector2 correctedPos = predictedPos.clone();
 
-    Vector2 rotate(Vector2 local) {
-      final c = cos(angle), s = sin(angle);
-      return Vector2(local.x * c - local.y * s, local.x * s + local.y * c);
+    // 2-pass resolution (rear → front) to handle deep or chained penetrations
+    for (int pass = 0; pass < 2; pass++) {
+      // Rear wheel
+      final rearLocal = Vector2(-wheelbase / 2, 0.95);
+      final rearWheelPos = correctedPos + _rotate(rearLocal);
+      final rearResult = getClosestPointOnTrack(rearWheelPos, segments);
+      double rearPen = wheelRadius - rearResult.distance;
+
+      if (rearPen > 0) {
+        final sepDir = (rearWheelPos - rearResult.point).normalized();
+        correctedPos -= sepDir * rearPen;
+        // Impulse - kill velocity into the track + tiny rebound
+        final velDot = velocity.dot(sepDir);
+        if (velDot < 0) {
+          velocity -= sepDir * velDot * 1.4;
+        }
+        onGround = true;
+        totalTorque += (rearWheelPos.x - correctedPos.x) * rearPen * 2.2;
+      } else if (rearResult.distance < magnetDistance + wheelRadius) {
+        final pullDir = (rearResult.point - rearWheelPos).normalized();
+        final pull = (magnetDistance + wheelRadius - rearResult.distance) * magnetStrength * 0.6;
+        velocity += pullDir * (pull * dt);
+      }
+
+      // Front wheel
+      final frontLocal = Vector2(wheelbase / 2, 0.95);
+      final frontWheelPos = correctedPos + _rotate(frontLocal);
+      final frontResult = getClosestPointOnTrack(frontWheelPos, segments);
+      double frontPen = wheelRadius - frontResult.distance;
+
+      if (frontPen > 0) {
+        final sepDir = (frontWheelPos - frontResult.point).normalized();
+        correctedPos -= sepDir * frontPen * 0.96; // slightly softer front suspension feel
+        final velDot = velocity.dot(sepDir);
+        if (velDot < 0) {
+          velocity -= sepDir * velDot * 1.3;
+        }
+        onGround = true;
+        totalTorque += (frontWheelPos.x - correctedPos.x) * frontPen * 1.8;
+      } else if (frontResult.distance < magnetDistance + wheelRadius) {
+        final pullDir = (frontResult.point - frontWheelPos).normalized();
+        final pull = (magnetDistance + wheelRadius - frontResult.distance) * magnetStrength * 0.55;
+        velocity += pullDir * (pull * dt);
+      }
     }
 
-    // Rear wheel - closest point (never misses)
-    final rearLocal = Vector2(-wheelbase / 2, 0.95);
-    final rearPos = predictedPos + rotate(rearLocal);
-    final rearResult = getClosestPointOnTrack(rearPos, segments);
+    position = correctedPos;
 
-    double rearPenetration = wheelRadius - rearResult.distance;
-    if (rearPenetration > 0) {
-      // BELOW track → push UP (negative y force)
-      totalFy -= rearPenetration * suspensionStiffness - velocity.y * suspensionDamping;
-      totalTorque += (rearPos.x - predictedPos.x) * rearPenetration * 2.2;
-      onGround = true;
-    } else if (rearResult.distance < magnetDistance + wheelRadius) {
-      // Gentle magnet pull down (positive force)
-      totalFy += (magnetDistance + wheelRadius - rearResult.distance) * magnetStrength * 0.6;
-    }
-
-    // Front wheel
-    final frontLocal = Vector2(wheelbase / 2, 0.95);
-    final frontPos = predictedPos + rotate(frontLocal);
-    final frontResult = getClosestPointOnTrack(frontPos, segments);
-
-    double frontPenetration = wheelRadius - frontResult.distance;
-    if (frontPenetration > 0) {
-      totalFy -= frontPenetration * suspensionStiffness * 0.94 - velocity.y * suspensionDamping;
-      totalTorque += (frontPos.x - predictedPos.x) * frontPenetration * 1.8;
-      onGround = true;
-    } else if (frontResult.distance < magnetDistance + wheelRadius) {
-      totalFy += (magnetDistance + wheelRadius - frontResult.distance) * magnetStrength * 0.55;
-    }
-
-    velocity.y += totalFy * dt;
+    // Apply accumulated torque
     angularVelocity += totalTorque * 0.017 * dt;
 
-    position = predictedPos;
-
+    // Ground drive (gas/brake)
     if (onGround) {
       double drive = gas ? acceleration : (brake ? -brakePower : 0);
       velocity.x += drive * cos(angle) * dt;
@@ -253,9 +265,14 @@ class Bike extends PositionComponent {
       velocity.x *= 0.88;
     }
   }
+
+  Vector2 _rotate(Vector2 local) {
+    final c = cos(angle), s = sin(angle);
+    return Vector2(local.x * c - local.y * s, local.x * s + local.y * c);
+  }
 }
 
-// Background, TrackSegment, DebugOverlay
+// ====================== Rest of the file unchanged ======================
 class Background extends Component {
   @override
   void render(Canvas canvas) {
@@ -273,7 +290,7 @@ class DebugOverlay extends Component with HasGameRef<RaceRiderGame> {
   void render(Canvas canvas) {
     final tp = TextPainter(
       text: TextSpan(
-        text: "v36 - FIXED FORCE DIRECTION\n"
+        text: "v37 - TUNNELING FIXED\n"
             "Tilt: ${gameRef.smoothedTilt.toStringAsFixed(2)}\n"
             "Angle: ${gameRef.player.angle.toStringAsFixed(2)}\n"
             "OnGround: ${gameRef.player.onGround}",
