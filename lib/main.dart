@@ -1,6 +1,6 @@
 /* ============================================================================
- * RACERIDER - v40 - PROPER MOTORCYCLE LOOK + BIGGER + FASTER + STABLE
- * Fixed drawing scale & wheel positions, reduced drag, stronger drive
+ * RACERIDER - v41 - ANTI-BOUNCE TUNING (no more vibration)
+ * Softer correction + heavy normal damping + stronger magnet + stickier ground
  * ============================================================================ */
 
 import 'dart:math';
@@ -28,7 +28,7 @@ class RaceRiderGame extends Forge2DGame with TapCallbacks {
 
   late StreamSubscription<AccelerometerEvent> _accelSubscription;
 
-  RaceRiderGame() : super(gravity: Vector2(0, 0), zoom: 2.1); // zoomed out more
+  RaceRiderGame() : super(gravity: Vector2(0, 0), zoom: 2.1);
 
   @override
   Future<void> onLoad() async {
@@ -103,7 +103,6 @@ class RaceRiderGame extends Forge2DGame with TapCallbacks {
     canvas.scale(camera.viewfinder.zoom);
     canvas.translate(-player.position.x, -player.position.y);
 
-    // Nice thick track
     final trackPaint = Paint()
       ..color = const Color(0xFF00FF88)
       ..strokeWidth = 11.0
@@ -113,7 +112,7 @@ class RaceRiderGame extends Forge2DGame with TapCallbacks {
       canvas.drawLine(Offset(seg.xStart, seg.yStart), Offset(seg.xEnd, seg.yEnd), trackPaint);
     }
 
-    // ====================== v40 PROPER MOTORCYCLE DRAWING ======================
+    // v40+ motorcycle visuals (unchanged - looks good)
     canvas.save();
     canvas.translate(player.position.x, player.position.y);
     canvas.rotate(player.angle);
@@ -124,26 +123,16 @@ class RaceRiderGame extends Forge2DGame with TapCallbacks {
     final wheelPaint = Paint()..color = Colors.white;
     final rimPaint = Paint()..color = Colors.black87..style = PaintingStyle.stroke..strokeWidth = 2.5;
 
-    // Main frame / chassis
     canvas.drawRect(const Rect.fromLTWH(-9.5, -3.2, 19.5, 4.2), bodyPaint);
-
-    // Seat
     final seatPaint = Paint()..color = const Color(0xFF111111);
     canvas.drawRect(const Rect.fromLTWH(-7.2, -5.1, 8.5, 2.1), seatPaint);
 
-    // Rear swingarm
     canvas.drawLine(const Offset(-9.2, 1.2), const Offset(-4.8, 4.8), framePaint);
-    // Front fork
     canvas.drawLine(const Offset(7.8, -2.1), const Offset(11.2, 4.6), forkPaint);
-
-    // Handlebar
     canvas.drawLine(const Offset(8.5, -4.2), const Offset(12.8, -5.6), forkPaint);
 
-    // Wheels - now correctly placed at fork ends
-    canvas.drawCircle(const Offset(-6.8, 4.8), 2.35, wheelPaint);  // rear
-    canvas.drawCircle(const Offset(7.8, 4.8), 2.35, wheelPaint);   // front
-
-    // Rims
+    canvas.drawCircle(const Offset(-6.8, 4.8), 2.35, wheelPaint);
+    canvas.drawCircle(const Offset(7.8, 4.8), 2.35, wheelPaint);
     canvas.drawCircle(const Offset(-6.8, 4.8), 1.55, rimPaint);
     canvas.drawCircle(const Offset(7.8, 4.8), 1.55, rimPaint);
 
@@ -152,7 +141,7 @@ class RaceRiderGame extends Forge2DGame with TapCallbacks {
   }
 }
 
-// ClosestPoint and Bike class - improved for v40
+// ====================== CLOSEST POINT (unchanged) ======================
 class ClosestPointResult {
   final double distance;
   final Vector2 point;
@@ -186,6 +175,7 @@ ClosestPointResult getClosestPointOnTrack(Vector2 wheelPos, List<TrackSegment> s
   return ClosestPointResult(minDist, bestPoint, bestNormal);
 }
 
+// ====================== BIKE v41 - ANTI-BOUNCE ======================
 class Bike extends PositionComponent {
   Vector2 velocity = Vector2.zero();
   double angle = 0.0;
@@ -195,13 +185,13 @@ class Bike extends PositionComponent {
   final double gravity = 42.0;
   final double leanStrength = 210.0;
   final double leanDamping = 32.0;
-  final double acceleration = 620.0;      // much stronger
+  final double acceleration = 620.0;
   final double brakePower = 140.0;
 
   final double wheelbase = 13.6;
   final double wheelRadius = 2.35;
-  final double magnetDistance = 4.0;
-  final double magnetStrength = 720.0;
+  final double magnetDistance = 4.8;      // starts pulling earlier
+  final double magnetStrength = 850.0;    // stronger
 
   Bike(Vector2 startPos) {
     position = startPos;
@@ -231,47 +221,48 @@ class Bike extends PositionComponent {
     final Vector2 rearLocal = Vector2(-wheelbase / 2, wheelRadius * 0.85);
     final Vector2 frontLocal = Vector2(wheelbase / 2, wheelRadius * 0.85);
 
-    for (int pass = 0; pass < 3; pass++) {
-      // Rear
+    // 4 passes for ultra-stable resolution
+    for (int pass = 0; pass < 4; pass++) {
+      // Rear wheel
       Vector2 rearPos = correctedPos + _rotate(rearLocal);
       final rearRes = getClosestPointOnTrack(rearPos, segments);
       double pen = wheelRadius - rearRes.distance;
 
-      if (pen > 0.012) {
+      if (pen > 0.008) {
         Vector2 sep = (rearPos - rearRes.point).normalized();
-        correctedPos -= sep * (pen * 0.9);
+        correctedPos -= sep * (pen * 0.75);           // softer push
         double velDotN = velocity.dot(sep);
-        if (velDotN < 0) velocity -= sep * velDotN * 1.35;
+        if (velDotN < 0) velocity -= sep * velDotN * 1.85; // stronger damping
 
         Vector2 tangent = Vector2(sep.y, -sep.x);
-        velocity -= tangent * (velocity.dot(tangent) * 0.58);
+        velocity -= tangent * (velocity.dot(tangent) * 0.72); // stickier
 
         onGround = true;
-        totalTorque += (rearPos.x - correctedPos.x) * pen * 3.0;
+        totalTorque += (rearPos.x - correctedPos.x) * pen * 2.6;
       } else if (rearRes.distance < magnetDistance + wheelRadius) {
         Vector2 pullDir = (rearRes.point - rearPos).normalized();
-        velocity += pullDir * ((magnetDistance + wheelRadius - rearRes.distance) * magnetStrength * 0.55 * dt);
+        velocity += pullDir * ((magnetDistance + wheelRadius - rearRes.distance) * magnetStrength * 0.62 * dt);
       }
 
-      // Front (similar)
+      // Front wheel
       Vector2 frontPos = correctedPos + _rotate(frontLocal);
       final frontRes = getClosestPointOnTrack(frontPos, segments);
       double fPen = wheelRadius - frontRes.distance;
 
-      if (fPen > 0.012) {
+      if (fPen > 0.008) {
         Vector2 sep = (frontPos - frontRes.point).normalized();
-        correctedPos -= sep * (fPen * 0.87);
+        correctedPos -= sep * (fPen * 0.73);
         double velDotN = velocity.dot(sep);
-        if (velDotN < 0) velocity -= sep * velDotN * 1.3;
+        if (velDotN < 0) velocity -= sep * velDotN * 1.75;
 
         Vector2 tangent = Vector2(sep.y, -sep.x);
-        velocity -= tangent * (velocity.dot(tangent) * 0.55);
+        velocity -= tangent * (velocity.dot(tangent) * 0.68);
 
         onGround = true;
-        totalTorque += (frontPos.x - correctedPos.x) * fPen * 2.2;
+        totalTorque += (frontPos.x - correctedPos.x) * fPen * 2.0;
       } else if (frontRes.distance < magnetDistance + wheelRadius) {
         Vector2 pullDir = (frontRes.point - frontPos).normalized();
-        velocity += pullDir * ((magnetDistance + wheelRadius - frontRes.distance) * magnetStrength * 0.48 * dt);
+        velocity += pullDir * ((magnetDistance + wheelRadius - frontRes.distance) * magnetStrength * 0.55 * dt);
       }
     }
 
@@ -282,7 +273,7 @@ class Bike extends PositionComponent {
       double drive = gas ? acceleration : (brake ? -brakePower : 0);
       velocity.x += drive * cos(angle) * dt;
       velocity.y += drive * sin(angle) * dt;
-      velocity.x *= 0.972;   // very low drag
+      velocity.x *= 0.972;
     } else {
       velocity.x *= 0.98;
     }
@@ -294,7 +285,6 @@ class Bike extends PositionComponent {
   }
 }
 
-// Background + TrackSegment + DebugOverlay (unchanged)
 class Background extends Component {
   @override
   void render(Canvas canvas) {
@@ -311,7 +301,7 @@ class DebugOverlay extends Component with HasGameRef<RaceRiderGame> {
   @override
   void render(Canvas canvas) {
     final tp = TextPainter(
-      text: TextSpan(text: "v40 - PROPER BIKE\nTilt: ${gameRef.smoothedTilt.toStringAsFixed(2)}\nAngle: ${gameRef.player.angle.toStringAsFixed(2)}\nOnGround: ${gameRef.player.onGround}",
+      text: TextSpan(text: "v41 - ANTI-BOUNCE\nTilt: ${gameRef.smoothedTilt.toStringAsFixed(2)}\nAngle: ${gameRef.player.angle.toStringAsFixed(2)}\nOnGround: ${gameRef.player.onGround}",
           style: const TextStyle(color: Colors.yellow, fontSize: 16, fontWeight: FontWeight.bold)),
       textDirection: TextDirection.ltr,
     )..layout();
