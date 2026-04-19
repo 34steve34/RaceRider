@@ -34464,7 +34464,7 @@ p=new A.k(new Float64Array(2))
 p.aJ(-6.8,1.9975)
 o=new A.k(new Float64Array(2))
 o.aJ(6.8,1.9975)
-for(n=0,m=0;m<3;++m){s=a5.ty(p)
+for(n=0,m=0;m<4;++m){s=a5.ty(p)
 l=new Float64Array(2)
 k=new A.k(l)
 j=q.a
@@ -34474,7 +34474,7 @@ k.p(0,s)
 i=A.PF(k,b1)
 s=i.a
 h=2.35-s
-if(h>0.012){g=new Float64Array(2)
+if(h>0.008){g=new Float64Array(2)
 g[1]=l[1]
 g[0]=l[0]
 new A.k(g).a1(i.b)
@@ -34487,7 +34487,7 @@ s=new Float64Array(2)
 d=new A.k(s)
 s[1]=f[1]
 s[0]=f[0]
-d.a9(h*0.9)
+d.a9(h*0.75)
 s=new Float64Array(2)
 q=new A.k(s)
 s[1]=j[1]
@@ -34503,7 +34503,7 @@ b=new Float64Array(2)
 a=new A.k(b)
 b[1]=j[1]
 b[0]=j[0]
-a.a9(1.35)
+a.a9(1.85)
 b=new Float64Array(2)
 a0=new A.k(b)
 j=d.a
@@ -34521,7 +34521,7 @@ a=new Float64Array(2)
 a0=new A.k(a)
 a[1]=j[1]
 a[0]=j[0]
-a0.a9(b*0.58)
+a0.a9(b*0.72)
 b=new Float64Array(2)
 a=new A.k(b)
 j=d.a
@@ -34530,7 +34530,7 @@ b[0]=j[0]
 a.a1(a0)
 a5.k4=a
 a5.p2=!0
-n+=(l[0]-s[0])*h*3}else if(s<6.35){l=new Float64Array(2)
+n+=(l[0]-s[0])*h*2.6}else if(s<7.15){l=new Float64Array(2)
 j=i.b.a
 l[1]=j[1]
 l[0]=j[0]
@@ -34544,7 +34544,7 @@ b=new Float64Array(2)
 a=new A.k(b)
 b[1]=j[1]
 b[0]=j[0]
-a.a9((6.35-s)*720*0.55*a7)
+a.a9((7.15-s)*850*0.62*a7)
 s=new Float64Array(2)
 b=new A.k(s)
 l=d.a
@@ -34561,7 +34561,7 @@ a1.p(0,s)
 a2=A.PF(a1,b1)
 s=a2.a
 a3=2.35-s
-if(a3>0.012){g=new Float64Array(2)
+if(a3>0.008){g=new Float64Array(2)
 g[1]=l[1]
 g[0]=l[0]
 new A.k(g).a1(a2.b)
@@ -34574,7 +34574,7 @@ s=new Float64Array(2)
 d=new A.k(s)
 s[1]=f[1]
 s[0]=f[0]
-d.a9(a3*0.87)
+d.a9(a3*0.73)
 s=new Float64Array(2)
 q=new A.k(s)
 s[1]=j[1]
@@ -34590,7 +34590,7 @@ b=new Float64Array(2)
 a=new A.k(b)
 b[1]=j[1]
 b[0]=j[0]
-a.a9(1.3)
+a.a9(1.75)
 b=new Float64Array(2)
 a0=new A.k(b)
 j=d.a
@@ -34608,7 +34608,7 @@ a=new Float64Array(2)
 a0=new A.k(a)
 a[1]=j[1]
 a[0]=j[0]
-a0.a9(b*0.55)
+a0.a9(b*0.68)
 b=new Float64Array(2)
 a=new A.k(b)
 j=d.a
@@ -34617,7 +34617,7 @@ b[0]=j[0]
 a.a1(a0)
 a5.k4=a
 a5.p2=!0
-n+=(l[0]-s[0])*a3*2.2}else if(s<6.35){l=new Float64Array(2)
+n+=(l[0]-s[0])*a3*2}else if(s<7.15){l=new Float64Array(2)
 j=a2.b.a
 l[1]=j[1]
 l[0]=j[0]
@@ -34631,7 +34631,7 @@ b=new Float64Array(2)
 a=new A.k(b)
 b[1]=j[1]
 b[0]=j[0]
-a.a9((6.35-s)*720*0.48*a7)
+a.a9((7.15-s)*850*0.55*a7)
 s=new Float64Array(2)
 b=new A.k(s)
 l=d.a
@@ -34668,7 +34668,7 @@ p===$&&A.c()
 p=B.d.O(p.ok,2)
 s=this.ghi().dk
 s===$&&A.c()
-r=A.NT(A.NV(B.vy,"v40 - PROPER BIKE\nTilt: "+q+"\nAngle: "+p+"\nOnGround: "+s.p2),B.x)
+r=A.NT(A.NV(B.vy,"v41 - ANTI-BOUNCE\nTilt: "+q+"\nAngle: "+p+"\nOnGround: "+s.p2),B.x)
 r.wb()
 r.bQ(a,B.tI)}}
 A.rf.prototype={
