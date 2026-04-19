@@ -1,6 +1,6 @@
 /* ============================================================================
- * RACERIDER - v41 - ANTI-BOUNCE TUNING (no more vibration)
- * Softer correction + heavy normal damping + stronger magnet + stickier ground
+ * RACERIDER - v42 - TUNABLE ANTI-VIBRATION SECTION
+ * All key parameters grouped at the top for easy experimenting
  * ============================================================================ */
 
 import 'dart:math';
@@ -112,7 +112,6 @@ class RaceRiderGame extends Forge2DGame with TapCallbacks {
       canvas.drawLine(Offset(seg.xStart, seg.yStart), Offset(seg.xEnd, seg.yEnd), trackPaint);
     }
 
-    // v40+ motorcycle visuals (unchanged - looks good)
     canvas.save();
     canvas.translate(player.position.x, player.position.y);
     canvas.rotate(player.angle);
@@ -141,7 +140,7 @@ class RaceRiderGame extends Forge2DGame with TapCallbacks {
   }
 }
 
-// ====================== CLOSEST POINT (unchanged) ======================
+// ====================== CLOSEST POINT ======================
 class ClosestPointResult {
   final double distance;
   final Vector2 point;
@@ -175,23 +174,35 @@ ClosestPointResult getClosestPointOnTrack(Vector2 wheelPos, List<TrackSegment> s
   return ClosestPointResult(minDist, bestPoint, bestNormal);
 }
 
-// ====================== BIKE v41 - ANTI-BOUNCE ======================
+// ====================== BIKE v42 - TUNING SECTION ======================
 class Bike extends PositionComponent {
   Vector2 velocity = Vector2.zero();
   double angle = 0.0;
   double angularVelocity = 0.0;
   bool onGround = false;
 
+  // ==================== TUNABLE PARAMETERS ====================
   final double gravity = 42.0;
+
   final double leanStrength = 210.0;
   final double leanDamping = 32.0;
+
   final double acceleration = 620.0;
   final double brakePower = 140.0;
 
   final double wheelbase = 13.6;
   final double wheelRadius = 2.35;
-  final double magnetDistance = 4.8;      // starts pulling earlier
-  final double magnetStrength = 850.0;    // stronger
+
+  final double magnetDistance = 2.8;        // how early it starts pulling down
+  final double magnetStrength = 850.0;
+
+  final double penetrationCorrectionFactor = 0.65;   // lower = softer landing (try 0.6~0.85)
+  final double normalDamping = 1.85;                 // how strongly it kills downward speed (1.6 ~ 2.2)
+  final double tangentFriction = 0.72;               // how sticky the wheels are (0.5 ~ 0.85)
+  final double minPenetrationThreshold = 0.008;      // smaller = more sensitive
+
+  final double torqueMultiplier = 2.6;               // wheel torque for rotation
+  // ===========================================================
 
   Bike(Vector2 startPos) {
     position = startPos;
@@ -221,25 +232,26 @@ class Bike extends PositionComponent {
     final Vector2 rearLocal = Vector2(-wheelbase / 2, wheelRadius * 0.85);
     final Vector2 frontLocal = Vector2(wheelbase / 2, wheelRadius * 0.85);
 
-    // 4 passes for ultra-stable resolution
     for (int pass = 0; pass < 4; pass++) {
       // Rear wheel
       Vector2 rearPos = correctedPos + _rotate(rearLocal);
       final rearRes = getClosestPointOnTrack(rearPos, segments);
       double pen = wheelRadius - rearRes.distance;
 
-      if (pen > 0.008) {
+      if (pen > minPenetrationThreshold) {
         Vector2 sep = (rearPos - rearRes.point).normalized();
-        correctedPos -= sep * (pen * 0.75);           // softer push
+        correctedPos -= sep * (pen * penetrationCorrectionFactor);
+        
         double velDotN = velocity.dot(sep);
-        if (velDotN < 0) velocity -= sep * velDotN * 1.85; // stronger damping
+        if (velDotN < 0) velocity -= sep * velDotN * normalDamping;
 
         Vector2 tangent = Vector2(sep.y, -sep.x);
-        velocity -= tangent * (velocity.dot(tangent) * 0.72); // stickier
+        velocity -= tangent * (velocity.dot(tangent) * tangentFriction);
 
         onGround = true;
-        totalTorque += (rearPos.x - correctedPos.x) * pen * 2.6;
-      } else if (rearRes.distance < magnetDistance + wheelRadius) {
+        totalTorque += (rearPos.x - correctedPos.x) * pen * torqueMultiplier;
+      } 
+      else if (rearRes.distance < magnetDistance + wheelRadius) {
         Vector2 pullDir = (rearRes.point - rearPos).normalized();
         velocity += pullDir * ((magnetDistance + wheelRadius - rearRes.distance) * magnetStrength * 0.62 * dt);
       }
@@ -249,18 +261,20 @@ class Bike extends PositionComponent {
       final frontRes = getClosestPointOnTrack(frontPos, segments);
       double fPen = wheelRadius - frontRes.distance;
 
-      if (fPen > 0.008) {
+      if (fPen > minPenetrationThreshold) {
         Vector2 sep = (frontPos - frontRes.point).normalized();
-        correctedPos -= sep * (fPen * 0.73);
+        correctedPos -= sep * (fPen * penetrationCorrectionFactor * 0.96);
+        
         double velDotN = velocity.dot(sep);
-        if (velDotN < 0) velocity -= sep * velDotN * 1.75;
+        if (velDotN < 0) velocity -= sep * velDotN * (normalDamping * 0.94);
 
         Vector2 tangent = Vector2(sep.y, -sep.x);
-        velocity -= tangent * (velocity.dot(tangent) * 0.68);
+        velocity -= tangent * (velocity.dot(tangent) * (tangentFriction * 0.94));
 
         onGround = true;
-        totalTorque += (frontPos.x - correctedPos.x) * fPen * 2.0;
-      } else if (frontRes.distance < magnetDistance + wheelRadius) {
+        totalTorque += (frontPos.x - correctedPos.x) * fPen * (torqueMultiplier * 0.8);
+      } 
+      else if (frontRes.distance < magnetDistance + wheelRadius) {
         Vector2 pullDir = (frontRes.point - frontPos).normalized();
         velocity += pullDir * ((magnetDistance + wheelRadius - frontRes.distance) * magnetStrength * 0.55 * dt);
       }
@@ -285,6 +299,7 @@ class Bike extends PositionComponent {
   }
 }
 
+// Rest of the file (Background, TrackSegment, DebugOverlay) unchanged
 class Background extends Component {
   @override
   void render(Canvas canvas) {
@@ -301,7 +316,7 @@ class DebugOverlay extends Component with HasGameRef<RaceRiderGame> {
   @override
   void render(Canvas canvas) {
     final tp = TextPainter(
-      text: TextSpan(text: "v41 - ANTI-BOUNCE\nTilt: ${gameRef.smoothedTilt.toStringAsFixed(2)}\nAngle: ${gameRef.player.angle.toStringAsFixed(2)}\nOnGround: ${gameRef.player.onGround}",
+      text: TextSpan(text: "v42 - TUNABLE\nTilt: ${gameRef.smoothedTilt.toStringAsFixed(2)}\nAngle: ${gameRef.player.angle.toStringAsFixed(2)}\nOnGround: ${gameRef.player.onGround}",
           style: const TextStyle(color: Colors.yellow, fontSize: 16, fontWeight: FontWeight.bold)),
       textDirection: TextDirection.ltr,
     )..layout();
