@@ -194,10 +194,10 @@ class Bike extends PositionComponent {
   final double wheelRadius = 2.35;
 
   final double magnetDistance = 2.8;        // how early it starts pulling down
-  final double magnetStrength = 850.0;
+  final double magnetStrength = 550.0;
 
   final double penetrationCorrectionFactor = 0.65;   // lower = softer landing (try 0.6~0.85)
-  final double normalDamping = 1.85;                 // how strongly it kills downward speed (1.6 ~ 2.2)
+  final double normalDamping = 2.1;                 // how strongly it kills downward speed (1.6 ~ 2.2)
   final double tangentFriction = 0.72;               // how sticky the wheels are (0.5 ~ 0.85)
   final double minPenetrationThreshold = 0.008;      // smaller = more sensitive
 
