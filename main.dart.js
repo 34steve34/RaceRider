@@ -34487,7 +34487,7 @@ s=new Float64Array(2)
 d=new A.k(s)
 s[1]=f[1]
 s[0]=f[0]
-d.a9(h*0.75)
+d.a9(h*0.65)
 s=new Float64Array(2)
 q=new A.k(s)
 s[1]=j[1]
@@ -34530,7 +34530,7 @@ b[0]=j[0]
 a.a1(a0)
 a5.k4=a
 a5.p2=!0
-n+=(l[0]-s[0])*h*2.6}else if(s<7.15){l=new Float64Array(2)
+n+=(l[0]-s[0])*h*2.6}else if(s<5.15){l=new Float64Array(2)
 j=i.b.a
 l[1]=j[1]
 l[0]=j[0]
@@ -34544,7 +34544,7 @@ b=new Float64Array(2)
 a=new A.k(b)
 b[1]=j[1]
 b[0]=j[0]
-a.a9((7.15-s)*850*0.62*a7)
+a.a9((5.15-s)*850*0.62*a7)
 s=new Float64Array(2)
 b=new A.k(s)
 l=d.a
@@ -34574,7 +34574,7 @@ s=new Float64Array(2)
 d=new A.k(s)
 s[1]=f[1]
 s[0]=f[0]
-d.a9(a3*0.73)
+d.a9(a3*0.65*0.96)
 s=new Float64Array(2)
 q=new A.k(s)
 s[1]=j[1]
@@ -34590,7 +34590,7 @@ b=new Float64Array(2)
 a=new A.k(b)
 b[1]=j[1]
 b[0]=j[0]
-a.a9(1.75)
+a.a9(1.7389999999999999)
 b=new Float64Array(2)
 a0=new A.k(b)
 j=d.a
@@ -34608,7 +34608,7 @@ a=new Float64Array(2)
 a0=new A.k(a)
 a[1]=j[1]
 a[0]=j[0]
-a0.a9(b*0.68)
+a0.a9(b*0.6768)
 b=new Float64Array(2)
 a=new A.k(b)
 j=d.a
@@ -34617,7 +34617,7 @@ b[0]=j[0]
 a.a1(a0)
 a5.k4=a
 a5.p2=!0
-n+=(l[0]-s[0])*a3*2}else if(s<7.15){l=new Float64Array(2)
+n+=(l[0]-s[0])*a3*2.08}else if(s<5.15){l=new Float64Array(2)
 j=a2.b.a
 l[1]=j[1]
 l[0]=j[0]
@@ -34631,7 +34631,7 @@ b=new Float64Array(2)
 a=new A.k(b)
 b[1]=j[1]
 b[0]=j[0]
-a.a9((7.15-s)*850*0.55*a7)
+a.a9((5.15-s)*850*0.55*a7)
 s=new Float64Array(2)
 b=new A.k(s)
 l=d.a
@@ -34668,7 +34668,7 @@ p===$&&A.c()
 p=B.d.O(p.ok,2)
 s=this.ghi().dk
 s===$&&A.c()
-r=A.NT(A.NV(B.vy,"v41 - ANTI-BOUNCE\nTilt: "+q+"\nAngle: "+p+"\nOnGround: "+s.p2),B.x)
+r=A.NT(A.NV(B.vy,"v42 - TUNABLE\nTilt: "+q+"\nAngle: "+p+"\nOnGround: "+s.p2),B.x)
 r.wb()
 r.bQ(a,B.tI)}}
 A.rf.prototype={
