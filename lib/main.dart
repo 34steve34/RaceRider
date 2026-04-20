@@ -280,7 +280,7 @@ class Bike {
       final rw = pos + _rot(Vector2(_rearLx, _rearLy));
       final rc = _wheelContact(rw, segs, _wr);
       if (rc.pen > 0.005) {
-        pos = pos - rc.normal * rc.pen;          // full correction, no multiplier
+        pos = pos + rc.normal * rc.pen;          // + correct: pushes OUT of track
         rearOnGround = true;
         rearN = rc.normal;
       } else if (rc.pen > -_magnetDist) {
@@ -290,7 +290,7 @@ class Bike {
       final fw = pos + _rot(Vector2(_frtLx, _frtLy));
       final fc = _wheelContact(fw, segs, _wr);
       if (fc.pen > 0.005) {
-        pos = pos - fc.normal * fc.pen;          // full correction
+        pos = pos + fc.normal * fc.pen;          // + correct: pushes OUT of track
         frontOnGround = true;
         frtN = fc.normal;
       } else if (fc.pen > -_magnetDist) {
