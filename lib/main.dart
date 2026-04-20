@@ -1,6 +1,14 @@
 /* ============================================================================
- * RACERIDER - v42 - TUNABLE ANTI-VIBRATION SECTION
- * All key parameters grouped at the top for easy experimenting
+ * RACERIDER v43
+ * Key changes from v42:
+ *  - Torque tilt model (not target-angle seeking) → wheelie holds at neutral phone
+ *  - Anti-stoppie ONLY when front wheel grounded → front-flick works freely in air
+ *  - Single velocity impulse after all position passes → kills vibration
+ *  - normalDamping was 2.1 (bouncy catapult) → fixed to restitution 0.10
+ *  - tangentFriction applied 8×/frame → now applied once
+ *  - Physics wheel positions now match canvas drawCircle exactly
+ *  - Dropped Forge2DGame (no Box2D bodies were used) → plain FlameGame
+ *  - Spawn inside flat section, not past it
  * ============================================================================ */
 
 import 'dart:math';
@@ -9,317 +17,346 @@ import 'package:flutter/material.dart';
 import 'package:flame/game.dart';
 import 'package:flame/components.dart';
 import 'package:flame/events.dart';
-import 'package:flame_forge2d/flame_forge2d.dart';
 import 'package:sensors_plus/sensors_plus.dart';
 
-void main() {
-  runApp(GameWidget(game: RaceRiderGame()));
-}
+void main() => runApp(GameWidget(game: RaceRiderGame()));
 
-class RaceRiderGame extends Forge2DGame with TapCallbacks {
+// ══════════════════════════════════════════════════════════════════════════════
+//  GAME
+// ══════════════════════════════════════════════════════════════════════════════
+class RaceRiderGame extends FlameGame with TapCallbacks {
   late Bike player;
   late List<TrackSegment> trackSegments;
-
   double rawTilt = 0.0;
   double smoothedTilt = 0.0;
-
-  bool isGas = false;
-  bool isBrake = false;
-
-  late StreamSubscription<AccelerometerEvent> _accelSubscription;
-
-  RaceRiderGame() : super(gravity: Vector2(0, 0), zoom: 2.1);
+  bool isGas = false, isBrake = false;
+  late StreamSubscription _accelSub;
 
   @override
   Future<void> onLoad() async {
+    trackSegments = _buildTrack();
+    player = Bike(Vector2(-540, 20.0));   // inside the flat opening section
     add(Background());
-    trackSegments = _generateRandomTrack();
-    player = Bike(Vector2(-90, -45.0));
     add(DebugOverlay());
-
-    camera.viewfinder.zoom = 2.1;
-    camera.viewfinder.anchor = Anchor.center;
-    camera.viewfinder.position = player.position;
-
-    _accelSubscription = accelerometerEvents.listen((AccelerometerEvent event) {
-      rawTilt = event.y;
-    });
+    camera.viewfinder
+      ..zoom = 2.1
+      ..anchor = Anchor.center;
+    _accelSub = accelerometerEvents.listen((e) => rawTilt = e.y);
   }
 
   @override
-  void onRemove() {
-    _accelSubscription.cancel();
-    super.onRemove();
-  }
+  void onRemove() { _accelSub.cancel(); super.onRemove(); }
 
-  List<TrackSegment> _generateRandomTrack() {
-    final segments = <TrackSegment>[];
-    double x = -700.0;
-    double y = 38.0;
+  List<TrackSegment> _buildTrack() {
+    final segs = <TrackSegment>[];
+    double x = -700, y = 38.0;
     final rng = Random();
-
-    segments.add(TrackSegment(x, y, x + 450, y));
+    segs.add(TrackSegment(x, y, x + 450, y));   // long flat opener
     x += 450;
-
-    for (int i = 0; i < 100; i++) {
-      final dx = 62.0 + rng.nextDouble() * 72.0;
-      final dy = -11.0 + rng.nextDouble() * 22.0;
-      segments.add(TrackSegment(x, y, x + dx, y + dy));
-      x += dx;
-      y += dy;
+    for (int i = 0; i < 120; i++) {
+      final dx = 60 + rng.nextDouble() * 70;
+      final dy = -12 + rng.nextDouble() * 24;
+      segs.add(TrackSegment(x, y, x + dx, y + dy));
+      x += dx; y += dy;
     }
-    return segments;
+    return segs;
   }
 
   @override
   void update(double dt) {
     super.update(dt);
     camera.viewfinder.position = player.position;
-
-    double normalizedTilt = (rawTilt / 9.0).clamp(-1.0, 1.0);
-    smoothedTilt = smoothedTilt * 0.42 + normalizedTilt * 0.58;
-
+    final n = (rawTilt / 9.0).clamp(-1.0, 1.0);
+    smoothedTilt = smoothedTilt * 0.65 + n * 0.35;   // 0.65 = smoother than v42's 0.42
     player.updateBike(dt, smoothedTilt, isGas, isBrake, trackSegments);
   }
 
   @override
-  void onTapDown(TapDownEvent event) {
-    isBrake = event.localPosition.x < size.x / 2;
+  void onTapDown(TapDownEvent e) {
+    isBrake = e.localPosition.x < size.x / 2;
     isGas = !isBrake;
   }
-
   @override
-  void onTapUp(TapUpEvent event) {
-    isGas = false;
-    isBrake = false;
-  }
+  void onTapUp(TapUpEvent e) { isGas = isBrake = false; }
 
   @override
   void render(Canvas canvas) {
-    super.render(canvas);
-
+    super.render(canvas);   // draws Background + DebugOverlay components
     canvas.save();
     canvas.translate(size.x / 2, size.y / 2);
     canvas.scale(camera.viewfinder.zoom);
     canvas.translate(-player.position.x, -player.position.y);
 
-    final trackPaint = Paint()
+    // Track
+    final tp = Paint()
       ..color = const Color(0xFF00FF88)
-      ..strokeWidth = 11.0
+      ..strokeWidth = 10.0
       ..style = PaintingStyle.stroke
       ..strokeCap = StrokeCap.round;
-    for (final seg in trackSegments) {
-      canvas.drawLine(Offset(seg.xStart, seg.yStart), Offset(seg.xEnd, seg.yEnd), trackPaint);
+    for (final s in trackSegments) {
+      canvas.drawLine(Offset(s.x1, s.y1), Offset(s.x2, s.y2), tp);
     }
 
+    // Bike
     canvas.save();
     canvas.translate(player.position.x, player.position.y);
     canvas.rotate(player.angle);
-
-    final bodyPaint = Paint()..color = const Color(0xFFFF4400);
-    final framePaint = Paint()..color = Colors.black..strokeWidth = 4.0..style = PaintingStyle.stroke;
-    final forkPaint = Paint()..color = Colors.grey[700]!..strokeWidth = 4.5..style = PaintingStyle.stroke;
-    final wheelPaint = Paint()..color = Colors.white;
-    final rimPaint = Paint()..color = Colors.black87..style = PaintingStyle.stroke..strokeWidth = 2.5;
-
-    canvas.drawRect(const Rect.fromLTWH(-9.5, -3.2, 19.5, 4.2), bodyPaint);
-    final seatPaint = Paint()..color = const Color(0xFF111111);
-    canvas.drawRect(const Rect.fromLTWH(-7.2, -5.1, 8.5, 2.1), seatPaint);
-
-    canvas.drawLine(const Offset(-9.2, 1.2), const Offset(-4.8, 4.8), framePaint);
-    canvas.drawLine(const Offset(7.8, -2.1), const Offset(11.2, 4.6), forkPaint);
-    canvas.drawLine(const Offset(8.5, -4.2), const Offset(12.8, -5.6), forkPaint);
-
-    canvas.drawCircle(const Offset(-6.8, 4.8), 2.35, wheelPaint);
-    canvas.drawCircle(const Offset(7.8, 4.8), 2.35, wheelPaint);
-    canvas.drawCircle(const Offset(-6.8, 4.8), 1.55, rimPaint);
-    canvas.drawCircle(const Offset(7.8, 4.8), 1.55, rimPaint);
-
+    _drawBike(canvas);
     canvas.restore();
     canvas.restore();
   }
+
+  void _drawBike(Canvas canvas) {
+    final wFill = Paint()..color = Colors.white;
+    final wRim  = Paint()..color = Colors.black87..style = PaintingStyle.stroke..strokeWidth = 2.5;
+    final body  = Paint()..color = const Color(0xFFFF4400);
+    final frame = Paint()..color = const Color(0xFF333333)..strokeWidth = 3.5..style = PaintingStyle.stroke;
+    final fork  = Paint()..color = const Color(0xFF888888)..strokeWidth = 4.0..style = PaintingStyle.stroke;
+    final seat  = Paint()..color = const Color(0xFF111111);
+    final rider = Paint()..color = const Color(0xFF2255BB);
+
+    // Wheels — centres at (-6.8, 4.8) and (7.8, 4.8), radius 2.35
+    // These MUST match Bike._rearLocal and Bike._frontLocal exactly
+    canvas.drawCircle(const Offset(-6.8, 4.8), 2.35, wFill);
+    canvas.drawCircle(const Offset( 7.8, 4.8), 2.35, wFill);
+    canvas.drawCircle(const Offset(-6.8, 4.8), 1.6,  wRim);
+    canvas.drawCircle(const Offset( 7.8, 4.8), 1.6,  wRim);
+
+    // Frame struts connecting to wheel centres
+    canvas.drawLine(const Offset(-6.8, 4.8), const Offset(-2.0, -3.0), frame);  // rear strut
+    canvas.drawLine(const Offset(-2.0, -3.0), const Offset( 7.8, 4.8), frame);  // main spar
+    canvas.drawLine(const Offset( 7.8, -1.5), const Offset( 7.8,  4.8), fork);  // front fork
+    canvas.drawLine(const Offset( 7.0, -3.8), const Offset(12.0, -4.8), fork);  // handlebars
+
+    // Body / tank
+    canvas.drawRect(const Rect.fromLTWH(-9.0, -3.5, 18.0, 4.0), body);
+    canvas.drawRect(const Rect.fromLTWH(-7.5, -5.5,  8.0, 2.2), seat);
+
+    // Rider (torso + head — simple shapes, but clearly a person)
+    canvas.drawOval(const Rect.fromLTWH(-6.0, -9.8, 5.5, 4.5), rider);  // torso
+    canvas.drawCircle(const Offset(-3.2, -11.2), 2.1, rider);            // helmet
+  }
 }
 
-// ====================== CLOSEST POINT ======================
-class ClosestPointResult {
-  final double distance;
-  final Vector2 point;
-  final Vector2 normal;
-  ClosestPointResult(this.distance, this.point, this.normal);
+// ══════════════════════════════════════════════════════════════════════════════
+//  TRACK
+// ══════════════════════════════════════════════════════════════════════════════
+class TrackSegment {
+  final double x1, y1, x2, y2;
+  const TrackSegment(this.x1, this.y1, this.x2, this.y2);
 }
 
-ClosestPointResult getClosestPointOnTrack(Vector2 wheelPos, List<TrackSegment> segments) {
+class _Contact {
+  final double pen;      // positive = penetrating, negative = above track
+  final Vector2 normal;  // points away from track surface (toward wheel)
+  const _Contact(this.pen, this.normal);
+}
+
+_Contact _wheelContact(Vector2 wPos, List<TrackSegment> segs, double r) {
   double minDist = double.infinity;
-  Vector2 bestPoint = Vector2.zero();
-  Vector2 bestNormal = Vector2(0, -1);
+  var bestNormal = Vector2(0.0, -1.0);
 
-  for (final seg in segments) {
-    final a = Vector2(seg.xStart, seg.yStart);
-    final b = Vector2(seg.xEnd, seg.yEnd);
+  for (final s in segs) {
+    final a = Vector2(s.x1, s.y1), b = Vector2(s.x2, s.y2);
     final ab = b - a;
-    final ap = wheelPos - a;
-    double proj = ap.dot(ab) / ab.length2;
-    proj = proj.clamp(0.0, 1.0);
-    final closest = a + ab * proj;
-
-    final distVec = wheelPos - closest;
-    final dist = distVec.length;
+    final t = ((wPos - a).dot(ab) / ab.length2).clamp(0.0, 1.0);
+    final dist = (wPos - (a + ab * t)).length;
     if (dist < minDist) {
       minDist = dist;
-      bestPoint = closest;
-      bestNormal = ab..rotate(-pi / 2)..normalize();
-      if (bestNormal.y > 0) bestNormal.negate();
+      final sd = ab.normalized();
+      bestNormal = Vector2(-sd.y, sd.x);           // 90° CCW from segment
+      if (bestNormal.y > 0) bestNormal = -bestNormal; // ensure pointing up (neg y in y-down coords)
     }
   }
-  return ClosestPointResult(minDist, bestPoint, bestNormal);
+  return _Contact(r - minDist, bestNormal);
 }
 
-// ====================== BIKE v42 - TUNING SECTION ======================
-class Bike extends PositionComponent {
-  Vector2 velocity = Vector2.zero();
-  double angle = 0.0;
-  double angularVelocity = 0.0;
-  bool onGround = false;
+// ══════════════════════════════════════════════════════════════════════════════
+//  BIKE  — plain class, no PositionComponent overhead
+// ══════════════════════════════════════════════════════════════════════════════
+class Bike {
+  Vector2 position;
+  Vector2 velocity  = Vector2.zero();
+  double  angle     = 0.0;
+  double  angularVelocity = 0.0;
+  bool    rearOnGround  = false;
+  bool    frontOnGround = false;
+  bool get onGround => rearOnGround || frontOnGround;
 
-  // ==================== TUNABLE PARAMETERS ====================
-  final double gravity = 42.0;
+  // ── Tuning knobs ── (all grouped, all named, go nuts) ──────────────────────
+  static const _gravity   = 42.0;
+  static const _accel     = 560.0;    // gas force
+  static const _brake     = 130.0;    // brake force
 
-  final double leanStrength = 210.0;
-  final double leanDamping = 32.0;
+  static const _wr        = 2.35;     // wheel radius — MUST match drawCircle radius
 
-  final double acceleration = 620.0;
-  final double brakePower = 140.0;
+  // Tilt: torque model, NOT target-angle model
+  // Equilibrium spin rate in air  = _tiltTorque / _airDamp  (rad/s at full tilt)
+  // Equilibrium spin rate on gnd  = _tiltTorque / _gndDamp
+  static const _tiltTorque = 3.6;     // angular impulse per tilt unit per second
+  static const _airDamp    = 1.2;     // angular damping in air  (lower = spins more freely)
+  static const _gndDamp    = 4.6;     // angular damping on ground (higher = snappier settle)
 
-  final double wheelbase = 13.6;
-  final double wheelRadius = 2.35;
+  // Anti-stoppie: ONLY fires when front wheel is grounded.
+  // Zero when front is in air → front-flick is completely free.
+  static const _antiStoppie  = 90.0;  // restoring torque coefficient for nose-down
 
-  final double magnetDistance = 2.8;        // how early it starts pulling down
-  final double magnetStrength = 550.0;
+  // Anti-extreme-wheelie: kicks in past ~85° nose-up. Always active.
+  static const _antiWheelie = 18.0;
 
-  final double penetrationCorrectionFactor = 0.65;   // lower = softer landing (try 0.6~0.85)
-  final double normalDamping = 2.1;                 // how strongly it kills downward speed (1.6 ~ 2.2)
-  final double tangentFriction = 0.72;               // how sticky the wheels are (0.5 ~ 0.85)
-  final double minPenetrationThreshold = 0.008;      // smaller = more sensitive
+  // Gas nose-up torque: rear-wheel-drive feel
+  static const _gasTorque  = 1.7;
 
-  final double torqueMultiplier = 2.6;               // wheel torque for rotation
-  // ===========================================================
+  // Landing: velocity resolved ONCE after all position passes
+  static const _restitution = 0.10;   // 0=perfectly sticky  0.3=noticeable bounce
+  static const _friction    = 0.06;   // tangential friction (applied once per contact frame)
 
-  Bike(Vector2 startPos) {
-    position = startPos;
-    size = Vector2(21.0, 11.0);
-    anchor = Anchor.center;
-  }
+  // Magnet: gentle pull toward track when close but not penetrating
+  static const _magnetDist =  3.2;
+  static const _magnetStr  = 140.0;
 
-  void updateBike(double dt, double targetTilt, bool gas, bool brake, List<TrackSegment> segments) {
-    velocity.y += gravity * dt;
+  // Wheel local positions — keep these identical to drawCircle Offsets above
+  static const _rearLx = -6.8,  _rearLy = 4.8;
+  static const _frtLx  =  7.8,  _frtLy  = 4.8;
+  // ───────────────────────────────────────────────────────────────────────────
 
-    double desiredAngle = targetTilt * 2.2;
-    double angleError = desiredAngle - angle;
-    double torque = angleError * leanStrength - angularVelocity * leanDamping;
-    angularVelocity += torque * dt;
+  Bike(Vector2 startPos) : position = startPos.clone();
 
-    if (onGround) angularVelocity *= 0.74;
-    else angularVelocity *= 0.96;
+  void updateBike(double dt, double tilt, bool gas, bool brake, List<TrackSegment> segs) {
 
+    // ── 1. Gravity ──────────────────────────────────────────────────────────
+    velocity.y += _gravity * dt;
+
+    // ── 2. Tilt torque — always, no ground/air restriction ──────────────────
+    //    Positive tilt = phone tilted forward = nose-down (clockwise on canvas)
+    //    In air: low damping → bike spins freely for tricks
+    //    On ground: high damping → settles quickly to tilt input
+    angularVelocity += tilt * _tiltTorque * dt;
+
+    // ── 3. Anti-stoppie — ONLY when front wheel is grounded ─────────────────
+    //    angle > 0 = nose-down in canvas y-down coords (clockwise)
+    //    When front is in air this block is skipped entirely → front-flick free
+    if (frontOnGround && angle > 0.03) {
+      angularVelocity -= angle * _antiStoppie * dt;
+    }
+
+    // ── 4. Anti-extreme-wheelie (past ~85° nose-up) — always ────────────────
+    //    angle < -1.48 rad ≈ -85°
+    //    angle is negative here, so -angle > 0, which adds positive angVel → nose-down restore
+    if (angle < -1.48) {
+      angularVelocity -= angle * _antiWheelie * dt;
+    }
+
+    // ── 5. Rear-wheel-drive nose-up torque ──────────────────────────────────
+    if (gas && onGround) {
+      angularVelocity -= _gasTorque * dt;   // negative = counter-clockwise = nose-up
+    }
+
+    // ── 6. Angular damping ───────────────────────────────────────────────────
+    final damp = onGround ? _gndDamp : _airDamp;
+    angularVelocity *= (1.0 - damp * dt).clamp(0.0, 1.0);
+
+    // ── 7. Integrate angle (hard clamp only as absolute safety net) ──────────
     angle += angularVelocity * dt;
+    angle = angle.clamp(-pi * 0.72, pi * 0.55);  // ~130° wheelie, ~100° stoppie ceiling
 
-    Vector2 predictedPos = position + velocity * dt;
-    Vector2 correctedPos = predictedPos.clone();
+    // ── 8. Predict position ─────────────────────────────────────────────────
+    var pos = position + velocity * dt;
 
-    onGround = false;
-    double totalTorque = 0.0;
+    // ── 9. Position-only correction passes ──────────────────────────────────
+    //    Velocity is NOT touched here. Kills the multi-pass vibration from v42.
+    rearOnGround  = false;
+    frontOnGround = false;
+    var rearN = Vector2(0.0, -1.0);
+    var frtN  = Vector2(0.0, -1.0);
 
-    final Vector2 rearLocal = Vector2(-wheelbase / 2, wheelRadius * 0.85);
-    final Vector2 frontLocal = Vector2(wheelbase / 2, wheelRadius * 0.85);
-
-    for (int pass = 0; pass < 4; pass++) {
-      // Rear wheel
-      Vector2 rearPos = correctedPos + _rotate(rearLocal);
-      final rearRes = getClosestPointOnTrack(rearPos, segments);
-      double pen = wheelRadius - rearRes.distance;
-
-      if (pen > minPenetrationThreshold) {
-        Vector2 sep = (rearPos - rearRes.point).normalized();
-        correctedPos -= sep * (pen * penetrationCorrectionFactor);
-        
-        double velDotN = velocity.dot(sep);
-        if (velDotN < 0) velocity -= sep * velDotN * normalDamping;
-
-        Vector2 tangent = Vector2(sep.y, -sep.x);
-        velocity -= tangent * (velocity.dot(tangent) * tangentFriction);
-
-        onGround = true;
-        totalTorque += (rearPos.x - correctedPos.x) * pen * torqueMultiplier;
-      } 
-      else if (rearRes.distance < magnetDistance + wheelRadius) {
-        Vector2 pullDir = (rearRes.point - rearPos).normalized();
-        velocity += pullDir * ((magnetDistance + wheelRadius - rearRes.distance) * magnetStrength * 0.62 * dt);
+    for (int pass = 0; pass < 3; pass++) {
+      final rw = pos + _rot(Vector2(_rearLx, _rearLy));
+      final rc = _wheelContact(rw, segs, _wr);
+      if (rc.pen > 0.01) {
+        pos = pos - rc.normal * (rc.pen * 0.72);
+        rearOnGround = true;
+        rearN = rc.normal;
+      } else if (rc.pen > -_magnetDist) {
+        // Gentle magnet pull toward track surface
+        velocity = velocity - rc.normal * ((_magnetDist + rc.pen) * _magnetStr * dt);
       }
 
-      // Front wheel
-      Vector2 frontPos = correctedPos + _rotate(frontLocal);
-      final frontRes = getClosestPointOnTrack(frontPos, segments);
-      double fPen = wheelRadius - frontRes.distance;
-
-      if (fPen > minPenetrationThreshold) {
-        Vector2 sep = (frontPos - frontRes.point).normalized();
-        correctedPos -= sep * (fPen * penetrationCorrectionFactor * 0.96);
-        
-        double velDotN = velocity.dot(sep);
-        if (velDotN < 0) velocity -= sep * velDotN * (normalDamping * 0.94);
-
-        Vector2 tangent = Vector2(sep.y, -sep.x);
-        velocity -= tangent * (velocity.dot(tangent) * (tangentFriction * 0.94));
-
-        onGround = true;
-        totalTorque += (frontPos.x - correctedPos.x) * fPen * (torqueMultiplier * 0.8);
-      } 
-      else if (frontRes.distance < magnetDistance + wheelRadius) {
-        Vector2 pullDir = (frontRes.point - frontPos).normalized();
-        velocity += pullDir * ((magnetDistance + wheelRadius - frontRes.distance) * magnetStrength * 0.55 * dt);
+      final fw = pos + _rot(Vector2(_frtLx, _frtLy));
+      final fc = _wheelContact(fw, segs, _wr);
+      if (fc.pen > 0.01) {
+        pos = pos - fc.normal * (fc.pen * 0.72);
+        frontOnGround = true;
+        frtN = fc.normal;
+      } else if (fc.pen > -_magnetDist) {
+        velocity = velocity - fc.normal * ((_magnetDist + fc.pen) * _magnetStr * dt);
       }
     }
 
-    position = correctedPos;
-    angularVelocity += totalTorque * 0.019 * dt;
+    position = pos;
 
+    // ── 10. Single velocity impulse — after ALL position corrections ─────────
+    if (rearOnGround || frontOnGround) {
+      final avgN = (rearOnGround && frontOnGround)
+          ? (rearN + frtN).normalized()
+          : (rearOnGround ? rearN : frtN);
+
+      // Normal: kill incoming velocity, add tiny bounce
+      final velN = velocity.dot(avgN);
+      if (velN < 0) {
+        velocity = velocity - avgN * (velN * (1.0 + _restitution));
+      }
+
+      // Tangent: light friction, applied exactly once
+      final tan  = Vector2(-avgN.y, avgN.x);
+      velocity = velocity - tan * (velocity.dot(tan) * _friction);
+    }
+
+    // ── 11. Drive — along surface tangent, not bike angle ───────────────────
     if (onGround) {
-      double drive = gas ? acceleration : (brake ? -brakePower : 0);
-      velocity.x += drive * cos(angle) * dt;
-      velocity.y += drive * sin(angle) * dt;
-      velocity.x *= 0.972;
+      final surfN  = rearOnGround ? rearN : frtN;
+      var   surfDir = Vector2(-surfN.y, surfN.x);
+      if (surfDir.x < 0) surfDir = -surfDir;            // always face travel direction
+      final drive = gas ? _accel : (brake ? -_brake : 0.0);
+      velocity = velocity + surfDir * (drive * dt);
+      velocity.x *= 0.974;    // rolling resistance
     } else {
-      velocity.x *= 0.98;
+      velocity.x *= 0.993;    // air drag
     }
   }
 
-  Vector2 _rotate(Vector2 local) {
+  // Rotate a local-space vector by bike angle
+  Vector2 _rot(Vector2 v) {
     final c = cos(angle), s = sin(angle);
-    return Vector2(local.x * c - local.y * s, local.x * s + local.y * c);
+    return Vector2(v.x * c - v.y * s, v.x * s + v.y * c);
   }
 }
 
-// Rest of the file (Background, TrackSegment, DebugOverlay) unchanged
+// ══════════════════════════════════════════════════════════════════════════════
+//  SUPPORT COMPONENTS
+// ══════════════════════════════════════════════════════════════════════════════
 class Background extends Component {
   @override
-  void render(Canvas canvas) {
-    canvas.drawRect(Rect.fromLTWH(-5000, -5000, 16000, 16000), Paint()..color = const Color(0xFF112233));
-  }
-}
-
-class TrackSegment {
-  final double xStart, yStart, xEnd, yEnd;
-  TrackSegment(this.xStart, this.yStart, this.xEnd, this.yEnd);
+  void render(Canvas canvas) => canvas.drawRect(
+      const Rect.fromLTWH(-5000, -5000, 16000, 16000),
+      Paint()..color = const Color(0xFF112233));
 }
 
 class DebugOverlay extends Component with HasGameRef<RaceRiderGame> {
   @override
   void render(Canvas canvas) {
-    final tp = TextPainter(
-      text: TextSpan(text: "v42 - TUNABLE\nTilt: ${gameRef.smoothedTilt.toStringAsFixed(2)}\nAngle: ${gameRef.player.angle.toStringAsFixed(2)}\nOnGround: ${gameRef.player.onGround}",
-          style: const TextStyle(color: Colors.yellow, fontSize: 16, fontWeight: FontWeight.bold)),
+    final b = gameRef.player;
+    TextPainter(
       textDirection: TextDirection.ltr,
-    )..layout();
-    tp.paint(canvas, const Offset(20, 20));
+      text: TextSpan(
+        text: 'v43'
+            '\nTilt:   ${gameRef.smoothedTilt.toStringAsFixed(2)}'
+            '\nAngle:  ${b.angle.toStringAsFixed(2)} rad'
+            '\nAngVel: ${b.angularVelocity.toStringAsFixed(2)}'
+            '\nGnd  R:${b.rearOnGround}  F:${b.frontOnGround}',
+        style: const TextStyle(
+            color: Colors.yellow, fontSize: 14, fontWeight: FontWeight.bold),
+      ),
+    )..layout()..paint(canvas, const Offset(16, 16));
   }
 }
