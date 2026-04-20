@@ -222,49 +222,55 @@ class Bike {
 
   Bike(Vector2 startPos) : position = startPos.clone();
 
+  // Public entry point — splits dt into substeps to prevent tunneling.
+  // At 60fps and substeps=5: max movement per step ≈ 0.003s × speed.
+  // At speed 200 that's 0.6 units/step vs wheelRadius 2.35 → cannot tunnel.
   void updateBike(double dt, double tilt, bool gas, bool brake, List<TrackSegment> segs) {
+    const substeps = 5;
+    final sdt = dt / substeps;
+    for (int i = 0; i < substeps; i++) {
+      _step(sdt, tilt, gas, brake, segs);
+    }
+  }
+
+  void _step(double dt, double tilt, bool gas, bool brake, List<TrackSegment> segs) {
 
     // ── 1. Gravity ──────────────────────────────────────────────────────────
     velocity.y += _gravity * dt;
 
     // ── 2. Tilt torque — always, no ground/air restriction ──────────────────
-    //    Positive tilt = phone tilted forward = nose-down (clockwise on canvas)
-    //    In air: low damping → bike spins freely for tricks
-    //    On ground: high damping → settles quickly to tilt input
     angularVelocity += tilt * _tiltTorque * dt;
 
     // ── 3. Anti-stoppie — ONLY when front wheel is grounded ─────────────────
-    //    angle > 0 = nose-down in canvas y-down coords (clockwise)
-    //    When front is in air this block is skipped entirely → front-flick free
+    //    When front is in air this block is skipped → front-flick is free
     if (frontOnGround && angle > 0.03) {
       angularVelocity -= angle * _antiStoppie * dt;
     }
 
     // ── 4. Anti-extreme-wheelie (past ~85° nose-up) — always ────────────────
-    //    angle < -1.48 rad ≈ -85°
-    //    angle is negative here, so -angle > 0, which adds positive angVel → nose-down restore
     if (angle < -1.48) {
       angularVelocity -= angle * _antiWheelie * dt;
     }
 
     // ── 5. Rear-wheel-drive nose-up torque ──────────────────────────────────
     if (gas && onGround) {
-      angularVelocity -= _gasTorque * dt;   // negative = counter-clockwise = nose-up
+      angularVelocity -= _gasTorque * dt;
     }
 
     // ── 6. Angular damping ───────────────────────────────────────────────────
     final damp = onGround ? _gndDamp : _airDamp;
     angularVelocity *= (1.0 - damp * dt).clamp(0.0, 1.0);
 
-    // ── 7. Integrate angle (hard clamp only as absolute safety net) ──────────
+    // ── 7. Integrate angle ───────────────────────────────────────────────────
     angle += angularVelocity * dt;
-    angle = angle.clamp(-pi * 0.72, pi * 0.55);  // ~130° wheelie, ~100° stoppie ceiling
+    angle = angle.clamp(-pi * 0.72, pi * 0.55);
 
     // ── 8. Predict position ─────────────────────────────────────────────────
     var pos = position + velocity * dt;
 
     // ── 9. Position-only correction passes ──────────────────────────────────
-    //    Velocity is NOT touched here. Kills the multi-pass vibration from v42.
+    //    Velocity untouched here — no multi-pass vibration.
+    //    Full correction (1.0) per pass — no residual penetration drift.
     rearOnGround  = false;
     frontOnGround = false;
     var rearN = Vector2(0.0, -1.0);
@@ -273,19 +279,18 @@ class Bike {
     for (int pass = 0; pass < 3; pass++) {
       final rw = pos + _rot(Vector2(_rearLx, _rearLy));
       final rc = _wheelContact(rw, segs, _wr);
-      if (rc.pen > 0.01) {
-        pos = pos - rc.normal * (rc.pen * 0.72);
+      if (rc.pen > 0.005) {
+        pos = pos - rc.normal * rc.pen;          // full correction, no multiplier
         rearOnGround = true;
         rearN = rc.normal;
       } else if (rc.pen > -_magnetDist) {
-        // Gentle magnet pull toward track surface
         velocity = velocity - rc.normal * ((_magnetDist + rc.pen) * _magnetStr * dt);
       }
 
       final fw = pos + _rot(Vector2(_frtLx, _frtLy));
       final fc = _wheelContact(fw, segs, _wr);
-      if (fc.pen > 0.01) {
-        pos = pos - fc.normal * (fc.pen * 0.72);
+      if (fc.pen > 0.005) {
+        pos = pos - fc.normal * fc.pen;          // full correction
         frontOnGround = true;
         frtN = fc.normal;
       } else if (fc.pen > -_magnetDist) {
@@ -301,27 +306,25 @@ class Bike {
           ? (rearN + frtN).normalized()
           : (rearOnGround ? rearN : frtN);
 
-      // Normal: kill incoming velocity, add tiny bounce
       final velN = velocity.dot(avgN);
       if (velN < 0) {
         velocity = velocity - avgN * (velN * (1.0 + _restitution));
       }
 
-      // Tangent: light friction, applied exactly once
-      final tan  = Vector2(-avgN.y, avgN.x);
+      final tan = Vector2(-avgN.y, avgN.x);
       velocity = velocity - tan * (velocity.dot(tan) * _friction);
     }
 
-    // ── 11. Drive — along surface tangent, not bike angle ───────────────────
+    // ── 11. Drive — along surface tangent ───────────────────────────────────
     if (onGround) {
-      final surfN  = rearOnGround ? rearN : frtN;
+      final surfN   = rearOnGround ? rearN : frtN;
       var   surfDir = Vector2(-surfN.y, surfN.x);
-      if (surfDir.x < 0) surfDir = -surfDir;            // always face travel direction
+      if (surfDir.x < 0) surfDir = -surfDir;
       final drive = gas ? _accel : (brake ? -_brake : 0.0);
       velocity = velocity + surfDir * (drive * dt);
-      velocity.x *= 0.974;    // rolling resistance
+      velocity.x *= pow(0.974, 1 / 5.0).toDouble();  // scale rolling resistance per substep
     } else {
-      velocity.x *= 0.993;    // air drag
+      velocity.x *= pow(0.993, 1 / 5.0).toDouble();  // scale air drag per substep
     }
   }
 
