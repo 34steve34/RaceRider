@@ -128,18 +128,18 @@ class RaceRiderGame extends FlameGame with TapCallbacks {
     final seat  = Paint()..color = const Color(0xFF111111);
     final rider = Paint()..color = const Color(0xFF2255BB);
 
-    // Wheels — centres at (-7.0, 6.5) and (8.5, 6.5), radius 4.7
-    // These MUST match Bike._rearLx/y and _frtLx/y constants exactly
-    canvas.drawCircle(const Offset(-7.0, 6.5), 4.7, wFill);
-    canvas.drawCircle(const Offset( 8.5, 6.5), 4.7, wFill);
-    canvas.drawCircle(const Offset(-7.0, 6.5), 3.1, wRim);   // inner rim circle
-    canvas.drawCircle(const Offset( 8.5, 6.5), 3.1, wRim);
+    // Wheels — suspension compresses them upward by suspOffset when grounded
+    final sy = player.suspOffset;   // positive = compressed upward = smaller y offset
+    canvas.drawCircle(Offset(-7.0, 6.5 - sy), 4.7, wFill);
+    canvas.drawCircle(Offset( 8.5, 6.5 - sy), 4.7, wFill);
+    canvas.drawCircle(Offset(-7.0, 6.5 - sy), 3.1, wRim);
+    canvas.drawCircle(Offset( 8.5, 6.5 - sy), 3.1, wRim);
 
-    // Frame struts — connect wheel centres to body junction
-    canvas.drawLine(const Offset(-7.0,  6.5), const Offset(-1.5, -2.5), frame);  // rear strut
-    canvas.drawLine(const Offset(-1.5, -2.5), const Offset( 8.5,  6.5), frame);  // main spar
-    canvas.drawLine(const Offset( 8.5,  6.5), const Offset( 8.5, -2.0), fork);   // front fork leg
-    canvas.drawLine(const Offset( 7.5, -4.0), const Offset(13.0, -5.2), fork);   // handlebars
+    // Frame struts — fork bottom follows suspension
+    canvas.drawLine(Offset(-7.0,  6.5 - sy), const Offset(-1.5, -2.5), frame);
+    canvas.drawLine(const Offset(-1.5, -2.5), Offset( 8.5,  6.5 - sy), frame);
+    canvas.drawLine(Offset( 8.5,  6.5 - sy), const Offset( 8.5, -2.0), fork);
+    canvas.drawLine(const Offset( 7.5, -4.0), const Offset(13.0, -5.2), fork);
 
     // Body / tank
     canvas.drawRect(const Rect.fromLTWH(-9.5, -4.0, 19.5, 4.5), body);
@@ -197,7 +197,9 @@ class Bike {
   bool get onGround => rearOnGround || frontOnGround;
   double  _coyoteTimer = 0.0;
   bool get canDrive => onGround || _coyoteTimer > 0.0;
-  double  _surfAngle  = 0.0;   // slope angle at last ground contact — gravity restores toward this
+  double  _surfAngle  = 0.0;
+  double  suspOffset  = 0.0;   // visual suspension — read by renderer
+  double  _suspVel    = 0.0;
 
   // ── Tuning knobs ── (all grouped, all named, go nuts) ──────────────────────
   static const _gravity   = 28.0;    // was 42 — felt too heavy at normal speed
@@ -210,7 +212,6 @@ class Bike {
   static const _airDamp    = 1.0;     // low = spins freely for tricks
   static const _gndDamp    = 3.0;     // was 4.6/5.0 — equilibrium angVel = 12/3 = 4 rad/s
 
-  static const _antiStoppie  = 90.0;
   static const _antiWheelie  = 22.0;  // safety net only — fires past 100°, not 30°
 
   // cos(angle) gravity model. At horizontal=5.5, at 45°=3.9, at 90°=0 (holds wheelie free).
@@ -251,39 +252,30 @@ class Bike {
     // ── 2. Tilt torque — always, no ground/air restriction ──────────────────
     angularVelocity += tilt * _tiltTorque * dt;
 
-    // ── 3. Anti-stoppie — ONLY when front wheel is grounded ─────────────────
-    if (frontOnGround && angle > 0.03) {
-      angularVelocity -= angle * _antiStoppie * dt;
-    }
-
-    // ── 4. Gravity torque — pivot-aware cosine model ─────────────────────────
-    //
-    //  Both wheels grounded: gentle spring toward slope angle. Bike is stable,
-    //  tilt easily overpowers this (it's just alignment, not a hard wall).
-    //
-    //  Wheelie (rear only): cos(angle) gravity around rear wheel pivot.
-    //    angle= 0    (horizontal)  → cos= 1.0  → strong nose-down pull
-    //    angle=-pi/4 (45° wheelie) → cos= 0.71 → moderate pull
-    //    angle=-pi/2 (90°, COG above wheel) → cos= 0  → ZERO TORQUE → neutral phone holds it
-    //    angle>-pi/2 (past vertical) → cos goes negative → bike wants to tip back → small tilt corrects
-    //  This matches BR exactly. The 90° balance point is natural, not forced.
-    //
-    //  Anti-extreme safety net: only fires past 100° (1.75 rad). Pure backstop.
+    // ── 3. Gravity torque — state-aware ─────────────────────────────────────
     if (rearOnGround && frontOnGround) {
-      // Both on ground: gentle slope-alignment spring only
-      angularVelocity -= (angle - _surfAngle) * 3.5 * dt;
+      // Both wheels planted: asymmetric spring around slope angle.
+      // Strongly resists nose-down (prevents forward tip + rear lift).
+      // Weakly resists nose-up (tilt can still initiate wheelie easily).
+      final err = angle - _surfAngle;
+      final k = err > 0 ? 55.0 : 5.0;
+      angularVelocity -= err * k * dt;
+
     } else if (rearOnGround && !frontOnGround) {
-      // Wheelie pivot: cosine gravity around rear wheel
+      // Wheelie: cos(angle) gravity around rear wheel pivot.
+      // At 90° (COG above wheel) cos=0 → zero torque → neutral phone holds it.
       angularVelocity += cos(angle) * _gravityTorque * dt;
+
     } else if (frontOnGround && !rearOnGround) {
-      // Stoppie pivot: mirrored
+      // Stoppie: mirrored. Hard to achieve, easy to recover from.
       angularVelocity -= cos(angle) * _gravityTorque * dt;
+
     } else {
-      // Air: very gentle restore toward level so air tricks feel balanced
-      angularVelocity -= angle * 1.2 * dt;
+      // Air: gentle level-seeking so the bike doesn't tumble chaotically.
+      angularVelocity -= angle * 0.8 * dt;
     }
 
-    // Safety net — only past 100° nose-up. Does NOT interfere with normal wheelies.
+    // Safety net past 100° nose-up only — never fires during normal wheelies.
     if (angle < -1.75) {
       angularVelocity -= (angle + 1.75) * _antiWheelie * dt;
     }
@@ -375,8 +367,9 @@ class Bike {
       velocity = velocity - tan * (velocity.dot(tan) * _friction);
     }
 
-    // ── 11. Drive — along surface tangent ───────────────────────────────────
-    if (canDrive) {
+    // ── 11. Drive — rear-wheel only, truly grounded ─────────────────────────
+    // Uses onGround not canDrive — coyote was keeping gas firing in air.
+    if (onGround) {
       final surfN   = rearOnGround ? rearN : frtN;
       var   surfDir = Vector2(-surfN.y, surfN.x);
       if (surfDir.x < 0) surfDir = -surfDir;
@@ -384,18 +377,25 @@ class Bike {
       if (gas) {
         velocity = velocity + surfDir * (_accel * dt);
       } else if (brake) {
-        // Brake: decelerate to zero only — never reverse.
-        // On a slope with no speed, bike rolls freely under gravity (no brake holding).
         final fwdSpeed = velocity.dot(surfDir);
         if (fwdSpeed > 0) {
           final brakeImpulse = (fwdSpeed / dt).clamp(0.0, _brake);
           velocity = velocity - surfDir * (brakeImpulse * dt);
         }
       }
-      velocity *= pow(0.974, 1 / 5.0).toDouble();   // rolling resistance — BOTH axes (was .x only — caused speed-up on release)
+      velocity *= pow(0.974, 1 / 5.0).toDouble();  // rolling resistance both axes
     } else {
-      velocity *= pow(0.993, 1 / 5.0).toDouble();   // air drag — both axes
+      // Air: near-zero x drag only. y is purely gravity.
+      // Was velocity *= 0.993 (both axes) — killed 35% of fwd speed per second airborne.
+      velocity.x *= pow(0.9995, 1 / 5.0).toDouble();
     }
+
+    // ── 12. Suspension spring ────────────────────────────────────────────────
+    // Visual only — physics wheels are fixed. Gives bounce feel on landing.
+    final suspTarget = onGround ? 1.8 : 0.0;
+    const suspK = 120.0, suspD = 14.0;
+    _suspVel += (suspK * (suspTarget - suspOffset) - suspD * _suspVel) * dt;
+    suspOffset = (suspOffset + _suspVel * dt).clamp(0.0, 2.5);
   }
 
   // Rotate a local-space vector by bike angle
