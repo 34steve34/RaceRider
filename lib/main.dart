@@ -206,9 +206,9 @@ class Bike {
 
   static const _wr        = 4.7;      // wheel radius — doubled, MUST match drawCircle radius
 
-  static const _tiltTorque = 6.5;     // was 3.6 — must easily overpower gravity at any angle
-  static const _airDamp    = 1.4;     // low = spins freely for tricks
-  static const _gndDamp    = 5.0;
+  static const _tiltTorque = 12.0;    // was 6.5 — BR wheelie feel: ~0.4s to 90°
+  static const _airDamp    = 1.0;     // low = spins freely for tricks
+  static const _gndDamp    = 3.0;     // was 4.6/5.0 — equilibrium angVel = 12/3 = 4 rad/s
 
   static const _antiStoppie  = 90.0;
   static const _antiWheelie  = 22.0;  // safety net only — fires past 100°, not 30°
@@ -311,20 +311,34 @@ class Bike {
       final rw = pos + _rot(Vector2(_rearLx, _rearLy));
       final rc = _wheelContact(rw, segs, _wr);
       if (rc.pen > 0.005) {
-        pos = pos + rc.normal * rc.pen;          // + correct: pushes OUT of track
+        pos = pos + rc.normal * rc.pen;
         rearOnGround = true;
         rearN = rc.normal;
-      } else if (rc.pen > -_magnetDist) {
-        velocity = velocity - rc.normal * ((_magnetDist + rc.pen) * _magnetStr * dt);
       }
 
       final fw = pos + _rot(Vector2(_frtLx, _frtLy));
       final fc = _wheelContact(fw, segs, _wr);
       if (fc.pen > 0.005) {
-        pos = pos + fc.normal * fc.pen;          // + correct: pushes OUT of track
+        pos = pos + fc.normal * fc.pen;
         frontOnGround = true;
         frtN = fc.normal;
-      } else if (fc.pen > -_magnetDist) {
+      }
+    }
+
+    // Magnet — ONCE per substep, outside pass loop.
+    // Was inside 3-pass loop × 5 substeps = 15 applications/frame.
+    // On slopes the tangential component of 15 pulls = runaway speed.
+    if (!rearOnGround) {
+      final rw = pos + _rot(Vector2(_rearLx, _rearLy));
+      final rc = _wheelContact(rw, segs, _wr);
+      if (rc.pen > -_magnetDist) {
+        velocity = velocity - rc.normal * ((_magnetDist + rc.pen) * _magnetStr * dt);
+      }
+    }
+    if (!frontOnGround) {
+      final fw = pos + _rot(Vector2(_frtLx, _frtLy));
+      final fc = _wheelContact(fw, segs, _wr);
+      if (fc.pen > -_magnetDist) {
         velocity = velocity - fc.normal * ((_magnetDist + fc.pen) * _magnetStr * dt);
       }
     }
