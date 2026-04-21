@@ -200,7 +200,7 @@ class Bike {
   double  _surfAngle  = 0.0;   // slope angle at last ground contact — gravity restores toward this
 
   // ── Tuning knobs ── (all grouped, all named, go nuts) ──────────────────────
-  static const _gravity   = 42.0;
+  static const _gravity   = 28.0;    // was 42 — felt too heavy at normal speed
   static const _accel     = 1300.0;   // was 560 — felt glacial
   static const _brake     = 260.0;
 
@@ -378,9 +378,9 @@ class Bike {
           velocity = velocity - surfDir * (brakeImpulse * dt);
         }
       }
-      velocity.x *= pow(0.974, 1 / 5.0).toDouble();
+      velocity *= pow(0.974, 1 / 5.0).toDouble();   // rolling resistance — BOTH axes (was .x only — caused speed-up on release)
     } else {
-      velocity.x *= pow(0.993, 1 / 5.0).toDouble();
+      velocity *= pow(0.993, 1 / 5.0).toDouble();   // air drag — both axes
     }
   }
 
