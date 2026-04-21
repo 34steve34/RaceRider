@@ -182,6 +182,8 @@ class Bike {
   bool    rearOnGround  = false;
   bool    frontOnGround = false;
   bool get onGround => rearOnGround || frontOnGround;
+  double  _coyoteTimer = 0.0;
+  bool get canDrive => onGround || _coyoteTimer > 0.0;
 
   // ── Tuning knobs ── (all grouped, all named, go nuts) ──────────────────────
   static const _gravity   = 42.0;
@@ -208,12 +210,18 @@ class Bike {
   static const _gasTorque  = 1.7;
 
   // Landing: velocity resolved ONCE after all position passes
-  static const _restitution = 0.10;   // 0=perfectly sticky  0.3=noticeable bounce
-  static const _friction    = 0.06;   // tangential friction (applied once per contact frame)
+  // NOTE: both values are per-substep. With 5 substeps they compound fast.
+  static const _restitution = 0.0;    // 0=perfectly sticky — micro-bounce was causing onGround flicker
+  static const _friction    = 0.008;  // tangential: near-zero, let rolling resistance do the work
+                                      // 0.06 was killing 26% of forward speed per frame (0.94^5)
 
   // Magnet: gentle pull toward track when close but not penetrating
   static const _magnetDist =  3.2;
-  static const _magnetStr  = 140.0;
+  static const _magnetStr  = 200.0;  // bumped up — helps suppress the micro-gap between substeps
+
+  // Coyote ground: drive fires if grounded within this many seconds
+  // Prevents gas cutting out during micro-bounces between substeps
+  static const _coyoteTime = 0.08;
 
   // Wheel local positions — keep these identical to drawCircle Offsets above
   static const _rearLx = -6.8,  _rearLy = 4.8;
@@ -253,7 +261,7 @@ class Bike {
     }
 
     // ── 5. Rear-wheel-drive nose-up torque ──────────────────────────────────
-    if (gas && onGround) {
+    if (gas && canDrive) {
       angularVelocity -= _gasTorque * dt;
     }
 
@@ -300,6 +308,13 @@ class Bike {
 
     position = pos;
 
+    // ── Coyote timer: stays hot briefly after leaving ground ─────────────────
+    if (onGround) {
+      _coyoteTimer = _coyoteTime;
+    } else {
+      _coyoteTimer = (_coyoteTimer - dt).clamp(0.0, _coyoteTime);
+    }
+
     // ── 10. Single velocity impulse — after ALL position corrections ─────────
     if (rearOnGround || frontOnGround) {
       final avgN = (rearOnGround && frontOnGround)
@@ -316,7 +331,8 @@ class Bike {
     }
 
     // ── 11. Drive — along surface tangent ───────────────────────────────────
-    if (onGround) {
+    // canDrive = onGround OR coyote window → gas never cuts during micro-gaps
+    if (canDrive) {
       final surfN   = rearOnGround ? rearN : frtN;
       var   surfDir = Vector2(-surfN.y, surfN.x);
       if (surfDir.x < 0) surfDir = -surfDir;
