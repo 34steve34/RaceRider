@@ -87,14 +87,27 @@ class RaceRiderGame extends FlameGame with TapCallbacks {
     canvas.scale(camera.viewfinder.zoom);
     canvas.translate(-player.position.x, -player.position.y);
 
-    // Track
+    // Track — thin line, not a road
     final tp = Paint()
       ..color = const Color(0xFF00FF88)
-      ..strokeWidth = 10.0
+      ..strokeWidth = 2.0
       ..style = PaintingStyle.stroke
       ..strokeCap = StrokeCap.round;
     for (final s in trackSegments) {
       canvas.drawLine(Offset(s.x1, s.y1), Offset(s.x2, s.y2), tp);
+    }
+
+    // 1-second markers — vertical posts every 300 world units.
+    // At target cruising speed ~300 u/s these are ~1s apart.
+    // Adjust spacing once you know your actual top speed.
+    final mPaint = Paint()..color = const Color(0xFFFFFF44)..strokeWidth = 1.5;
+    final mTextStyle = const TextStyle(color: Color(0xFFFFFF44), fontSize: 9);
+    for (int mx = -700; mx < 8000; mx += 300) {
+      canvas.drawLine(Offset(mx.toDouble(), 15), Offset(mx.toDouble(), 45), mPaint);
+      TextPainter(
+        text: TextSpan(text: '${((mx + 700) ~/ 300)}s', style: mTextStyle),
+        textDirection: TextDirection.ltr,
+      )..layout()..paint(canvas, Offset(mx.toDouble() + 2, 8));
     }
 
     // Bike
@@ -108,33 +121,33 @@ class RaceRiderGame extends FlameGame with TapCallbacks {
 
   void _drawBike(Canvas canvas) {
     final wFill = Paint()..color = Colors.white;
-    final wRim  = Paint()..color = Colors.black87..style = PaintingStyle.stroke..strokeWidth = 2.5;
+    final wRim  = Paint()..color = Colors.black87..style = PaintingStyle.stroke..strokeWidth = 3.0;
     final body  = Paint()..color = const Color(0xFFFF4400);
-    final frame = Paint()..color = const Color(0xFF333333)..strokeWidth = 3.5..style = PaintingStyle.stroke;
-    final fork  = Paint()..color = const Color(0xFF888888)..strokeWidth = 4.0..style = PaintingStyle.stroke;
+    final frame = Paint()..color = const Color(0xFF333333)..strokeWidth = 3.0..style = PaintingStyle.stroke;
+    final fork  = Paint()..color = const Color(0xFF888888)..strokeWidth = 3.5..style = PaintingStyle.stroke;
     final seat  = Paint()..color = const Color(0xFF111111);
     final rider = Paint()..color = const Color(0xFF2255BB);
 
-    // Wheels — centres at (-6.8, 4.8) and (7.8, 4.8), radius 2.35
-    // These MUST match Bike._rearLocal and Bike._frontLocal exactly
-    canvas.drawCircle(const Offset(-6.8, 4.8), 2.35, wFill);
-    canvas.drawCircle(const Offset( 7.8, 4.8), 2.35, wFill);
-    canvas.drawCircle(const Offset(-6.8, 4.8), 1.6,  wRim);
-    canvas.drawCircle(const Offset( 7.8, 4.8), 1.6,  wRim);
+    // Wheels — centres at (-7.0, 6.5) and (8.5, 6.5), radius 4.7
+    // These MUST match Bike._rearLx/y and _frtLx/y constants exactly
+    canvas.drawCircle(const Offset(-7.0, 6.5), 4.7, wFill);
+    canvas.drawCircle(const Offset( 8.5, 6.5), 4.7, wFill);
+    canvas.drawCircle(const Offset(-7.0, 6.5), 3.1, wRim);   // inner rim circle
+    canvas.drawCircle(const Offset( 8.5, 6.5), 3.1, wRim);
 
-    // Frame struts connecting to wheel centres
-    canvas.drawLine(const Offset(-6.8, 4.8), const Offset(-2.0, -3.0), frame);  // rear strut
-    canvas.drawLine(const Offset(-2.0, -3.0), const Offset( 7.8, 4.8), frame);  // main spar
-    canvas.drawLine(const Offset( 7.8, -1.5), const Offset( 7.8,  4.8), fork);  // front fork
-    canvas.drawLine(const Offset( 7.0, -3.8), const Offset(12.0, -4.8), fork);  // handlebars
+    // Frame struts — connect wheel centres to body junction
+    canvas.drawLine(const Offset(-7.0,  6.5), const Offset(-1.5, -2.5), frame);  // rear strut
+    canvas.drawLine(const Offset(-1.5, -2.5), const Offset( 8.5,  6.5), frame);  // main spar
+    canvas.drawLine(const Offset( 8.5,  6.5), const Offset( 8.5, -2.0), fork);   // front fork leg
+    canvas.drawLine(const Offset( 7.5, -4.0), const Offset(13.0, -5.2), fork);   // handlebars
 
     // Body / tank
-    canvas.drawRect(const Rect.fromLTWH(-9.0, -3.5, 18.0, 4.0), body);
-    canvas.drawRect(const Rect.fromLTWH(-7.5, -5.5,  8.0, 2.2), seat);
+    canvas.drawRect(const Rect.fromLTWH(-9.5, -4.0, 19.5, 4.5), body);
+    canvas.drawRect(const Rect.fromLTWH(-8.0, -6.2,  9.0, 2.4), seat);
 
-    // Rider (torso + head — simple shapes, but clearly a person)
-    canvas.drawOval(const Rect.fromLTWH(-6.0, -9.8, 5.5, 4.5), rider);  // torso
-    canvas.drawCircle(const Offset(-3.2, -11.2), 2.1, rider);            // helmet
+    // Rider
+    canvas.drawOval(const Rect.fromLTWH(-6.5, -11.0, 6.0, 5.0), rider);  // torso
+    canvas.drawCircle(const Offset(-3.5, -12.5), 2.4, rider);             // helmet
   }
 }
 
@@ -187,45 +200,35 @@ class Bike {
 
   // ── Tuning knobs ── (all grouped, all named, go nuts) ──────────────────────
   static const _gravity   = 42.0;
-  static const _accel     = 560.0;    // gas force
-  static const _brake     = 130.0;    // brake force
+  static const _accel     = 1300.0;   // was 560 — felt glacial
+  static const _brake     = 260.0;
 
-  static const _wr        = 2.35;     // wheel radius — MUST match drawCircle radius
+  static const _wr        = 4.7;      // wheel radius — doubled, MUST match drawCircle radius
 
-  // Tilt: torque model, NOT target-angle model
-  // Equilibrium spin rate in air  = _tiltTorque / _airDamp  (rad/s at full tilt)
-  // Equilibrium spin rate on gnd  = _tiltTorque / _gndDamp
-  static const _tiltTorque = 3.6;     // angular impulse per tilt unit per second
-  static const _airDamp    = 1.2;     // angular damping in air  (lower = spins more freely)
-  static const _gndDamp    = 4.6;     // angular damping on ground (higher = snappier settle)
+  static const _tiltTorque = 3.6;
+  static const _airDamp    = 1.2;
+  static const _gndDamp    = 4.6;
 
-  // Anti-stoppie: ONLY fires when front wheel is grounded.
-  // Zero when front is in air → front-flick is completely free.
-  static const _antiStoppie  = 90.0;  // restoring torque coefficient for nose-down
+  static const _antiStoppie  = 90.0;
+  static const _antiWheelie  = 18.0;
 
-  // Anti-extreme-wheelie: kicks in past ~85° nose-up. Always active.
-  static const _antiWheelie = 18.0;
+  // Gravity restoring torque — replaces _gasTorque.
+  // COG above contact patch: when nose-up (angle<0) gravity pulls nose back down,
+  // when nose-down (angle>0) gravity pulls nose further down (countered by antiStoppie).
+  // Effect: gas alone on flat ground cannot wheelie. Tilt torque easily overpowers it.
+  static const _gravityTorque = 14.0;
 
-  // Gas nose-up torque: rear-wheel-drive feel
-  static const _gasTorque  = 1.7;
+  static const _restitution = 0.0;
+  static const _friction    = 0.008;
 
-  // Landing: velocity resolved ONCE after all position passes
-  // NOTE: both values are per-substep. With 5 substeps they compound fast.
-  static const _restitution = 0.0;    // 0=perfectly sticky — micro-bounce was causing onGround flicker
-  static const _friction    = 0.008;  // tangential: near-zero, let rolling resistance do the work
-                                      // 0.06 was killing 26% of forward speed per frame (0.94^5)
-
-  // Magnet: gentle pull toward track when close but not penetrating
   static const _magnetDist =  3.2;
-  static const _magnetStr  = 200.0;  // bumped up — helps suppress the micro-gap between substeps
+  static const _magnetStr  = 200.0;
 
-  // Coyote ground: drive fires if grounded within this many seconds
-  // Prevents gas cutting out during micro-bounces between substeps
   static const _coyoteTime = 0.08;
 
-  // Wheel local positions — keep these identical to drawCircle Offsets above
-  static const _rearLx = -6.8,  _rearLy = 4.8;
-  static const _frtLx  =  7.8,  _frtLy  = 4.8;
+  // Wheel centres — MUST match drawCircle Offsets in _drawBike exactly
+  static const _rearLx = -7.0,  _rearLy = 6.5;
+  static const _frtLx  =  8.5,  _frtLy  = 6.5;
   // ───────────────────────────────────────────────────────────────────────────
 
   Bike(Vector2 startPos) : position = startPos.clone();
@@ -260,10 +263,11 @@ class Bike {
       angularVelocity -= angle * _antiWheelie * dt;
     }
 
-    // ── 5. Rear-wheel-drive nose-up torque ──────────────────────────────────
-    if (gas && canDrive) {
-      angularVelocity -= _gasTorque * dt;
-    }
+    // ── 5. Gravity restoring torque — always active ──────────────────────────
+    // Pulls angle back toward 0 proportional to displacement.
+    // Prevents gas alone from wheelie-ing on flat ground.
+    // Tilt torque (~3.6) easily overpowers this (~14 * small_angle).
+    angularVelocity += angle * _gravityTorque * dt;
 
     // ── 6. Angular damping ───────────────────────────────────────────────────
     final damp = onGround ? _gndDamp : _airDamp;
