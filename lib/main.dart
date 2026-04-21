@@ -197,6 +197,7 @@ class Bike {
   bool get onGround => rearOnGround || frontOnGround;
   double  _coyoteTimer = 0.0;
   bool get canDrive => onGround || _coyoteTimer > 0.0;
+  double  _surfAngle  = 0.0;   // slope angle at last ground contact — gravity restores toward this
 
   // ── Tuning knobs ── (all grouped, all named, go nuts) ──────────────────────
   static const _gravity   = 42.0;
@@ -258,16 +259,18 @@ class Bike {
       angularVelocity -= angle * _antiStoppie * dt;
     }
 
-    // ── 4. Anti-extreme-wheelie (past ~85° nose-up) — always ────────────────
-    if (angle < -1.48) {
+    // ── 4. Anti-extreme-wheelie — kicks in at 30° nose-up, not 85° ─────────────
+    // -0.52 rad ≈ 30°. Catches it early. Same correct sign as antiStoppie.
+    if (angle < -0.52) {
       angularVelocity -= angle * _antiWheelie * dt;
     }
 
-    // ── 5. Gravity restoring torque — always active ──────────────────────────
-    // Pulls angle back toward 0 proportional to displacement.
-    // Prevents gas alone from wheelie-ing on flat ground.
-    // Tilt torque (~3.6) easily overpowers this (~14 * small_angle).
-    angularVelocity += angle * _gravityTorque * dt;
+    // ── 5. Gravity restoring torque ──────────────────────────────────────────
+    // Restores toward _surfAngle (slope angle) when grounded, toward 0 in air.
+    // MUST be minus: angle<0 (nose-up) → -(negative) = positive angVel → nose-down. Correct.
+    // Was '+' before — that was destabilizing (amplified wheelies). Now fixed.
+    final restoreTarget = canDrive ? _surfAngle : 0.0;
+    angularVelocity -= (angle - restoreTarget) * _gravityTorque * dt;
 
     // ── 6. Angular damping ───────────────────────────────────────────────────
     final damp = onGround ? _gndDamp : _airDamp;
@@ -312,11 +315,19 @@ class Bike {
 
     position = pos;
 
-    // ── Coyote timer: stays hot briefly after leaving ground ─────────────────
+    // ── Coyote timer + slope angle update ───────────────────────────────────
     if (onGround) {
       _coyoteTimer = _coyoteTime;
+      // Slope angle = angle the bike frame should sit at for both wheels to contact.
+      // atan2(n.x, -n.y): flat normal (0,-1) → 0.  Uphill-right normal → negative value.
+      final n = (rearOnGround && frontOnGround)
+          ? (rearN + frtN).normalized()
+          : (rearOnGround ? rearN : frtN);
+      _surfAngle = atan2(n.x, -n.y);
     } else {
       _coyoteTimer = (_coyoteTimer - dt).clamp(0.0, _coyoteTime);
+      // Fade surface angle toward 0 while airborne so air-tricks feel neutral
+      _surfAngle *= 0.92;
     }
 
     // ── 10. Single velocity impulse — after ALL position corrections ─────────
@@ -335,16 +346,25 @@ class Bike {
     }
 
     // ── 11. Drive — along surface tangent ───────────────────────────────────
-    // canDrive = onGround OR coyote window → gas never cuts during micro-gaps
     if (canDrive) {
       final surfN   = rearOnGround ? rearN : frtN;
       var   surfDir = Vector2(-surfN.y, surfN.x);
       if (surfDir.x < 0) surfDir = -surfDir;
-      final drive = gas ? _accel : (brake ? -_brake : 0.0);
-      velocity = velocity + surfDir * (drive * dt);
-      velocity.x *= pow(0.974, 1 / 5.0).toDouble();  // scale rolling resistance per substep
+
+      if (gas) {
+        velocity = velocity + surfDir * (_accel * dt);
+      } else if (brake) {
+        // Brake: decelerate to zero only — never reverse.
+        // On a slope with no speed, bike rolls freely under gravity (no brake holding).
+        final fwdSpeed = velocity.dot(surfDir);
+        if (fwdSpeed > 0) {
+          final brakeImpulse = (fwdSpeed / dt).clamp(0.0, _brake);
+          velocity = velocity - surfDir * (brakeImpulse * dt);
+        }
+      }
+      velocity.x *= pow(0.974, 1 / 5.0).toDouble();
     } else {
-      velocity.x *= pow(0.993, 1 / 5.0).toDouble();  // scale air drag per substep
+      velocity.x *= pow(0.993, 1 / 5.0).toDouble();
     }
   }
 
