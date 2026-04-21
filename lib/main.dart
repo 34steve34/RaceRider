@@ -206,18 +206,16 @@ class Bike {
 
   static const _wr        = 4.7;      // wheel radius — doubled, MUST match drawCircle radius
 
-  static const _tiltTorque = 3.6;
-  static const _airDamp    = 1.2;
-  static const _gndDamp    = 4.6;
+  static const _tiltTorque = 6.5;     // was 3.6 — must easily overpower gravity at any angle
+  static const _airDamp    = 1.4;     // low = spins freely for tricks
+  static const _gndDamp    = 5.0;
 
   static const _antiStoppie  = 90.0;
-  static const _antiWheelie  = 18.0;
+  static const _antiWheelie  = 22.0;  // safety net only — fires past 100°, not 30°
 
-  // Gravity restoring torque — replaces _gasTorque.
-  // COG above contact patch: when nose-up (angle<0) gravity pulls nose back down,
-  // when nose-down (angle>0) gravity pulls nose further down (countered by antiStoppie).
-  // Effect: gas alone on flat ground cannot wheelie. Tilt torque easily overpowers it.
-  static const _gravityTorque = 14.0;
+  // cos(angle) gravity model. At horizontal=5.5, at 45°=3.9, at 90°=0 (holds wheelie free).
+  // Tilt torque 6.5 beats 5.5 even at horizontal → wheelie is always initiatable.
+  static const _gravityTorque = 5.5;
 
   static const _restitution = 0.0;
   static const _friction    = 0.008;
@@ -254,23 +252,41 @@ class Bike {
     angularVelocity += tilt * _tiltTorque * dt;
 
     // ── 3. Anti-stoppie — ONLY when front wheel is grounded ─────────────────
-    //    When front is in air this block is skipped → front-flick is free
     if (frontOnGround && angle > 0.03) {
       angularVelocity -= angle * _antiStoppie * dt;
     }
 
-    // ── 4. Anti-extreme-wheelie — kicks in at 30° nose-up, not 85° ─────────────
-    // -0.52 rad ≈ 30°. Catches it early. Same correct sign as antiStoppie.
-    if (angle < -0.52) {
-      angularVelocity -= angle * _antiWheelie * dt;
+    // ── 4. Gravity torque — pivot-aware cosine model ─────────────────────────
+    //
+    //  Both wheels grounded: gentle spring toward slope angle. Bike is stable,
+    //  tilt easily overpowers this (it's just alignment, not a hard wall).
+    //
+    //  Wheelie (rear only): cos(angle) gravity around rear wheel pivot.
+    //    angle= 0    (horizontal)  → cos= 1.0  → strong nose-down pull
+    //    angle=-pi/4 (45° wheelie) → cos= 0.71 → moderate pull
+    //    angle=-pi/2 (90°, COG above wheel) → cos= 0  → ZERO TORQUE → neutral phone holds it
+    //    angle>-pi/2 (past vertical) → cos goes negative → bike wants to tip back → small tilt corrects
+    //  This matches BR exactly. The 90° balance point is natural, not forced.
+    //
+    //  Anti-extreme safety net: only fires past 100° (1.75 rad). Pure backstop.
+    if (rearOnGround && frontOnGround) {
+      // Both on ground: gentle slope-alignment spring only
+      angularVelocity -= (angle - _surfAngle) * 3.5 * dt;
+    } else if (rearOnGround && !frontOnGround) {
+      // Wheelie pivot: cosine gravity around rear wheel
+      angularVelocity += cos(angle) * _gravityTorque * dt;
+    } else if (frontOnGround && !rearOnGround) {
+      // Stoppie pivot: mirrored
+      angularVelocity -= cos(angle) * _gravityTorque * dt;
+    } else {
+      // Air: very gentle restore toward level so air tricks feel balanced
+      angularVelocity -= angle * 1.2 * dt;
     }
 
-    // ── 5. Gravity restoring torque ──────────────────────────────────────────
-    // Restores toward _surfAngle (slope angle) when grounded, toward 0 in air.
-    // MUST be minus: angle<0 (nose-up) → -(negative) = positive angVel → nose-down. Correct.
-    // Was '+' before — that was destabilizing (amplified wheelies). Now fixed.
-    final restoreTarget = canDrive ? _surfAngle : 0.0;
-    angularVelocity -= (angle - restoreTarget) * _gravityTorque * dt;
+    // Safety net — only past 100° nose-up. Does NOT interfere with normal wheelies.
+    if (angle < -1.75) {
+      angularVelocity -= (angle + 1.75) * _antiWheelie * dt;
+    }
 
     // ── 6. Angular damping ───────────────────────────────────────────────────
     final damp = onGround ? _gndDamp : _airDamp;
