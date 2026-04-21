@@ -31085,109 +31085,113 @@ IA(a,b,c,d,e){var s,r=a/5
 for(s=0;s<5;++s)this.D7(r,b,c,d,e)},
 D7(a3,a4,a5,a6,a7){var s,r,q,p,o,n,m,l,k,j,i,h,g,f,e,d,c,b,a,a0,a1=this,a2=a1.b
 a2.svD(a2.a[1]+42*a3)
-a2=a1.d=a1.d+a4*3.6*a3
+a2=a1.d=a1.d+a4*6.5*a3
 s=a1.f
-if(s&&a1.c>0.03){a2-=a1.c*90*a3
-a1.d=a2}r=a1.c
-if(r<-0.52)a2=a1.d=a2-r*18*a3
-q=!a1.e
-a2-=(r-(!q||s||a1.r>0?a1.w:0))*14*a3
-a1.d=a2
-a2*=B.d.eb(1-(!q||s?4.6:1.2)*a3,0,1)
+if(s&&a1.c>0.03)a2=a1.d=a2-a1.c*90*a3
+r=a1.e
+if(r&&s){a2-=(a1.c-a1.w)*3.5*a3
+a1.d=a2}else if(r&&!s){a2+=Math.cos(a1.c)*5.5*a3
+a1.d=a2}else{s=s&&!r
+r=a1.c
+if(s){a2-=Math.cos(r)*5.5*a3
+a1.d=a2}else{a2-=r*1.2*a3
+a1.d=a2}}s=a1.c
+if(s<-1.75)a2=a1.d=a2-(s+1.75)*22*a3
+a2*=B.d.eb(1-(a1.e||a1.f?5:1.4)*a3,0,1)
 a1.d=a2
 a2=a1.c+a2*a3
 a1.c=a2
 a1.c=B.d.eb(a2,-2.261946710584651,1.7278759594743864)
-p=a1.a.aM(0,a1.b.bq(0,a3))
+q=a1.a.aM(0,a1.b.bq(0,a3))
 a1.f=a1.e=!1
+p=new A.J(new Float64Array(2))
+p.br(0,-1)
 o=new A.J(new Float64Array(2))
 o.br(0,-1)
-n=new A.J(new Float64Array(2))
-n.br(0,-1)
-for(m=0;m<3;++m){a2=new Float64Array(2)
+for(n=0;n<3;++n){a2=new Float64Array(2)
 a2[1]=6.5
 a2[0]=-7
 a2=a1.rj(new A.J(a2))
 s=new Float64Array(2)
-l=new A.J(s)
-k=p.a
-s[1]=k[1]
-s[0]=k[0]
-l.n(0,a2)
-j=A.Nb(l,a7,4.7)
-a2=j.a
-if(a2>0.005){o=j.b
+m=new A.J(s)
+l=q.a
+s[1]=l[1]
+s[0]=l[0]
+m.n(0,a2)
+k=A.Nb(m,a7,4.7)
+a2=k.a
+if(a2>0.005){p=k.b
 s=new Float64Array(2)
 r=new A.J(s)
-i=o.a
-s[1]=i[1]
-s[0]=i[0]
+j=p.a
+s[1]=j[1]
+s[0]=j[0]
 r.cd(a2)
 a2=new Float64Array(2)
-p=new A.J(a2)
-a2[1]=k[1]
-a2[0]=k[0]
-p.n(0,r)
+q=new A.J(a2)
+a2[1]=l[1]
+a2[0]=l[0]
+q.n(0,r)
 a1.e=!0}else if(a2>-3.2){s=a1.b
 r=new Float64Array(2)
-q=new A.J(r)
-k=j.b.a
-r[1]=k[1]
-r[0]=k[0]
-q.cd((3.2+a2)*200*a3)
+i=new A.J(r)
+l=k.b.a
+r[1]=l[1]
+r[0]=l[0]
+i.cd((3.2+a2)*200*a3)
 a2=new Float64Array(2)
 r=new A.J(a2)
-k=s.a
-a2[1]=k[1]
-a2[0]=k[0]
-r.eD(q)
+l=s.a
+a2[1]=l[1]
+a2[0]=l[0]
+r.eD(i)
 a1.b=r}a2=new Float64Array(2)
 a2[1]=6.5
 a2[0]=8.5
 a2=a1.rj(new A.J(a2))
 s=new Float64Array(2)
 h=new A.J(s)
-k=p.a
-s[1]=k[1]
-s[0]=k[0]
+l=q.a
+s[1]=l[1]
+s[0]=l[0]
 h.n(0,a2)
 g=A.Nb(h,a7,4.7)
 a2=g.a
-if(a2>0.005){n=g.b
+if(a2>0.005){o=g.b
 s=new Float64Array(2)
 r=new A.J(s)
-i=n.a
-s[1]=i[1]
-s[0]=i[0]
+j=o.a
+s[1]=j[1]
+s[0]=j[0]
 r.cd(a2)
 a2=new Float64Array(2)
-p=new A.J(a2)
-a2[1]=k[1]
-a2[0]=k[0]
-p.n(0,r)
+q=new A.J(a2)
+a2[1]=l[1]
+a2[0]=l[0]
+q.n(0,r)
 a1.f=!0}else if(a2>-3.2){s=a1.b
 r=new Float64Array(2)
-q=new A.J(r)
-k=g.b.a
-r[1]=k[1]
-r[0]=k[0]
-q.cd((3.2+a2)*200*a3)
+i=new A.J(r)
+l=g.b.a
+r[1]=l[1]
+r[0]=l[0]
+i.cd((3.2+a2)*200*a3)
 a2=new Float64Array(2)
 r=new A.J(a2)
-k=s.a
-a2[1]=k[1]
-a2[0]=k[0]
-r.eD(q)
-a1.b=r}}a1.a=p
+l=s.a
+a2[1]=l[1]
+a2[0]=l[0]
+r.eD(i)
+a1.b=r}}a1.a=q
 a2=a1.e
 if(a2||a1.f){a1.r=0.08
-if(a2&&a1.f)f=o.aM(0,n).uX()
-else f=a2?o:n
+if(a2&&a1.f)f=p.aM(0,o).uX()
+else f=a2?p:o
 a2=f.a
 a1.w=Math.atan2(a2[0],-a2[1])}else{a1.r=B.d.eb(a1.r-a3,0,0.08)
 a1.w*=0.92}a2=a1.e
-if(a2||a1.f){if(a2&&a1.f)e=o.aM(0,n).uX()
-else e=a2?o:n
+if(a2||a1.f){if(a2&&a1.f)e=p.aM(0,o).uX()
+else e=a2?p:o
 d=a1.b.eg(e)
 if(d<0)a1.b=a1.b.bh(0,e.bq(0,d))
 a2=e.a
@@ -31197,7 +31201,7 @@ c=new A.J(new Float64Array(2))
 c.br(-s,a2)
 a2=a1.b
 a1.b=a2.bh(0,c.bq(0,a2.eg(c)*0.008))}a2=a1.e
-if(a2||a1.f||a1.r>0){s=(a2?o:n).a
+if(a2||a1.f||a1.r>0){s=(a2?p:o).a
 r=s[1]
 s=s[0]
 a2=new Float64Array(2)
