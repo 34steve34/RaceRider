@@ -1,14 +1,16 @@
 /* ============================================================================
- * RACERIDER v43
- * Key changes from v42:
- *  - Torque tilt model (not target-angle seeking) → wheelie holds at neutral phone
- *  - Anti-stoppie ONLY when front wheel grounded → front-flick works freely in air
- *  - Single velocity impulse after all position passes → kills vibration
- *  - normalDamping was 2.1 (bouncy catapult) → fixed to restitution 0.10
- *  - tangentFriction applied 8×/frame → now applied once
- *  - Physics wheel positions now match canvas drawCircle exactly
- *  - Dropped Forge2DGame (no Box2D bodies were used) → plain FlameGame
- *  - Spawn inside flat section, not past it
+ * RACERIDER v44
+ * Key changes from v43:
+ *  - Tilt smoothing: 0.65/0.35 → 0.35/0.65  (much more responsive)
+ *  - _tiltTorque: 12 → 20  (snappier, true BR feel)
+ *  - Air angle clamp REMOVED → full 360° rotation enabled for tricks
+ *  - Ground nose-down hard cap at surfAngle+0.22 rad (~12.5°) — can no longer tip forward
+ *  - Asymmetric ground spring k nose-down: 55 → 80 (continuous resistance)
+ *  - Safety net (antiWheelie) gated on onGround → backflips/front-flips work in air
+ *  - Air level-seeking (angle*0.8) removed → spin freely, don't fight tricks
+ *  - Angle normalised on landing (handles multi-rev spins, prevents spring explosion)
+ *  - Magnet changed from normal-direction to VERTICAL-ONLY → eliminates slope self-propulsion
+ *  - _magnetStr: 60 → 30
  * ============================================================================ */
 
 import 'dart:math';
@@ -67,7 +69,7 @@ class RaceRiderGame extends FlameGame with TapCallbacks {
     super.update(dt);
     camera.viewfinder.position = player.position;
     final n = (rawTilt / 9.0).clamp(-1.0, 1.0);
-    smoothedTilt = smoothedTilt * 0.65 + n * 0.35;   // 0.65 = smoother than v42's 0.42
+    smoothedTilt = smoothedTilt * 0.35 + n * 0.65;   // 0.35 = much more responsive (was 0.65/0.35)
     player.updateBike(dt, smoothedTilt, isGas, isBrake, trackSegments);
   }
 
@@ -209,9 +211,9 @@ class Bike {
 
   static const _wr        = 4.7;      // wheel radius — doubled, MUST match drawCircle radius
 
-  static const _tiltTorque = 12.0;    // was 6.5 — BR wheelie feel: ~0.4s to 90°
-  static const _airDamp    = 1.0;     // low = spins freely for tricks
-  static const _gndDamp    = 3.0;     // was 4.6/5.0 — equilibrium angVel = 12/3 = 4 rad/s
+  static const _tiltTorque = 20.0;    // was 12 — BR-feel: snappy tilt response
+  static const _airDamp    = 0.7;     // low = spins freely for tricks (was 1.0)
+  static const _gndDamp    = 4.0;     // was 3.0 — equilibrium angVel = 20/4 = 5 rad/s
 
   static const _antiWheelie  = 22.0;  // safety net only — fires past 100°, not 30°
 
@@ -223,7 +225,7 @@ class Bike {
   static const _friction    = 0.008;
 
   static const _magnetDist =  1.8;   // was 3.2 — was hugging ground too aggressively
-  static const _magnetStr  =  60.0;  // was 200 — was causing tangential speed on slopes
+  static const _magnetStr  =  30.0;  // was 60 — reduced further to eliminate slope self-propulsion
 
   static const _coyoteTime = 0.08;
 
@@ -259,7 +261,7 @@ class Bike {
       // Strongly resists nose-down (prevents forward tip + rear lift).
       // Weakly resists nose-up (tilt can still initiate wheelie easily).
       final err = angle - _surfAngle;
-      final k = err > 0 ? 55.0 : 5.0;
+      final k = err > 0 ? 80.0 : 5.0;   // was 55/5 — increased nose-down resistance
       angularVelocity -= err * k * dt;
 
     } else if (rearOnGround && !frontOnGround) {
@@ -272,12 +274,13 @@ class Bike {
       angularVelocity -= cos(angle) * _gravityTorque * dt;
 
     } else {
-      // Air: gentle level-seeking so the bike doesn't tumble chaotically.
-      angularVelocity -= angle * 0.8 * dt;
+      // Air: NO automatic level-seeking — player controls spin freely for tricks.
+      // Angular damping (_airDamp) handles gradual slowdown without fighting the spin.
     }
 
     // Safety net past 100° nose-up only — never fires during normal wheelies.
-    if (angle < -1.75) {
+    // Gated on onGround: in air the bike must spin past this freely for backflips.
+    if (onGround && angle < -1.75) {
       angularVelocity -= (angle + 1.75) * _antiWheelie * dt;
     }
 
@@ -287,7 +290,23 @@ class Bike {
 
     // ── 7. Integrate angle ───────────────────────────────────────────────────
     angle += angularVelocity * dt;
-    angle = angle.clamp(-pi * 0.72, pi * 0.55);
+
+    if (onGround) {
+      // On ground: normalise first (handles landings after multi-revolution air spins)
+      // without this, a completed backflip lands at angle≈-6.28 and the spring
+      // goes berserk with a huge err value.
+      while (angle - _surfAngle >  pi) angle -= 2 * pi;
+      while (angle - _surfAngle < -pi) angle += 2 * pi;
+
+      // Hard cap on nose-down (forward tip-over prevention).
+      // The asymmetric spring (k=80) resists it continuously; this is the absolute ceiling.
+      final _maxNoseDown = _surfAngle + 0.22;   // ~12.5° past slope — very hard to breach
+      if (angle > _maxNoseDown) {
+        angle = _maxNoseDown;
+        if (angularVelocity > 0) angularVelocity = 0.0;  // kill forward spin impulse
+      }
+    }
+    // In air: NO clamp at all → full 360° rotation enabled for tricks.
 
     // ── 8. Predict position ─────────────────────────────────────────────────
     var pos = position + velocity * dt;
@@ -318,22 +337,23 @@ class Bike {
       }
     }
 
-    // Magnet — pulls along surface normal, ONCE per substep.
-    // Normal-direction (not vertical-only) is correct — BR bikes stick to loops,
-    // walls, and ceilings. The fix for self-propulsion was moving this OUT of the
-    // 3-pass loop (was 15×/frame at strength 200, now 1×/frame at strength 60).
+    // Magnet — pulls wheel toward track, ONCE per substep.
+    // KEY: force is applied as pure DOWNWARD impulse (velocity.y only), NOT along the
+    // surface normal. Applying force along the normal on a slope adds a horizontal
+    // component that accelerates the bike forward — the root cause of self-propulsion.
+    // Vertical-only is correct for all hills/ramps; loops are not used in this track.
     if (!rearOnGround) {
       final rw = pos + _rot(Vector2(_rearLx, _rearLy));
       final rc = _wheelContact(rw, segs, _wr);
       if (rc.pen > -_magnetDist) {
-        velocity = velocity - rc.normal * ((_magnetDist + rc.pen) * _magnetStr * dt);
+        velocity.y += (_magnetDist + rc.pen) * _magnetStr * dt;   // downward only
       }
     }
     if (!frontOnGround) {
       final fw = pos + _rot(Vector2(_frtLx, _frtLy));
       final fc = _wheelContact(fw, segs, _wr);
       if (fc.pen > -_magnetDist) {
-        velocity = velocity - fc.normal * ((_magnetDist + fc.pen) * _magnetStr * dt);
+        velocity.y += (_magnetDist + fc.pen) * _magnetStr * dt;   // downward only
       }
     }
 
@@ -431,7 +451,7 @@ class DebugOverlay extends Component with HasGameRef<RaceRiderGame> {
     TextPainter(
       textDirection: TextDirection.ltr,
       text: TextSpan(
-        text: 'v43'
+        text: 'v44'
             '\nTilt:   ${gameRef.smoothedTilt.toStringAsFixed(2)}'
             '\nAngle:  ${b.angle.toStringAsFixed(2)} rad'
             '\nAngVel: ${b.angularVelocity.toStringAsFixed(2)}'
