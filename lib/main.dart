@@ -128,18 +128,19 @@ class RaceRiderGame extends FlameGame with TapCallbacks {
     final seat  = Paint()..color = const Color(0xFF111111);
     final rider = Paint()..color = const Color(0xFF2255BB);
 
-    // Wheels — suspension compresses them upward by suspOffset when grounded
-    final sy = player.suspOffset;   // positive = compressed upward = smaller y offset
-    canvas.drawCircle(Offset(-7.0, 6.5 - sy), 4.7, wFill);
-    canvas.drawCircle(Offset( 8.5, 6.5 - sy), 4.7, wFill);
-    canvas.drawCircle(Offset(-7.0, 6.5 - sy), 3.1, wRim);
-    canvas.drawCircle(Offset( 8.5, 6.5 - sy), 3.1, wRim);
+    // Wheels — independent suspension per wheel
+    final rs = player.rSuspOffset;  // rear compression
+    final fs = player.fSuspOffset;  // front compression
+    canvas.drawCircle(Offset(-7.0, 6.5 - rs), 4.7, wFill);
+    canvas.drawCircle(Offset( 8.5, 6.5 - fs), 4.7, wFill);
+    canvas.drawCircle(Offset(-7.0, 6.5 - rs), 3.1, wRim);
+    canvas.drawCircle(Offset( 8.5, 6.5 - fs), 3.1, wRim);
 
-    // Frame struts — fork bottom follows suspension
-    canvas.drawLine(Offset(-7.0,  6.5 - sy), const Offset(-1.5, -2.5), frame);
-    canvas.drawLine(const Offset(-1.5, -2.5), Offset( 8.5,  6.5 - sy), frame);
-    canvas.drawLine(Offset( 8.5,  6.5 - sy), const Offset( 8.5, -2.0), fork);
-    canvas.drawLine(const Offset( 7.5, -4.0), const Offset(13.0, -5.2), fork);
+    // Frame struts — each end follows its wheel's suspension
+    canvas.drawLine(Offset(-7.0, 6.5 - rs), const Offset(-1.5, -2.5), frame);
+    canvas.drawLine(const Offset(-1.5, -2.5), Offset(8.5, 6.5 - fs), frame);
+    canvas.drawLine(Offset(8.5, 6.5 - fs), const Offset(8.5, -2.0), fork);
+    canvas.drawLine(const Offset(7.5, -4.0), const Offset(13.0, -5.2), fork);
 
     // Body / tank
     canvas.drawRect(const Rect.fromLTWH(-9.5, -4.0, 19.5, 4.5), body);
@@ -198,8 +199,8 @@ class Bike {
   double  _coyoteTimer = 0.0;
   bool get canDrive => onGround || _coyoteTimer > 0.0;
   double  _surfAngle  = 0.0;
-  double  suspOffset  = 0.0;   // visual suspension — read by renderer
-  double  _suspVel    = 0.0;
+  double  rSuspOffset = 0.0, _rSuspVel = 0.0;  // rear suspension — visual only
+  double  fSuspOffset = 0.0, _fSuspVel = 0.0;  // front suspension — visual only
 
   // ── Tuning knobs ── (all grouped, all named, go nuts) ──────────────────────
   static const _gravity   = 28.0;    // was 42 — felt too heavy at normal speed
@@ -221,8 +222,8 @@ class Bike {
   static const _restitution = 0.0;
   static const _friction    = 0.008;
 
-  static const _magnetDist =  3.2;
-  static const _magnetStr  = 200.0;
+  static const _magnetDist =  1.8;   // was 3.2 — was hugging ground too aggressively
+  static const _magnetStr  =  60.0;  // was 200 — was causing tangential speed on slopes
 
   static const _coyoteTime = 0.08;
 
@@ -317,9 +318,10 @@ class Bike {
       }
     }
 
-    // Magnet — ONCE per substep, outside pass loop.
-    // Was inside 3-pass loop × 5 substeps = 15 applications/frame.
-    // On slopes the tangential component of 15 pulls = runaway speed.
+    // Magnet — pulls along surface normal, ONCE per substep.
+    // Normal-direction (not vertical-only) is correct — BR bikes stick to loops,
+    // walls, and ceilings. The fix for self-propulsion was moving this OUT of the
+    // 3-pass loop (was 15×/frame at strength 200, now 1×/frame at strength 60).
     if (!rearOnGround) {
       final rw = pos + _rot(Vector2(_rearLx, _rearLy));
       final rc = _wheelContact(rw, segs, _wr);
@@ -367,8 +369,7 @@ class Bike {
       velocity = velocity - tan * (velocity.dot(tan) * _friction);
     }
 
-    // ── 11. Drive — rear-wheel only, truly grounded ─────────────────────────
-    // Uses onGround not canDrive — coyote was keeping gas firing in air.
+    // ── 11. Drive ────────────────────────────────────────────────────────────
     if (onGround) {
       final surfN   = rearOnGround ? rearN : frtN;
       var   surfDir = Vector2(-surfN.y, surfN.x);
@@ -383,19 +384,27 @@ class Bike {
           velocity = velocity - surfDir * (brakeImpulse * dt);
         }
       }
-      velocity *= pow(0.974, 1 / 5.0).toDouble();  // rolling resistance both axes
-    } else {
-      // Air: near-zero x drag only. y is purely gravity.
-      // Was velocity *= 0.993 (both axes) — killed 35% of fwd speed per second airborne.
-      velocity.x *= pow(0.9995, 1 / 5.0).toDouble();
+      // NO rolling resistance multiplier here.
+      // Level ground: bike rolls forever (correct).
+      // Uphill stopped: gravity pulls backward (correct).
+      // contact _friction (0.008) handles the tiny energy loss at impact.
     }
+    // NO air x-drag either — in air only gravity acts.
+    // Previous velocity.x *= 0.9995 and velocity *= 0.993 both caused
+    // unnatural slowdowns / speedups depending on slope direction.
 
-    // ── 12. Suspension spring ────────────────────────────────────────────────
-    // Visual only — physics wheels are fixed. Gives bounce feel on landing.
-    final suspTarget = onGround ? 1.8 : 0.0;
-    const suspK = 120.0, suspD = 14.0;
-    _suspVel += (suspK * (suspTarget - suspOffset) - suspD * _suspVel) * dt;
-    suspOffset = (suspOffset + _suspVel * dt).clamp(0.0, 2.5);
+    // Soft top-speed cap via quadratic drag — only noticeable above ~280 u/s.
+    final spd = velocity.length;
+    if (spd > 0) velocity *= (1.0 - 0.000018 * spd * spd * dt).clamp(0.0, 1.0);
+
+    // ── 12. Independent suspension springs ──────────────────────────────────
+    const suspK = 140.0, suspD = 16.0, suspMax = 2.2;
+    final rTarget = rearOnGround  ? 1.8 : 0.0;
+    final fTarget = frontOnGround ? 1.8 : 0.0;
+    _rSuspVel += (suspK * (rTarget - rSuspOffset) - suspD * _rSuspVel) * dt;
+    rSuspOffset = (rSuspOffset + _rSuspVel * dt).clamp(0.0, suspMax);
+    _fSuspVel += (suspK * (fTarget - fSuspOffset) - suspD * _fSuspVel) * dt;
+    fSuspOffset = (fSuspOffset + _fSuspVel * dt).clamp(0.0, suspMax);
   }
 
   // Rotate a local-space vector by bike angle
