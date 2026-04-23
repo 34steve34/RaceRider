@@ -73,7 +73,7 @@ class RaceRiderGame extends FlameGame with TapCallbacks {
     camera.viewfinder.position = player.position;
     final n = (rawTilt / 9.0).clamp(-1.0, 1.0);
     // smoothedTilt = smoothedTilt * 0.35 + n * 0.65;
-	smoothedTilt = n
+	smoothedTilt = n;
     // Dead zone: phone resting at a slight angle should not rotate the bike.
     // Without this, sub-threshold accelerometer noise keeps angularVelocity
     // from ever settling to zero, which slowly shifts wheel contact geometry.
