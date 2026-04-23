@@ -239,7 +239,7 @@ class Bike {
   // Ground damp is high so the bike settles quickly.
   // Air damp is low so the bike spins freely for tricks.
   static const _gndDamp = 4.0;
-  static const _airDamp = 0.7;
+  static const _airDamp = 2.5;
 
   // ── COG gravity torque ────────────────────────────────────────────────────
   // The "virtual centre of gravity" in bike-local space.
@@ -424,7 +424,7 @@ class DebugOverlay extends Component with HasGameRef<RaceRiderGame> {
     TextPainter(
       textDirection: TextDirection.ltr,
       text: TextSpan(
-        text: 'v47'
+        text: 'v48'
             '\nTilt:   ${gameRef.smoothedTilt.toStringAsFixed(2)}'
             '\nAngle:  ${b.angle.toStringAsFixed(2)} rad'
             '\nAngVel: ${b.angularVelocity.toStringAsFixed(2)}'
