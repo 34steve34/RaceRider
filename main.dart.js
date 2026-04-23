@@ -31088,8 +31088,8 @@ A.v6.prototype={
 Iz(a,b,c,d,e){var s,r=a/8
 for(s=0;s<8;++s)this.D5(r,b,c,d,e)},
 D5(a2,a3,a4,a5,a6){var s,r,q,p,o,n,m,l,k,j,i,h,g,f,e,d,c,b,a,a0=this,a1=a0.b
-a1.svB(a1.a[1]+90*a2)
-a0.d=a0.d+a3*14*a2
+a1.svB(a1.a[1]+110*a2)
+a0.d=a0.d+a3*18*a2
 a1=a0.a
 s=new A.L(new Float64Array(2))
 s.aY(-1,6.5)
@@ -31209,7 +31209,7 @@ return a.hk(B.uC,s)}}
 A.nc.prototype={
 dS(a){var s=this.gi0().aC
 s===$&&A.c()
-s=A.LO(A.LP(B.vk,"v49\nTilt:   "+B.d.I(this.gi0().cp,2)+"\nAngle:  "+B.d.I(s.c,2)+" rad\nAngVel: "+B.d.I(s.d,2)+"\nVel:    "+B.d.I(s.b.a[0],1)+", "+B.d.I(s.b.a[1],1)+"\nGnd  R:"+s.e+"  F:"+s.f),B.x)
+s=A.LO(A.LP(B.vk,"v50\nTilt:   "+B.d.I(this.gi0().cp,2)+"\nAngle:  "+B.d.I(s.c,2)+" rad\nAngVel: "+B.d.I(s.d,2)+"\nVel:    "+B.d.I(s.b.a[0],1)+", "+B.d.I(s.b.a[1],1)+"\nGnd  R:"+s.e+"  F:"+s.f),B.x)
 s.uK()
 s.bC(a,B.tC)}}
 A.qA.prototype={
