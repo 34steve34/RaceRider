@@ -137,7 +137,7 @@ class RaceRiderGame extends FlameGame with TapCallbacks {
     final fork  = Paint()..color = const Color(0xFF888888)..strokeWidth = 3.5..style = PaintingStyle.stroke;
     final seat  = Paint()..color = const Color(0xFF111111);
     final rider = Paint()..color = const Color(0xFF2255BB);
-    final spoke = Paint()..color = Colors.black54..strokeWidth = 1.5;
+    final spoke = Paint()..color = const Color(0xFFFFFF44)..strokeWidth = 1.5;
 
     // Wheels — independent suspension per wheel
     final rs = player.rSuspOffset;  // rear compression
@@ -175,7 +175,7 @@ class RaceRiderGame extends FlameGame with TapCallbacks {
   }
 
   void _drawSpokes(Canvas canvas, double wheelAngle, Paint spokePaint) {
-    const numSpokes = 8;
+    const numSpokes = 3;
     const spokeLength = 3.1;
     
     for (int i = 0; i < numSpokes; i++) {
@@ -488,7 +488,7 @@ class DebugOverlay extends Component with HasGameRef<RaceRiderGame> {
     TextPainter(
       textDirection: TextDirection.ltr,
       text: TextSpan(
-        text: 'v51'
+        text: 'v52'
             '\nTilt:   ${gameRef.smoothedTilt.toStringAsFixed(2)}'
             '\nAngle:  ${b.angle.toStringAsFixed(2)} rad'
             '\nAngVel: ${b.angularVelocity.toStringAsFixed(2)}'
