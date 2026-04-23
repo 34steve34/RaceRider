@@ -217,7 +217,7 @@ class Bike {
   // Downward acceleration (units/s²).
   // Raise → heavier feel, harder to climb hills, falls faster off jumps.
   // Lower → floatier, easier hills, longer air time.
-  static const _gravity = 90.0;
+  static const _gravity = 110.0;
 
   // ── Drive ─────────────────────────────────────────────────────────────────
   // Rear-wheel acceleration (units/s²). BR felt almost instant — raise freely.
@@ -233,7 +233,7 @@ class Bike {
   // Angular impulse per second at full tilt (radians/s per second).
   // Raise → snappier, quicker tricks and wheelies.
   // Lower → heavier, lazier rotation.
-  static const _tiltTorque = 14.0;
+  static const _tiltTorque = 18.0;
 
   // Angular damping — friction that slows rotation.
   // Equilibrium spin rate = tiltTorque / damp (e.g. 14/4 = 5 rad/s on ground).
@@ -426,7 +426,7 @@ class DebugOverlay extends Component with HasGameRef<RaceRiderGame> {
     TextPainter(
       textDirection: TextDirection.ltr,
       text: TextSpan(
-        text: 'v49'
+        text: 'v50'
             '\nTilt:   ${gameRef.smoothedTilt.toStringAsFixed(2)}'
             '\nAngle:  ${b.angle.toStringAsFixed(2)} rad'
             '\nAngVel: ${b.angularVelocity.toStringAsFixed(2)}'
