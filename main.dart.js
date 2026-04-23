@@ -31103,7 +31103,7 @@ a0.d=a0.d+(r.a[0]-q.a[0])*2*a2}if(a0.f){a1=a0.a
 s=new A.L(new Float64Array(2))
 s.aY(8.5,6.5)
 p=a1.aH(0,a0.h0(s))
-a0.d=a0.d+(r.a[0]-p.a[0])*2*a2}o=a0.e||a0.f?4:0.7
+a0.d=a0.d+(r.a[0]-p.a[0])*2*a2}o=a0.e||a0.f?4:2.5
 a1=a0.d*B.d.dt(1-o*a2,0,1)
 a0.d=a1
 a0.c=a0.c+a1*a2
@@ -31210,7 +31210,7 @@ return a.hk(B.uC,s)}}
 A.nc.prototype={
 dS(a){var s=this.gi0().aC
 s===$&&A.c()
-s=A.LO(A.LP(B.vk,"v47\nTilt:   "+B.d.I(this.gi0().c8,2)+"\nAngle:  "+B.d.I(s.c,2)+" rad\nAngVel: "+B.d.I(s.d,2)+"\nVel:    "+B.d.I(s.b.a[0],1)+", "+B.d.I(s.b.a[1],1)+"\nGnd  R:"+s.e+"  F:"+s.f),B.x)
+s=A.LO(A.LP(B.vk,"v48\nTilt:   "+B.d.I(this.gi0().c8,2)+"\nAngle:  "+B.d.I(s.c,2)+" rad\nAngVel: "+B.d.I(s.d,2)+"\nVel:    "+B.d.I(s.b.a[0],1)+", "+B.d.I(s.b.a[1],1)+"\nGnd  R:"+s.e+"  F:"+s.f),B.x)
 s.uK()
 s.bC(a,B.tC)}}
 A.qA.prototype={
