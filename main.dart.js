@@ -31090,10 +31090,10 @@ Iz(a,b,c,d,e){var s,r=a/8
 for(s=0;s<8;++s)this.D5(r,b,c,d,e)},
 D5(a2,a3,a4,a5,a6){var s,r,q,p,o,n,m,l,k,j,i,h,g,f,e,d,c,b,a,a0=this,a1=a0.b
 a1.svB(a1.a[1]+90*a2)
-a0.d=a0.d+a3*20*a2
+a0.d=a0.d+a3*14*a2
 a1=a0.a
 s=new A.L(new Float64Array(2))
-s.aY(0,6.5)
+s.aY(-1,6.5)
 r=a1.aH(0,a0.h0(s))
 if(a0.e){a1=a0.a
 s=new A.L(new Float64Array(2))
