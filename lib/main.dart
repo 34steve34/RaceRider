@@ -72,7 +72,8 @@ class RaceRiderGame extends FlameGame with TapCallbacks {
     super.update(dt);
     camera.viewfinder.position = player.position;
     final n = (rawTilt / 9.0).clamp(-1.0, 1.0);
-    smoothedTilt = smoothedTilt * 0.35 + n * 0.65;
+    // smoothedTilt = smoothedTilt * 0.35 + n * 0.65;
+	smoothedTilt = n
     // Dead zone: phone resting at a slight angle should not rotate the bike.
     // Without this, sub-threshold accelerometer noise keeps angularVelocity
     // from ever settling to zero, which slowly shifts wheel contact geometry.
@@ -237,7 +238,8 @@ class Bike {
   // Angular damping — friction that slows rotation.
   // Equilibrium spin rate = tiltTorque / damp (e.g. 14/4 = 5 rad/s on ground).
   // Ground damp is high so the bike settles quickly.
-  // Air damp is low so the bike spins freely for tricks.
+  // Air: how quickly rotation bleeds off when you stop tilting.
+  // Higher = more responsive/obedient. Lower = drifty/hard to control.
   static const _gndDamp = 4.0;
   static const _airDamp = 2.5;
 
@@ -424,7 +426,7 @@ class DebugOverlay extends Component with HasGameRef<RaceRiderGame> {
     TextPainter(
       textDirection: TextDirection.ltr,
       text: TextSpan(
-        text: 'v48'
+        text: 'v49'
             '\nTilt:   ${gameRef.smoothedTilt.toStringAsFixed(2)}'
             '\nAngle:  ${b.angle.toStringAsFixed(2)} rad'
             '\nAngVel: ${b.angularVelocity.toStringAsFixed(2)}'
