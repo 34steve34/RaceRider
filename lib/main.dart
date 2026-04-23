@@ -137,14 +137,27 @@ class RaceRiderGame extends FlameGame with TapCallbacks {
     final fork  = Paint()..color = const Color(0xFF888888)..strokeWidth = 3.5..style = PaintingStyle.stroke;
     final seat  = Paint()..color = const Color(0xFF111111);
     final rider = Paint()..color = const Color(0xFF2255BB);
+    final spoke = Paint()..color = Colors.black54..strokeWidth = 1.5;
 
     // Wheels — independent suspension per wheel
     final rs = player.rSuspOffset;  // rear compression
     final fs = player.fSuspOffset;  // front compression
-    canvas.drawCircle(Offset(-7.0, 6.5 - rs), 4.7, wFill);
-    canvas.drawCircle(Offset( 8.5, 6.5 - fs), 4.7, wFill);
-    canvas.drawCircle(Offset(-7.0, 6.5 - rs), 3.1, wRim);
-    canvas.drawCircle(Offset( 8.5, 6.5 - fs), 3.1, wRim);
+    
+    // Rear wheel
+    canvas.save();
+    canvas.translate(-7.0, 6.5 - rs);
+    canvas.drawCircle(Offset.zero, 4.7, wFill);
+    canvas.drawCircle(Offset.zero, 3.1, wRim);
+    _drawSpokes(canvas, player.rearWheelAngle, spoke);
+    canvas.restore();
+    
+    // Front wheel
+    canvas.save();
+    canvas.translate(8.5, 6.5 - fs);
+    canvas.drawCircle(Offset.zero, 4.7, wFill);
+    canvas.drawCircle(Offset.zero, 3.1, wRim);
+    _drawSpokes(canvas, player.frontWheelAngle, spoke);
+    canvas.restore();
 
     // Frame struts — each end follows its wheel's suspension
     canvas.drawLine(Offset(-7.0, 6.5 - rs), const Offset(-1.5, -2.5), frame);
@@ -159,6 +172,18 @@ class RaceRiderGame extends FlameGame with TapCallbacks {
     // Rider
     canvas.drawOval(const Rect.fromLTWH(-6.5, -11.0, 6.0, 5.0), rider);  // torso
     canvas.drawCircle(const Offset(-3.5, -12.5), 2.4, rider);             // helmet
+  }
+
+  void _drawSpokes(Canvas canvas, double wheelAngle, Paint spokePaint) {
+    const numSpokes = 8;
+    const spokeLength = 3.1;
+    
+    for (int i = 0; i < numSpokes; i++) {
+      final angle = wheelAngle + (i * 2 * pi / numSpokes);
+      final x = cos(angle) * spokeLength;
+      final y = sin(angle) * spokeLength;
+      canvas.drawLine(Offset.zero, Offset(x, y), spokePaint);
+    }
   }
 }
 
@@ -208,6 +233,8 @@ class Bike {
   bool get onGround => rearOnGround || frontOnGround;
   double  rSuspOffset = 0.0, _rSuspVel = 0.0;   // visual-only suspension
   double  fSuspOffset = 0.0, _fSuspVel = 0.0;
+  double  rearWheelAngle = 0.0, rearWheelAngVel = 0.0;  // rear wheel rotation
+  double  frontWheelAngle = 0.0, frontWheelAngVel = 0.0; // front wheel rotation
 
   // ════════════════════════════════════════════════════════════════════════════
   //  TUNING — every physics knob in one place, explained
@@ -400,6 +427,41 @@ class Bike {
     rSuspOffset = (rSuspOffset + _rSuspVel * dt).clamp(0.0, suspMax);
     _fSuspVel += (suspK * ((frontOnGround ? 1.8 : 0.0) - fSuspOffset) - suspD * _fSuspVel) * dt;
     fSuspOffset = (fSuspOffset + _fSuspVel * dt).clamp(0.0, suspMax);
+
+    // ── 11. Wheel rotation ───────────────────────────────────────────────────
+    _updateWheelRotation(dt, brake);
+  }
+
+  // ── 11. Wheel rotation ───────────────────────────────────────────────────
+  // Each wheel spins independently based on ground contact.
+  // On ground: spin 1:1 with forward velocity.
+  // In air: coast at current angular velocity, or stop if braking.
+  void _updateWheelRotation(double dt, bool brake) {
+    const wheelRadius = 4.7;
+    
+    // Rear wheel
+    if (rearOnGround) {
+      rearWheelAngVel = velocity.x / wheelRadius;
+      rearWheelAngle += rearWheelAngVel * dt;
+    } else {
+      if (brake) {
+        rearWheelAngVel = 0.0;
+      } else {
+        rearWheelAngle += rearWheelAngVel * dt;
+      }
+    }
+    
+    // Front wheel
+    if (frontOnGround) {
+      frontWheelAngVel = velocity.x / wheelRadius;
+      frontWheelAngle += frontWheelAngVel * dt;
+    } else {
+      if (brake) {
+        frontWheelAngVel = 0.0;
+      } else {
+        frontWheelAngle += frontWheelAngVel * dt;
+      }
+    }
   }
 
   // Rotate a local-space vector by the current bike angle.
@@ -426,7 +488,7 @@ class DebugOverlay extends Component with HasGameRef<RaceRiderGame> {
     TextPainter(
       textDirection: TextDirection.ltr,
       text: TextSpan(
-        text: 'v50'
+        text: 'v51'
             '\nTilt:   ${gameRef.smoothedTilt.toStringAsFixed(2)}'
             '\nAngle:  ${b.angle.toStringAsFixed(2)} rad'
             '\nAngVel: ${b.angularVelocity.toStringAsFixed(2)}'
