@@ -1,20 +1,19 @@
 /* ============================================================================
- * RACERIDER v46
- * Key changes from v45:
- *  - gravity: 65 → 95  — bike still felt floaty; now properly planted
- *  - _accel: 1900 → 2600, _brake: 400 → 600 (scaled with heavier gravity)
- *  - _gravityTorque: 10 → 14 (scaled)
- *  - Tilt block broadened: was (bothWheels && tilt>0), now (frontOnGround && tilt>0)
- *    → nose-down tilt is blocked whenever front wheel is planted, even if rear is
- *      briefly airborne over a bump. Closes the gap that allowed forward lean.
- *  - Tilt dead zone added (|tilt| < 0.06 → 0): eliminates self-propulsion from
- *    phone resting at a slight angle. Small drift noise no longer rotates the bike.
- *  - Stoppie now IMMEDIATELY zeros forward angular velocity every substep.
- *    Old k=150 spring let angVel build for several frames first → visible rear lift.
- *    New: kill on entry + k=500 spring + hard cap at surfAngle+0.03 (≈1.7°).
- *    The rear wheel cannot visibly lift at all now — matches BR feel exactly.
- *  - Both-wheels nose-down spring: k=80 → k=120 (stiffer)
- *  - Debug overlay now shows velocity for diagnosing self-propulsion reports.
+ * RACERIDER v47  — clean COG rewrite
+ * Physics core rebuilt from scratch. All patches removed.
+ * The Bike class is now ~110 lines. The tuning block is self-documenting.
+ *
+ * Removed entirely:
+ *   _surfAngle, coyote timer, effectiveTilt block, angle normalisation,
+ *   hard nose-down cap, stoppie kill, cos(angle) torque, _antiWheelie spring,
+ *   all gravity-torque special cases, _restitution, _friction constant
+ *
+ * New:
+ *   COG-based gravity torque — single formula, no branches, handles all states:
+ *     both wheels → stable; rear only → wheelie with 90° balance;
+ *     front only → stoppie instantly corrected; air → free 360° spin
+ *   Substeps: 5 → 8 (prevents tunneling at higher speeds)
+ *   _cogLx / _cogLy / _gravityTorque — tunable, documented in-code
  * ============================================================================ */
 
 import 'dart:math';
@@ -200,141 +199,142 @@ _Contact _wheelContact(Vector2 wPos, List<TrackSegment> segs, double r) {
 // ══════════════════════════════════════════════════════════════════════════════
 class Bike {
   Vector2 position;
-  Vector2 velocity  = Vector2.zero();
-  double  angle     = 0.0;
+  Vector2 velocity        = Vector2.zero();
+  double  angle           = 0.0;
   double  angularVelocity = 0.0;
-  bool    rearOnGround  = false;
-  bool    frontOnGround = false;
+  bool    rearOnGround    = false;
+  bool    frontOnGround   = false;
   bool get onGround => rearOnGround || frontOnGround;
-  double  _coyoteTimer = 0.0;
-  bool get canDrive => onGround || _coyoteTimer > 0.0;
-  double  _surfAngle  = 0.0;
-  double  rSuspOffset = 0.0, _rSuspVel = 0.0;  // rear suspension — visual only
-  double  fSuspOffset = 0.0, _fSuspVel = 0.0;  // front suspension — visual only
+  double  rSuspOffset = 0.0, _rSuspVel = 0.0;   // visual-only suspension
+  double  fSuspOffset = 0.0, _fSuspVel = 0.0;
 
-  // ── Tuning knobs ── (all grouped, all named, go nuts) ──────────────────────
-  static const _gravity   = 95.0;    // was 65 — still floaty; 95 gives BR's planted feel
-  static const _accel     = 2600.0;  // was 1900 — scaled with heavier gravity
-  static const _brake     = 600.0;   // was 400
+  // ════════════════════════════════════════════════════════════════════════════
+  //  TUNING — every physics knob in one place, explained
+  // ════════════════════════════════════════════════════════════════════════════
 
-  static const _wr        = 4.7;     // wheel radius — MUST match drawCircle radius
+  // ── World ────────────────────────────────────────────────────────────────
+  // Downward acceleration (units/s²).
+  // Raise → heavier feel, harder to climb hills, falls faster off jumps.
+  // Lower → floatier, easier hills, longer air time.
+  static const _gravity = 90.0;
 
+  // ── Drive ─────────────────────────────────────────────────────────────────
+  // Rear-wheel acceleration (units/s²). BR felt almost instant — raise freely.
+  static const _accel    = 2600.0;
+  // Max braking deceleration (units/s²). Only slows, never reverses.
+  static const _brake    = 600.0;
+  // Quadratic drag coefficient for top-speed cap.
+  // Equilibrium speed where gas = drag: v = cbrt(accel / topSpeedK) ≈ 525 u/s.
+  // Raise topSpeedK to lower top speed, lower it to raise top speed.
+  static const _topSpeedK = 0.000018;
+
+  // ── Rotation feel ─────────────────────────────────────────────────────────
+  // Angular impulse per second at full tilt (radians/s per second).
+  // Raise → snappier, quicker tricks and wheelies.
+  // Lower → heavier, lazier rotation.
   static const _tiltTorque = 20.0;
-  static const _airDamp    = 0.7;    // low = spins freely for tricks
-  static const _gndDamp    = 4.0;
 
-  static const _antiWheelie  = 40.0;  // safety net only — scaled up with gravity
+  // Angular damping — friction that slows rotation.
+  // Equilibrium spin rate = tiltTorque / damp (e.g. 20/4 = 5 rad/s on ground).
+  // Ground damp is high so the bike settles quickly.
+  // Air damp is low so the bike spins freely for tricks.
+  static const _gndDamp = 4.0;
+  static const _airDamp = 0.7;
 
-  // cos(angle) gravity model for wheelie state. Scaled with gravity.
-  static const _gravityTorque = 14.0;  // was 10
+  // ── COG gravity torque ────────────────────────────────────────────────────
+  // The "virtual centre of gravity" in bike-local space.
+  // This is the heart of the wheelie/stoppie physics — no special cases needed.
+  //
+  // HOW IT WORKS:
+  //   torque = (cogWorldX - contactWheelWorldX) × _gravityTorque
+  //   Positive lever (COG right of contact) → nose-down torque.
+  //   Negative lever (COG left of contact)  → nose-up torque.
+  //   No contact (airborne) → no torque. Free 360° spin.
+  //
+  // _cogLx  — horizontal position in local space. Controls rear/front bias.
+  //   Midpoint of wheels = (_rearLx + _frtLx) / 2 = 0.75 → symmetric
+  //   < 0.75  → rear-biased COG → wheelie easier, stoppie harder  (BR feel)
+  //   > 0.75  → front-biased  → stoppie easier (not recommended)
+  //
+  // _cogLy  — vertical position in local space. Controls wheelie balance angle.
+  //   = _rearLy (6.5)  → wheelie balances at exactly 90° (recommended)
+  //   > _rearLy        → balance angle < 90° (falls sooner, harder to hold)
+  //   < _rearLy        → balance angle > 90° (past vertical before falling)
+  //
+  // _gravityTorque — scales the lever-arm effect.
+  //   Raise → gravity corrects wheelie faster (harder to hold).
+  //   Lower → gravity corrects wheelie slower (easier to hold, more floaty).
+  static const _cogLx         = 0.0;   // range: -2.0 (very rear) to 1.5 (slight fwd)
+  static const _cogLy         = 6.5;   // keep = _rearLy unless experimenting
+  static const _gravityTorque = 2.0;   // range: 1.0 (easy wheelie) to 5.0 (hard)
 
-  static const _restitution = 0.0;
-  // _friction removed: was 0.008 but (1-0.008)^(5*60) ≈ 0.09 → 90% speed loss/sec
-  // "Rolls forever on flat" means tangential friction at contact must be ZERO.
-  // Only force that slows the bike is gravity on uphills. Gas/brake do the rest.
-
-  static const _coyoteTime = 0.08;
-
-  // Wheel centres — MUST match drawCircle Offsets in _drawBike exactly
+  // ── Geometry ──────────────────────────────────────────────────────────────
+  // Wheel radius and centres MUST match _drawBike drawCircle calls exactly.
+  static const _wr     = 4.7;
   static const _rearLx = -7.0,  _rearLy = 6.5;
   static const _frtLx  =  8.5,  _frtLy  = 6.5;
-  // ───────────────────────────────────────────────────────────────────────────
+  // ════════════════════════════════════════════════════════════════════════════
 
   Bike(Vector2 startPos) : position = startPos.clone();
 
-  // Public entry point — splits dt into substeps to prevent tunneling.
-  // At 60fps and substeps=5: max movement per step ≈ 0.003s × speed.
-  // At speed 200 that's 0.6 units/step vs wheelRadius 2.35 → cannot tunnel.
-  void updateBike(double dt, double tilt, bool gas, bool brake, List<TrackSegment> segs) {
-    const substeps = 5;
+  void updateBike(double dt, double tilt, bool gas, bool brake,
+      List<TrackSegment> segs) {
+    // 8 substeps: at 60 fps each substep = ~2 ms.
+    // At 500 u/s that's 1 unit/substep vs wheel radius 4.7 — cannot tunnel.
+    const substeps = 8;
     final sdt = dt / substeps;
     for (int i = 0; i < substeps; i++) {
       _step(sdt, tilt, gas, brake, segs);
     }
   }
 
-  void _step(double dt, double tilt, bool gas, bool brake, List<TrackSegment> segs) {
+  void _step(double dt, double tilt, bool gas, bool brake,
+      List<TrackSegment> segs) {
 
-    // ── 1. Gravity ──────────────────────────────────────────────────────────
+    // ── 1. Linear gravity ────────────────────────────────────────────────────
     velocity.y += _gravity * dt;
 
     // ── 2. Tilt torque ───────────────────────────────────────────────────────
-    // Block nose-down (tilt > 0) whenever the front wheel is planted.
-    // This covers BOTH the both-wheels-down case AND the stoppie case.
-    // Previously only blocked when both wheels down — a brief front-only contact
-    // (e.g. landing nose-first off a bump) still let tilt accumulate forward angVel.
-    // In air (frontOnGround=false): full tilt applies for tricks.
-    final effectiveTilt = (frontOnGround && tilt > 0) ? 0.0 : tilt;
-    angularVelocity += effectiveTilt * _tiltTorque * dt;
+    // Same formula always — no special cases.
+    // The COG placement (step 3) creates asymmetry naturally.
+    angularVelocity += tilt * _tiltTorque * dt;
 
-    // ── 3. Gravity torque — state-aware ─────────────────────────────────────
-    if (rearOnGround && frontOnGround) {
-      // Both wheels planted: asymmetric spring around slope angle.
-      // Nose-down (err > 0): very stiff — bike cannot visibly tip forward.
-      // Nose-up (err < 0): gentle — tilt can initiate wheelie easily.
-      final err = angle - _surfAngle;
-      final k = err > 0 ? 120.0 : 5.0;   // was 80/5
-      angularVelocity -= err * k * dt;
-
-    } else if (rearOnGround && !frontOnGround) {
-      // Wheelie: cos(angle) gravity around rear wheel pivot.
-      // At 90° (COG above wheel) cos=0 → zero torque → neutral phone holds it.
-      angularVelocity += cos(angle) * _gravityTorque * dt;
-
-    } else if (frontOnGround && !rearOnGround) {
-      // Stoppie — BR feel: the rear wheel CANNOT visibly lift at all.
-      // The moment front is the sole contact, forward angVel is killed outright.
-      // The k=500 spring then strongly resists any residual nose-down error.
-      // You can tilt backward (nose-up) freely — that just brings the rear back down.
-      if (angularVelocity > 0) angularVelocity = 0.0;   // kill forward spin immediately
-      final err = angle - _surfAngle;
-      if (err > 0) angularVelocity -= err * 500.0 * dt; // nose-down: lock it
-      // nose-up: no torque — gravity + rear-wheel mass naturally brings rear down
-
-    } else {
-      // Air: NO automatic level-seeking — player controls spin freely for tricks.
-      // Angular damping (_airDamp) handles gradual slowdown without fighting the spin.
+    // ── 3. COG gravity torque ────────────────────────────────────────────────
+    // Rotate the virtual COG into world space and compute the lever arm to
+    // each grounded wheel. The horizontal offset drives the angular impulse.
+    //
+    // Behaviours that emerge with no extra code:
+    //   Both wheels down → COG between wheels → near-zero net torque → stable
+    //   Rear only (wheelie) → COG right of rear wheel → nose-down pull;
+    //       at 90° the COG is directly above the wheel → zero torque → holds
+    //   Front only (stoppie) → COG far left of front wheel → strong nose-up →
+    //       rear slams back; almost impossible to hold (correct BR feel)
+    //   Air → no contact → zero torque → free 360° rotation
+    final cogW = position + _rot(Vector2(_cogLx, _cogLy));
+    if (rearOnGround) {
+      final rw = position + _rot(Vector2(_rearLx, _rearLy));
+      angularVelocity += (cogW.x - rw.x) * _gravityTorque * dt;
+    }
+    if (frontOnGround) {
+      final fw = position + _rot(Vector2(_frtLx, _frtLy));
+      angularVelocity += (cogW.x - fw.x) * _gravityTorque * dt;
     }
 
-    // Safety net past 100° nose-up only — never fires during normal wheelies.
-    // Gated on onGround: in air the bike must spin past this freely for backflips.
-    if (onGround && angle < -1.75) {
-      angularVelocity -= (angle + 1.75) * _antiWheelie * dt;
-    }
-
-    // ── 6. Angular damping ───────────────────────────────────────────────────
+    // ── 4. Angular damping ───────────────────────────────────────────────────
     final damp = onGround ? _gndDamp : _airDamp;
     angularVelocity *= (1.0 - damp * dt).clamp(0.0, 1.0);
 
-    // ── 7. Integrate angle ───────────────────────────────────────────────────
+    // ── 5. Integrate angle — NO clamping, NO normalisation ───────────────────
+    // Full 360° always. No patches. Angle accumulates freely.
     angle += angularVelocity * dt;
 
-    if (onGround) {
-      // On ground: normalise first (handles landings after multi-revolution air spins)
-      // without this, a completed backflip lands at angle≈-6.28 and the spring
-      // goes berserk with a huge err value.
-      while (angle - _surfAngle >  pi) angle -= 2 * pi;
-      while (angle - _surfAngle < -pi) angle += 2 * pi;
-
-      // Hard cap on nose-down — much tighter in stoppie (front-only) than normal riding.
-      // In stoppie: 0.03 rad ≈ 1.7° past slope. Rear wheel is visually locked.
-      // In normal riding: 0.22 rad ≈ 12.5° past slope (safety net only).
-      final maxNoseDown = (frontOnGround && !rearOnGround)
-          ? _surfAngle + 0.03
-          : _surfAngle + 0.22;
-      if (angle > maxNoseDown) {
-        angle = maxNoseDown;
-        if (angularVelocity > 0) angularVelocity = 0.0;
-      }
-    }
-    // In air: NO clamp at all → full 360° rotation enabled for tricks.
-
-    // ── 8. Predict position ─────────────────────────────────────────────────
+    // ── 6. Predict position ──────────────────────────────────────────────────
     var pos = position + velocity * dt;
 
-    // ── 9. Position-only correction passes ──────────────────────────────────
-    //    Velocity untouched here — no multi-pass vibration.
-    //    Full correction (1.0) per pass — no residual penetration drift.
+    // ── 7. Contact detection + position correction ───────────────────────────
+    // Three passes push wheels out of the ground. Velocity is not touched here
+    // (that's step 8) — separating these eliminates the vibration from older
+    // versions that applied impulses inside the correction loop.
     rearOnGround  = false;
     frontOnGround = false;
     var rearN = Vector2(0.0, -1.0);
@@ -344,91 +344,63 @@ class Bike {
       final rw = pos + _rot(Vector2(_rearLx, _rearLy));
       final rc = _wheelContact(rw, segs, _wr);
       if (rc.pen > 0.005) {
-        pos = pos + rc.normal * rc.pen;
+        pos         += rc.normal * rc.pen;
         rearOnGround = true;
-        rearN = rc.normal;
+        rearN        = rc.normal;
       }
-
       final fw = pos + _rot(Vector2(_frtLx, _frtLy));
       final fc = _wheelContact(fw, segs, _wr);
       if (fc.pen > 0.005) {
-        pos = pos + fc.normal * fc.pen;
+        pos          += fc.normal * fc.pen;
         frontOnGround = true;
-        frtN = fc.normal;
+        frtN          = fc.normal;
       }
     }
 
     position = pos;
 
-    // ── Coyote timer + slope angle update ───────────────────────────────────
+    // ── 8. Velocity impulse on contact ───────────────────────────────────────
+    // Kill the velocity component going INTO the surface (sticky landing).
+    // Tangential component is untouched — rolls forever on flat ground.
+    // Only gravity, gas, and brake are forces. No friction. No drag.
     if (onGround) {
-      _coyoteTimer = _coyoteTime;
-      // Slope angle = angle the bike frame should sit at for both wheels to contact.
-      // atan2(n.x, -n.y): flat normal (0,-1) → 0.  Uphill-right normal → negative value.
-      final n = (rearOnGround && frontOnGround)
-          ? (rearN + frtN).normalized()
-          : (rearOnGround ? rearN : frtN);
-      _surfAngle = atan2(n.x, -n.y);
-    } else {
-      _coyoteTimer = (_coyoteTimer - dt).clamp(0.0, _coyoteTime);
-      // Fade surface angle toward 0 while airborne so air-tricks feel neutral
-      _surfAngle *= 0.92;
-    }
-
-    // ── 10. Single velocity impulse — after ALL position corrections ─────────
-    if (rearOnGround || frontOnGround) {
       final avgN = (rearOnGround && frontOnGround)
           ? (rearN + frtN).normalized()
           : (rearOnGround ? rearN : frtN);
-
-      // Kill incoming normal velocity (sticky landing, no bounce).
       final velN = velocity.dot(avgN);
-      if (velN < 0) {
-        velocity = velocity - avgN * (velN * (1.0 + _restitution));
-      }
-      // NO tangential friction — bike rolls forever on flat ground.
-      // Gravity alone drives hill behaviour. Only gas/brake/gravity are forces.
+      if (velN < 0) velocity -= avgN * velN;   // perfectly sticky (restitution = 0)
     }
 
-    // ── 11. Drive ────────────────────────────────────────────────────────────
-    // Gas is rear-wheel-drive ONLY. During a stoppie (front only) gas does nothing —
-    // the rear wheel is off the ground. This matches BR behaviour exactly.
+    // ── 9. Drive ─────────────────────────────────────────────────────────────
+    // Gas: rear-wheel drive only. If rear is airborne (stoppie), no gas.
+    // Brake: any contact, both-wheel style like BR.
     if (rearOnGround) {
-      var surfDir = Vector2(-rearN.y, rearN.x);
-      if (surfDir.x < 0) surfDir = -surfDir;
-
-      if (gas) {
-        velocity = velocity + surfDir * (_accel * dt);
-      }
+      var dir = Vector2(-rearN.y, rearN.x);
+      if (dir.x < 0) dir = -dir;                          // ensure forward = positive
+      if (gas) velocity += dir * (_accel * dt);
     }
-    // Brake works on any ground contact (both-wheel braking like BR).
     if (onGround && brake) {
-      final surfN   = rearOnGround ? rearN : frtN;
-      var   surfDir = Vector2(-surfN.y, surfN.x);
-      if (surfDir.x < 0) surfDir = -surfDir;
-      final fwdSpeed = velocity.dot(surfDir);
-      if (fwdSpeed > 0) {
-        final brakeImpulse = (fwdSpeed / dt).clamp(0.0, _brake);
-        velocity = velocity - surfDir * (brakeImpulse * dt);
-      }
+      final n   = rearOnGround ? rearN : frtN;
+      var   dir = Vector2(-n.y, n.x);
+      if (dir.x < 0) dir = -dir;
+      final fwd = velocity.dot(dir);
+      if (fwd > 0) velocity -= dir * (fwd / dt).clamp(0.0, _brake) * dt;
     }
-    // No air drag, no rolling resistance — only gravity, gas, and brake are forces.
 
-    // Soft top-speed cap via quadratic drag — only noticeable above ~280 u/s.
+    // Soft top-speed cap — quadratic drag that only bites above ~400 u/s.
     final spd = velocity.length;
-    if (spd > 0) velocity *= (1.0 - 0.000018 * spd * spd * dt).clamp(0.0, 1.0);
+    if (spd > 0) velocity *= (1.0 - _topSpeedK * spd * spd * dt).clamp(0.0, 1.0);
 
-    // ── 12. Independent suspension springs ──────────────────────────────────
+    // ── 10. Visual suspension springs ────────────────────────────────────────
+    // Physics contact points are fixed. These only move the drawn wheel positions.
     const suspK = 140.0, suspD = 16.0, suspMax = 2.2;
-    final rTarget = rearOnGround  ? 1.8 : 0.0;
-    final fTarget = frontOnGround ? 1.8 : 0.0;
-    _rSuspVel += (suspK * (rTarget - rSuspOffset) - suspD * _rSuspVel) * dt;
+    _rSuspVel += (suspK * ((rearOnGround  ? 1.8 : 0.0) - rSuspOffset) - suspD * _rSuspVel) * dt;
     rSuspOffset = (rSuspOffset + _rSuspVel * dt).clamp(0.0, suspMax);
-    _fSuspVel += (suspK * (fTarget - fSuspOffset) - suspD * _fSuspVel) * dt;
+    _fSuspVel += (suspK * ((frontOnGround ? 1.8 : 0.0) - fSuspOffset) - suspD * _fSuspVel) * dt;
     fSuspOffset = (fSuspOffset + _fSuspVel * dt).clamp(0.0, suspMax);
   }
 
-  // Rotate a local-space vector by bike angle
+  // Rotate a local-space vector by the current bike angle.
   Vector2 _rot(Vector2 v) {
     final c = cos(angle), s = sin(angle);
     return Vector2(v.x * c - v.y * s, v.x * s + v.y * c);
@@ -452,7 +424,7 @@ class DebugOverlay extends Component with HasGameRef<RaceRiderGame> {
     TextPainter(
       textDirection: TextDirection.ltr,
       text: TextSpan(
-        text: 'v46'
+        text: 'v47'
             '\nTilt:   ${gameRef.smoothedTilt.toStringAsFixed(2)}'
             '\nAngle:  ${b.angle.toStringAsFixed(2)} rad'
             '\nAngVel: ${b.angularVelocity.toStringAsFixed(2)}'
