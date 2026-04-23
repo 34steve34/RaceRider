@@ -232,10 +232,10 @@ class Bike {
   // Angular impulse per second at full tilt (radians/s per second).
   // Raise → snappier, quicker tricks and wheelies.
   // Lower → heavier, lazier rotation.
-  static const _tiltTorque = 20.0;
+  static const _tiltTorque = 14.0;
 
   // Angular damping — friction that slows rotation.
-  // Equilibrium spin rate = tiltTorque / damp (e.g. 20/4 = 5 rad/s on ground).
+  // Equilibrium spin rate = tiltTorque / damp (e.g. 14/4 = 5 rad/s on ground).
   // Ground damp is high so the bike settles quickly.
   // Air damp is low so the bike spins freely for tricks.
   static const _gndDamp = 4.0;
@@ -264,7 +264,7 @@ class Bike {
   // _gravityTorque — scales the lever-arm effect.
   //   Raise → gravity corrects wheelie faster (harder to hold).
   //   Lower → gravity corrects wheelie slower (easier to hold, more floaty).
-  static const _cogLx         = 0.0;   // range: -2.0 (very rear) to 1.5 (slight fwd)
+  static const _cogLx         = -1.0;   // range: -2.0 (very rear) to 1.5 (slight fwd)
   static const _cogLy         = 6.5;   // keep = _rearLy unless experimenting
   static const _gravityTorque = 2.0;   // range: 1.0 (easy wheelie) to 5.0 (hard)
 
