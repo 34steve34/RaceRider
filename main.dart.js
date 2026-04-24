@@ -31116,7 +31116,7 @@ IA(a,b,c,d,e){var s,r=a/8
 for(s=0;s<8;++s)this.D6(r,b,c,d,e)},
 D6(a3,a4,a5,a6,a7){var s,r,q,p,o,n,m,l,k,j,i,h,g,f,e,d,c,b,a,a0,a1=this,a2=a1.b
 a2.svC(a2.a[1]+110*a3)
-a1.d=a1.d+a4*35*a3
+a1.d=a1.d+a4*30*a3
 a2=a1.a
 s=new A.J(new Float64Array(2))
 s.aI(-1,6.5)
