@@ -209,14 +209,28 @@ _Contact _wheelContact(Vector2 wPos, List<TrackSegment> segs, double r) {
     final a = Vector2(s.x1, s.y1), b = Vector2(s.x2, s.y2);
     final ab = b - a;
     final t = ((wPos - a).dot(ab) / ab.length2).clamp(0.0, 1.0);
-    final dist = (wPos - (a + ab * t)).length;
-    if (dist < minDist) {
-      minDist = dist;
-      final sd = ab.normalized();
-      bestNormal = Vector2(-sd.y, sd.x);           // 90° CCW from segment
-      if (bestNormal.y > 0) bestNormal = -bestNormal; // ensure pointing up (neg y in y-down coords)
-    }
+    final closest = a + ab * t;
+    final diff    = wPos - closest;       // vector from surface to wheel centre
+    final dist    = diff.length;
+
+    if (dist >= minDist) continue;        // not the closest so far — skip
+
+    final sd = ab.normalized();
+    var n = Vector2(-sd.y, sd.x);
+    if (n.y > 0) n = -n;                  // ensure normal points up (away from ground)
+
+    // KEY FIX: only register contact if the wheel is on the correct side.
+    // At a segment junction the wheel can be nearest to an endpoint from below
+    // that segment; without this check the correction fires from the wrong side
+    // and injects a forward impulse — the root cause of self-propulsion on hills.
+    if (diff.dot(n) < 0) continue;        // wheel is on the wrong side — ignore
+
+    minDist    = dist;
+    bestNormal = n;
   }
+
+  // If no segment passed the side check, minDist stays infinity, pen = very
+  // negative, no contact fires. The wheel is fully airborne — correct.
   return _Contact(r - minDist, bestNormal);
 }
 
@@ -233,8 +247,12 @@ class Bike {
   bool get onGround => rearOnGround || frontOnGround;
   double  rSuspOffset = 0.0, _rSuspVel = 0.0;   // visual-only suspension
   double  fSuspOffset = 0.0, _fSuspVel = 0.0;
-  double  rearWheelAngle = 0.0, rearWheelAngVel = 0.0;  // rear wheel rotation
-  double  frontWheelAngle = 0.0, frontWheelAngVel = 0.0; // front wheel rotation
+  double  rearWheelAngle = 0.0, rearWheelAngVel = 0.0;
+  double  frontWheelAngle = 0.0, frontWheelAngVel = 0.0;
+  // Last known surface normals — used by wheel rotation to get tangent speed.
+  // Stored so _updateWheelRotation doesn't need extra parameters.
+  Vector2 _rearN  = Vector2(0.0, -1.0);
+  Vector2 _frontN = Vector2(0.0, -1.0);
 
   // ════════════════════════════════════════════════════════════════════════════
   //  TUNING — every physics knob in one place, explained
@@ -376,6 +394,7 @@ class Bike {
         pos         += rc.normal * rc.pen;
         rearOnGround = true;
         rearN        = rc.normal;
+        _rearN       = rc.normal;   // persist for wheel rotation
       }
       final fw = pos + _rot(Vector2(_frtLx, _frtLy));
       final fc = _wheelContact(fw, segs, _wr);
@@ -383,6 +402,7 @@ class Bike {
         pos          += fc.normal * fc.pen;
         frontOnGround = true;
         frtN          = fc.normal;
+        _frontN       = fc.normal;  // persist for wheel rotation
       }
     }
 
@@ -432,35 +452,30 @@ class Bike {
     _updateWheelRotation(dt, brake);
   }
 
-  // ── 11. Wheel rotation ───────────────────────────────────────────────────
-  // Each wheel spins independently based on ground contact.
-  // On ground: spin 1:1 with forward velocity.
-  // In air: coast at current angular velocity, or stop if braking.
   void _updateWheelRotation(double dt, bool brake) {
     const wheelRadius = 4.7;
-    
-    // Rear wheel
+
+    // Forward speed along the surface tangent — correct on any slope angle.
+    // Using raw velocity.x was wrong on hills: overstated speed on downhills,
+    // understated on uphills.
     if (rearOnGround) {
-      rearWheelAngVel = velocity.x / wheelRadius;
+      var t = Vector2(-_rearN.y, _rearN.x);
+      if (t.x < 0) t = -t;
+      rearWheelAngVel  = velocity.dot(t) / wheelRadius;
+      rearWheelAngle  += rearWheelAngVel * dt;
+    } else {
+      if (brake) rearWheelAngVel = 0.0;
       rearWheelAngle += rearWheelAngVel * dt;
-    } else {
-      if (brake) {
-        rearWheelAngVel = 0.0;
-      } else {
-        rearWheelAngle += rearWheelAngVel * dt;
-      }
     }
-    
-    // Front wheel
+
     if (frontOnGround) {
-      frontWheelAngVel = velocity.x / wheelRadius;
-      frontWheelAngle += frontWheelAngVel * dt;
+      var t = Vector2(-_frontN.y, _frontN.x);
+      if (t.x < 0) t = -t;
+      frontWheelAngVel  = velocity.dot(t) / wheelRadius;
+      frontWheelAngle  += frontWheelAngVel * dt;
     } else {
-      if (brake) {
-        frontWheelAngVel = 0.0;
-      } else {
-        frontWheelAngle += frontWheelAngVel * dt;
-      }
+      if (brake) frontWheelAngVel = 0.0;
+      frontWheelAngle += frontWheelAngVel * dt;
     }
   }
 
@@ -488,7 +503,7 @@ class DebugOverlay extends Component with HasGameRef<RaceRiderGame> {
     TextPainter(
       textDirection: TextDirection.ltr,
       text: TextSpan(
-        text: 'v52'
+        text: 'v53'
             '\nTilt:   ${gameRef.smoothedTilt.toStringAsFixed(2)}'
             '\nAngle:  ${b.angle.toStringAsFixed(2)} rad'
             '\nAngVel: ${b.angularVelocity.toStringAsFixed(2)}'
