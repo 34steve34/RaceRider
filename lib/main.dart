@@ -278,14 +278,14 @@ class Bike {
   // Angular impulse per second at full tilt (radians/s per second).
   // Raise → snappier, quicker tricks and wheelies.
   // Lower → heavier, lazier rotation.
-  static const _tiltTorque = 18.0;
+  static const _tiltTorque = 35.0;
 
   // Angular damping — friction that slows rotation.
   // Equilibrium spin rate = tiltTorque / damp (e.g. 14/4 = 5 rad/s on ground).
   // Ground damp is high so the bike settles quickly.
   // Air: how quickly rotation bleeds off when you stop tilting.
   // Higher = more responsive/obedient. Lower = drifty/hard to control.
-  static const _gndDamp = 4.0;
+  static const _gndDamp = 1.5;
   static const _airDamp = 2.5;
 
   // ── COG gravity torque ────────────────────────────────────────────────────
@@ -503,7 +503,7 @@ class DebugOverlay extends Component with HasGameRef<RaceRiderGame> {
     TextPainter(
       textDirection: TextDirection.ltr,
       text: TextSpan(
-        text: 'v53'
+        text: 'v54'
             '\nTilt:   ${gameRef.smoothedTilt.toStringAsFixed(2)}'
             '\nAngle:  ${b.angle.toStringAsFixed(2)} rad'
             '\nAngVel: ${b.angularVelocity.toStringAsFixed(2)}'
