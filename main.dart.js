@@ -31116,7 +31116,7 @@ IA(a,b,c,d,e){var s,r=a/8
 for(s=0;s<8;++s)this.D6(r,b,c,d,e)},
 D6(a3,a4,a5,a6,a7){var s,r,q,p,o,n,m,l,k,j,i,h,g,f,e,d,c,b,a,a0,a1=this,a2=a1.b
 a2.svC(a2.a[1]+110*a3)
-a1.d=a1.d+a4*18*a3
+a1.d=a1.d+a4*35*a3
 a2=a1.a
 s=new A.J(new Float64Array(2))
 s.aI(-1,6.5)
@@ -31129,7 +31129,7 @@ a1.d=a1.d+(r.a[0]-q.a[0])*2*a3}if(a1.f){a2=a1.a
 s=new A.J(new Float64Array(2))
 s.aI(8.5,6.5)
 p=a2.aH(0,a1.h1(s))
-a1.d=a1.d+(r.a[0]-p.a[0])*2*a3}o=a1.e||a1.f?4:2.5
+a1.d=a1.d+(r.a[0]-p.a[0])*2*a3}o=a1.e||a1.f?1.5:2.5
 a2=a1.d*B.d.du(1-o*a3,0,1)
 a1.d=a2
 a1.c=a1.c+a2*a3
@@ -31259,7 +31259,7 @@ return a.hl(B.uC,s)}}
 A.nc.prototype={
 dT(a){var s=this.gi1().au
 s===$&&A.c()
-s=A.LO(A.LP(B.vk,"v53\nTilt:   "+B.d.I(this.gi1().cq,2)+"\nAngle:  "+B.d.I(s.c,2)+" rad\nAngVel: "+B.d.I(s.d,2)+"\nVel:    "+B.d.I(s.b.a[0],1)+", "+B.d.I(s.b.a[1],1)+"\nGnd  R:"+s.e+"  F:"+s.f),B.x)
+s=A.LO(A.LP(B.vk,"v54\nTilt:   "+B.d.I(this.gi1().cq,2)+"\nAngle:  "+B.d.I(s.c,2)+" rad\nAngVel: "+B.d.I(s.d,2)+"\nVel:    "+B.d.I(s.b.a[0],1)+", "+B.d.I(s.b.a[1],1)+"\nGnd  R:"+s.e+"  F:"+s.f),B.x)
 s.uL()
 s.bC(a,B.tC)}}
 A.qA.prototype={
