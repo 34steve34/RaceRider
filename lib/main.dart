@@ -278,7 +278,7 @@ class Bike {
   // Angular impulse per second at full tilt (radians/s per second).
   // Raise → snappier, quicker tricks and wheelies.
   // Lower → heavier, lazier rotation.
-  static const _tiltTorque = 35.0;
+  static const _tiltTorque = 30.0;
 
   // Angular damping — friction that slows rotation.
   // Equilibrium spin rate = tiltTorque / damp (e.g. 14/4 = 5 rad/s on ground).
