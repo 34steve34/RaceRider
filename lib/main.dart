@@ -208,11 +208,12 @@ enum BikeState { riding, crashed }
 
 class Bike {
   static const _gravity = 125.0;
-  static const _rearDrive = 760.0;
+  static const _rearDrive = 420.0;
   static const _brakePerWheel = 430.0;
   static const _coastDrag = 0.9;
   static const _tiltTorque = 17.0;
   static const _airDrag = 0.06;
+  static const _maxSpeed = 250.0;
   static const _wheelRadius = 4.7;
   static const _headRadius = 2.4;
   static const _magnetRange = 4.8;
@@ -302,11 +303,12 @@ class Bike {
     frontPos = frontHit.point + frontHit.normal * _wheelRadius;
 
     final axis = (frontPos - rearPos).normalized();
-    final up = Vector2(axis.y, -axis.x);
+    final down = Vector2(-axis.y, axis.x);
     final frameCenter = (rearPos + frontPos) / 2.0;
     final localCenter = (_rearLocal + _frontLocal) / 2.0;
     final headLocalFromCenter = _headLocal - localCenter;
-    headPos = frameCenter + axis * headLocalFromCenter.x + up * headLocalFromCenter.y;
+    headPos =
+        frameCenter + axis * headLocalFromCenter.x + down * headLocalFromCenter.y;
 
     rearVel.setZero();
     frontVel.setZero();
@@ -438,6 +440,7 @@ class Bike {
     rearVel *= damp;
     frontVel *= damp;
     headVel *= damp;
+    _capSpeed();
 
     _rearSurface = rearSurface;
     _frontSurface = frontSurface;
@@ -653,6 +656,19 @@ class Bike {
       }
       frontWheelAngle += frontWheelAngVel * dt;
     }
+  }
+
+  void _capSpeed() {
+    final avgVelocity = (rearVel + frontVel + headVel) / 3.0;
+    final speed = avgVelocity.length;
+    if (speed <= _maxSpeed || speed == 0.0) {
+      return;
+    }
+
+    final scale = _maxSpeed / speed;
+    rearVel.scale(scale);
+    frontVel.scale(scale);
+    headVel.scale(scale);
   }
 
   void _crash() {
