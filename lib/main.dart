@@ -19,7 +19,7 @@ void main() async {
 Offset _off(Vector2 v) => Offset(v.x, v.y);
 
 class RaceRiderGame extends FlameGame with TapCallbacks {
-  static const buildLabel = 'physics v5 - 2026-04-25';
+  static const buildLabel = 'physics v6 - 2026-04-25';
   late Bike player;
   late List<TrackSegment> trackSegments;
   double rawTilt = 0.0;
@@ -247,11 +247,8 @@ class Bike {
   static const _wheelSpinDamp = 0.985;
   static const _rearMass = 1.35;
   static const _frontMass = 1.0;
-  static const _headMass = 0.42;
   static const _frameStiffness = 1.0;
-  static const _suspensionStiffness = 1.0;
   static const _suspensionTravel = 0.22;
-  static const _reboundTravel = 0.12;
 
   static final _rearLocal = Vector2(-7.0, 6.5);
   static final _frontLocal = Vector2(8.5, 6.5);
@@ -278,8 +275,7 @@ class Bike {
   SurfaceHit? _frontSurface;
 
   late final double _wheelbase;
-  late final double _rearHeadRest;
-  late final double _frontHeadRest;
+  late final Vector2 _headFromWheelCenter;
 
   Bike(Vector2 startPos) {
     rearPos = startPos + _rearLocal;
@@ -289,8 +285,7 @@ class Bike {
     frontVel = Vector2.zero();
     headVel = Vector2.zero();
     _wheelbase = (_frontLocal - _rearLocal).length;
-    _rearHeadRest = (_headLocal - _rearLocal).length;
-    _frontHeadRest = (_headLocal - _frontLocal).length;
+    _headFromWheelCenter = _headLocal - (_rearLocal + _frontLocal) / 2.0;
   }
 
   Vector2 get position => (rearPos * 1.8 + frontPos * 1.2 + headPos * 0.5) / 3.5;
@@ -325,14 +320,7 @@ class Bike {
 
     rearPos = rearHit.point + rearHit.normal * _wheelRadius;
     frontPos = frontHit.point + frontHit.normal * _wheelRadius;
-
-    final axis = (frontPos - rearPos).normalized();
-    final down = Vector2(-axis.y, axis.x);
-    final frameCenter = (rearPos + frontPos) / 2.0;
-    final localCenter = (_rearLocal + _frontLocal) / 2.0;
-    final headLocalFromCenter = _headLocal - localCenter;
-    headPos =
-        frameCenter + axis * headLocalFromCenter.x + down * headLocalFromCenter.y;
+    _alignHeadToFrame();
 
     rearVel.setZero();
     frontVel.setZero();
@@ -391,8 +379,6 @@ class Bike {
 
     final oldRear = rearPos.clone();
     final oldFront = frontPos.clone();
-    final oldHead = headPos.clone();
-
     rearPos += rearVel * dt;
     frontPos += frontVel * dt;
     headPos += headVel * dt;
@@ -415,24 +401,7 @@ class Bike {
         _rearMass,
         _frontMass,
       );
-      _solveBoundedDistance(
-        rearPos,
-        headPos,
-        _rearHeadRest - _suspensionTravel,
-        _rearHeadRest + _reboundTravel,
-        _suspensionStiffness,
-        _rearMass,
-        _headMass,
-      );
-      _solveBoundedDistance(
-        frontPos,
-        headPos,
-        _frontHeadRest - _suspensionTravel,
-        _frontHeadRest + _reboundTravel,
-        _suspensionStiffness,
-        _frontMass,
-        _headMass,
-      );
+      _alignHeadToFrame();
 
       final rearContact = _solveWheelContact(
         rearPos,
@@ -467,14 +436,15 @@ class Bike {
     if (state == BikeState.crashed) {
       rearVel = (rearPos - oldRear) / dt;
       frontVel = (frontPos - oldFront) / dt;
-      headVel = (headPos - oldHead) / dt;
+      headVel = (rearVel + frontVel) * 0.5;
       _updateWheelRotation(dt, brake);
       return;
     }
 
     rearVel = (rearPos - oldRear) / dt;
     frontVel = (frontPos - oldFront) / dt;
-    headVel = (headPos - oldHead) / dt;
+    _alignHeadToFrame();
+    headVel = (rearVel + frontVel) * 0.5;
 
     if (!rearOnGround && !frontOnGround) {
       final avg = (rearVel + frontVel + headVel) / 3.0;
@@ -501,6 +471,7 @@ class Bike {
     if (rearOnGround && _rearSurface != null && gas) {
       final tangent = _forwardTangent(_rearSurface!.tangent);
       rearVel += tangent * (_rearDrive * dt);
+      frontVel += tangent * (_rearDrive * dt * 0.18);
     }
 
     if (brake) {
@@ -564,23 +535,9 @@ class Bike {
       return;
     }
 
-    final center = position;
-    for (final pointVel in [
-      (rearPos, rearVel, _rearMass),
-      (frontPos, frontVel, _frontMass),
-      (headPos, headVel, _headMass),
-    ]) {
-      final point = pointVel.$1;
-      final velocity = pointVel.$2;
-      final mass = pointVel.$3;
-      final arm = point - center;
-      final tangential = Vector2(-arm.y, arm.x) * (impulse / max(0.1, mass));
-      velocity.add(tangential);
-    }
-
     final airTrim = up * (tilt * 0.5);
     frontVel.add(airTrim);
-    headVel.add(airTrim * 0.2);
+    rearVel.sub(airTrim * 0.35);
   }
 
   WheelContact? _solveWheelContact(
@@ -743,6 +700,20 @@ class Bike {
     headVel.scale(scale);
   }
 
+  void _alignHeadToFrame() {
+    final axis = frontPos - rearPos;
+    if (axis.length2 <= 0.0001) {
+      return;
+    }
+    final frameDir = axis.normalized();
+    final down = Vector2(-frameDir.y, frameDir.x);
+    final frameCenter = (rearPos + frontPos) / 2.0;
+    headPos =
+        frameCenter +
+        frameDir * _headFromWheelCenter.x +
+        down * _headFromWheelCenter.y;
+  }
+
   void _crash() {
     state = BikeState.crashed;
   }
@@ -864,6 +835,7 @@ class DebugOverlay extends Component with HasGameRef<RaceRiderGame> {
       textDirection: TextDirection.ltr,
       text: TextSpan(
         text: '3-point prototype'
+            '\n${RaceRiderGame.buildLabel}'
             '\nState:  ${bike.state.name}'
             '\nTilt:   ${gameRef.smoothedTilt.toStringAsFixed(2)}'
             '\nFinite: ${bike.hasFiniteState}'
