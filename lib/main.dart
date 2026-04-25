@@ -31,6 +31,7 @@ class RaceRiderGame extends FlameGame with TapCallbacks {
   Future<void> onLoad() async {
     trackSegments = _buildTrack();
     player = Bike(_spawnPoint());
+    player.settleOnTrack(trackSegments);
     add(Background());
     add(DebugOverlay());
     camera.viewfinder
@@ -99,6 +100,7 @@ class RaceRiderGame extends FlameGame with TapCallbacks {
     player.updateBike(dt, smoothedTilt, isGas, isBrake, trackSegments);
     if (!player.hasFiniteState) {
       player = Bike(_spawnPoint());
+      player.settleOnTrack(trackSegments);
     }
     camera.viewfinder.position = player.position;
   }
@@ -162,7 +164,7 @@ class RaceRiderGame extends FlameGame with TapCallbacks {
   Vector2 _spawnPoint() {
     const x = -540.0;
     const trackY = 38.0;
-    return Vector2(x, trackY - 15.5);
+    return Vector2(x, trackY - Bike.spawnBodyYOffset);
   }
 }
 
@@ -229,6 +231,7 @@ class Bike {
   static final _rearLocal = Vector2(-7.0, 6.5);
   static final _frontLocal = Vector2(8.5, 6.5);
   static final _headLocal = Vector2(-3.5, -12.5);
+  static double get spawnBodyYOffset => _rearLocal.y + _wheelRadius;
 
   late Vector2 rearPos;
   late Vector2 frontPos;
@@ -286,6 +289,34 @@ class Bike {
         position.y.isFinite &&
         angle.isFinite &&
         speed.isFinite;
+  }
+
+  void settleOnTrack(List<TrackSegment> segs) {
+    final rearHit = _nearestSurface(rearPos, segs);
+    final frontHit = _nearestSurface(frontPos, segs);
+    if (rearHit == null || frontHit == null) {
+      return;
+    }
+
+    rearPos = rearHit.point + rearHit.normal * _wheelRadius;
+    frontPos = frontHit.point + frontHit.normal * _wheelRadius;
+
+    final axis = (frontPos - rearPos).normalized();
+    final up = Vector2(axis.y, -axis.x);
+    final frameCenter = (rearPos + frontPos) / 2.0;
+    final localCenter = (_rearLocal + _frontLocal) / 2.0;
+    final headLocalFromCenter = _headLocal - localCenter;
+    headPos = frameCenter + axis * headLocalFromCenter.x + up * headLocalFromCenter.y;
+
+    rearVel.setZero();
+    frontVel.setZero();
+    headVel.setZero();
+    rearOnGround = true;
+    frontOnGround = true;
+    rearCompression = 0.0;
+    frontCompression = 0.0;
+    _rearSurface = rearHit;
+    _frontSurface = frontHit;
   }
 
   void updateBike(
