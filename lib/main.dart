@@ -68,10 +68,9 @@ class RaceRiderGame extends FlameGame with TapCallbacks {
     }
 
     final landingRamp = <Vector2>[
-      Vector2(712.0, 14.0),
-      Vector2(808.0, 102.0),
-      Vector2(874.0, 132.0),
-      Vector2(980.0, 138.0),
+      Vector2(846.0, 18.0),
+      Vector2(944.0, 108.0),
+      Vector2(1018.0, 136.0),
       Vector2(1100.0, 130.0),
       Vector2(1240.0, 98.0),
       Vector2(1390.0, 114.0),
@@ -84,11 +83,11 @@ class RaceRiderGame extends FlameGame with TapCallbacks {
       segs.add(TrackSegment(landingRamp[i], landingRamp[i + 1]));
     }
 
-    final loopCenter = Vector2(760.0, -52.0);
-    const loopRadius = 78.0;
-    const loopSteps = 42;
-    const startAngle = 2.32;
-    const endAngle = 7.08;
+    final loopCenter = Vector2(786.0, -78.0);
+    const loopRadius = 98.0;
+    const loopSteps = 48;
+    const startAngle = 2.42;
+    const endAngle = 7.0;
     Vector2? prev;
     for (int i = 0; i <= loopSteps; i++) {
       final t = i / loopSteps;
@@ -228,14 +227,14 @@ class Bike {
   static const _rearDrive = 420.0;
   static const _brakePerWheel = 430.0;
   static const _coastDrag = 0.9;
-  static const _tiltTorque = 34.0;
+  static const _tiltTorque = 22.0;
   static const _airDrag = 0.06;
   static const _maxSpeed = 250.0;
   static const _wheelRadius = 4.7;
   static const _headRadius = 2.4;
-  static const _magnetRange = 0.55;
-  static const _magnetStrength = 0.035;
-  static const _groundStick = 0.025;
+  static const _magnetRange = 0.12;
+  static const _magnetStrength = 0.006;
+  static const _groundStick = 0.008;
   static const _impactCrashSpeed = 280.0;
   static const _wheelSpinDamp = 0.985;
   static const _rearMass = 1.35;
@@ -374,7 +373,8 @@ class Bike {
     frontVel.y += _gravity * dt;
     headVel.y += _gravity * dt;
 
-    _applyTiltImpulse(tilt, tilt * _tiltTorque * dt);
+    final tiltScale = (rearOnGround || frontOnGround) ? 1.0 : 0.25;
+    _applyTiltImpulse(tilt * tiltScale, tilt * _tiltTorque * dt * tiltScale);
 
     final oldRear = rearPos.clone();
     final oldFront = frontPos.clone();
