@@ -19,7 +19,7 @@ void main() async {
 Offset _off(Vector2 v) => Offset(v.x, v.y);
 
 class RaceRiderGame extends FlameGame with TapCallbacks {
-  static const buildLabel = 'physics v7 - 2026-04-25';
+  static const buildLabel = 'physics v8 - 2026-04-25';
   late Bike player;
   late List<TrackSegment> trackSegments;
   double rawTilt = 0.0;
@@ -234,8 +234,8 @@ class Bike {
   static const _rearDrive = 420.0;
   static const _brakePerWheel = 430.0;
   static const _coastDrag = 0.9;
-  static const _groundTiltTorque = 1.2;
-  static const _airTiltTorque = 2.5;
+  static const _twoWheelTiltLift = 0.85;
+  static const _freePitchAuthority = 2.0;
   static const _airDrag = 0.06;
   static const _maxSpeed = 250.0;
   static const _wheelRadius = 4.7;
@@ -369,12 +369,11 @@ class Bike {
     frontVel.y += _gravity * dt;
     headVel.y += _gravity * dt;
 
-    final grounded = rearOnGround || frontOnGround;
-    final tiltTorque = grounded ? _groundTiltTorque : _airTiltTorque;
+    final twoWheelGrounded = rearOnGround && frontOnGround;
     _applyTiltImpulse(
       tilt,
-      tilt * tiltTorque * dt,
-      grounded: grounded,
+      tilt * _freePitchAuthority * dt,
+      twoWheelGrounded: twoWheelGrounded,
     );
 
     final oldRear = rearPos.clone();
@@ -516,7 +515,7 @@ class Bike {
     velocity.add(forward * (next - speedAlong));
   }
 
-  void _applyTiltImpulse(double tilt, double impulse, {required bool grounded}) {
+  void _applyTiltImpulse(double tilt, double impulse, {required bool twoWheelGrounded}) {
     final frame = frontPos - rearPos;
     if (frame.length2 <= 0.0001) {
       return;
@@ -525,18 +524,25 @@ class Bike {
     final frameDir = frame.normalized();
     final up = Vector2(frameDir.y, -frameDir.x);
 
-    if (grounded) {
-      // Grounded tilt should mostly shift load between the wheels, not inject
-      // a huge backflip torque.
-      final wheelieLift = up * (tilt * 1.35);
-      frontVel.add(wheelieLift);
-      rearVel.sub(wheelieLift * 1.15);
+    if (twoWheelGrounded) {
+      // Two-wheel grounded mode: mostly redistribute load. Nose-down should
+      // never pop the rear wheel up on flat ground.
+      final loadShift = up * (tilt * _twoWheelTiltLift);
+      if (tilt >= 0.0) {
+        frontVel.add(loadShift);
+        rearVel.sub(loadShift * 0.9);
+      } else {
+        frontVel.add(loadShift * 0.8);
+        rearVel.add(loadShift * 0.15);
+      }
       return;
     }
 
-    final airTrim = up * (tilt * 0.5);
-    frontVel.add(airTrim);
-    rearVel.sub(airTrim * 0.35);
+    // Free-pitch mode: same authority whether the bike is on the rear wheel
+    // only or fully airborne.
+    final pitch = up * (tilt * 1.7);
+    frontVel.add(pitch);
+    rearVel.sub(pitch);
   }
 
   WheelContact? _solveWheelContact(
@@ -836,6 +842,7 @@ class DebugOverlay extends Component with HasGameRef<RaceRiderGame> {
         text: '3-point prototype'
             '\n${RaceRiderGame.buildLabel}'
             '\nState:  ${bike.state.name}'
+            '\nCtrl:   ${bike.rearOnGround && bike.frontOnGround ? '2-wheel' : 'free-pitch'}'
             '\nTilt:   ${gameRef.smoothedTilt.toStringAsFixed(2)}'
             '\nFinite: ${bike.hasFiniteState}'
             '\nSpeed:  ${bike.speed.toStringAsFixed(1)}'
