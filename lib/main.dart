@@ -19,10 +19,13 @@ void main() async {
 Offset _off(Vector2 v) => Offset(v.x, v.y);
 
 class RaceRiderGame extends FlameGame with TapCallbacks {
+  static const buildLabel = 'physics v5 - 2026-04-25';
   late Bike player;
   late List<TrackSegment> trackSegments;
   double rawTilt = 0.0;
   double smoothedTilt = 0.0;
+  double tiltZero = 0.0;
+  bool tiltCalibrated = false;
   bool isGas = false;
   bool isBrake = false;
   late StreamSubscription _accelSub;
@@ -108,7 +111,11 @@ class RaceRiderGame extends FlameGame with TapCallbacks {
   @override
   void update(double dt) {
     super.update(dt);
-    final normalized = (rawTilt / 9.0).clamp(-1.0, 1.0);
+    if (!tiltCalibrated) {
+      tiltZero = rawTilt;
+      tiltCalibrated = true;
+    }
+    final normalized = ((rawTilt - tiltZero) / 5.5).clamp(-1.0, 1.0);
     smoothedTilt = smoothedTilt * 0.2 + normalized * 0.8;
     if (smoothedTilt.abs() < 0.05) {
       smoothedTilt = 0.0;
@@ -227,7 +234,8 @@ class Bike {
   static const _rearDrive = 420.0;
   static const _brakePerWheel = 430.0;
   static const _coastDrag = 0.9;
-  static const _tiltTorque = 10.0;
+  static const _groundTiltTorque = 1.2;
+  static const _airTiltTorque = 2.5;
   static const _airDrag = 0.06;
   static const _maxSpeed = 250.0;
   static const _wheelRadius = 4.7;
@@ -373,8 +381,13 @@ class Bike {
     frontVel.y += _gravity * dt;
     headVel.y += _gravity * dt;
 
-    final tiltScale = (rearOnGround || frontOnGround) ? 0.6 : 0.1;
-    _applyTiltImpulse(tilt * tiltScale, tilt * _tiltTorque * dt * tiltScale);
+    final grounded = rearOnGround || frontOnGround;
+    final tiltTorque = grounded ? _groundTiltTorque : _airTiltTorque;
+    _applyTiltImpulse(
+      tilt,
+      tilt * tiltTorque * dt,
+      grounded: grounded,
+    );
 
     final oldRear = rearPos.clone();
     final oldFront = frontPos.clone();
@@ -526,14 +539,31 @@ class Bike {
     if (speedAlong.abs() < 0.001) {
       return;
     }
-    final coastFloor = 18.0;
     final next = speedAlong > 0
-        ? max(coastFloor, speedAlong - _coastDrag * dt)
-        : min(-coastFloor, speedAlong + _coastDrag * dt);
+        ? max(0.0, speedAlong - _coastDrag * dt)
+        : min(0.0, speedAlong + _coastDrag * dt);
     velocity.add(forward * (next - speedAlong));
   }
 
-  void _applyTiltImpulse(double tilt, double impulse) {
+  void _applyTiltImpulse(double tilt, double impulse, {required bool grounded}) {
+    final frame = frontPos - rearPos;
+    if (frame.length2 <= 0.0001) {
+      return;
+    }
+
+    final frameDir = frame.normalized();
+    final up = Vector2(frameDir.y, -frameDir.x);
+
+    if (grounded) {
+      // Grounded tilt should mostly shift load between the wheels, not inject
+      // a huge backflip torque.
+      final wheelieLift = up * (tilt * 2.1);
+      frontVel.add(wheelieLift);
+      headVel.add(wheelieLift * 0.18);
+      rearVel.sub(wheelieLift * 0.08);
+      return;
+    }
+
     final center = position;
     for (final pointVel in [
       (rearPos, rearVel, _rearMass),
@@ -548,15 +578,9 @@ class Bike {
       velocity.add(tangential);
     }
 
-    final frame = frontPos - rearPos;
-    if ((rearOnGround || frontOnGround) && frame.length2 > 0.0001) {
-      final frameDir = frame.normalized();
-      final up = Vector2(frameDir.y, -frameDir.x);
-      final wheelieLift = up * (tilt * 4.5);
-      frontVel.add(wheelieLift);
-      headVel.add(wheelieLift * 0.35);
-      rearVel.sub(wheelieLift * 0.18);
-    }
+    final airTrim = up * (tilt * 0.5);
+    frontVel.add(airTrim);
+    headVel.add(airTrim * 0.2);
   }
 
   WheelContact? _solveWheelContact(
