@@ -19,7 +19,7 @@ void main() async {
 Offset _off(Vector2 v) => Offset(v.x, v.y);
 
 class RaceRiderGame extends FlameGame with TapCallbacks {
-  static const buildLabel = 'physics v6 - 2026-04-25';
+  static const buildLabel = 'physics v7 - 2026-04-25';
   late Bike player;
   late List<TrackSegment> trackSegments;
   double rawTilt = 0.0;
@@ -115,7 +115,7 @@ class RaceRiderGame extends FlameGame with TapCallbacks {
       tiltZero = rawTilt;
       tiltCalibrated = true;
     }
-    final normalized = ((rawTilt - tiltZero) / 5.5).clamp(-1.0, 1.0);
+    final normalized = (-(rawTilt - tiltZero) / 5.5).clamp(-1.0, 1.0);
     smoothedTilt = smoothedTilt * 0.2 + normalized * 0.8;
     if (smoothedTilt.abs() < 0.05) {
       smoothedTilt = 0.0;
@@ -528,10 +528,9 @@ class Bike {
     if (grounded) {
       // Grounded tilt should mostly shift load between the wheels, not inject
       // a huge backflip torque.
-      final wheelieLift = up * (tilt * 2.1);
+      final wheelieLift = up * (tilt * 1.35);
       frontVel.add(wheelieLift);
-      headVel.add(wheelieLift * 0.18);
-      rearVel.sub(wheelieLift * 0.08);
+      rearVel.sub(wheelieLift * 1.15);
       return;
     }
 
