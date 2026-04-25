@@ -19,7 +19,7 @@ void main() async {
 Offset _off(Vector2 v) => Offset(v.x, v.y);
 
 class RaceRiderGame extends FlameGame with TapCallbacks {
-  static const buildLabel = 'physics v8 - 2026-04-25';
+  static const buildLabel = 'physics v9 - 2026-04-25';
   late Bike player;
   late List<TrackSegment> trackSegments;
   double rawTilt = 0.0;
@@ -235,7 +235,7 @@ class Bike {
   static const _brakePerWheel = 430.0;
   static const _coastDrag = 0.9;
   static const _twoWheelTiltLift = 0.85;
-  static const _freePitchAuthority = 2.0;
+  static const _freePitchAuthority = 1.05;
   static const _airDrag = 0.06;
   static const _maxSpeed = 250.0;
   static const _wheelRadius = 4.7;
@@ -525,22 +525,31 @@ class Bike {
     final up = Vector2(frameDir.y, -frameDir.x);
 
     if (twoWheelGrounded) {
-      // Two-wheel grounded mode: mostly redistribute load. Nose-down should
-      // never pop the rear wheel up on flat ground.
-      final loadShift = up * (tilt * _twoWheelTiltLift);
-      if (tilt >= 0.0) {
-        frontVel.add(loadShift);
-        rearVel.sub(loadShift * 0.9);
-      } else {
-        frontVel.add(loadShift * 0.8);
-        rearVel.add(loadShift * 0.15);
-      }
+      // Two-wheel grounded mode: smooth front-wheel unloading with only a mild
+      // pitch bias, so wheelies begin early without turning into an on/off
+      // threshold. Nose-down never yanks the rear wheel upward.
+      final backTilt = max(0.0, tilt);
+      final noseTilt = max(0.0, -tilt);
+
+      final wheelieBlend = ((backTilt - 0.05) / 0.12).clamp(0.0, 1.0);
+      final loadShift =
+          up * (backTilt * (_twoWheelTiltLift + 1.65 * wheelieBlend));
+      frontVel.add(loadShift);
+      rearVel.sub(loadShift * (0.55 + 0.15 * wheelieBlend));
+
+      final pitchBias = up * (backTilt * wheelieBlend * 0.8);
+      frontVel.add(pitchBias);
+      rearVel.sub(pitchBias);
+
+      final settle = up * (-noseTilt * 0.75);
+      frontVel.add(settle);
+      rearVel.add(settle * 0.12);
       return;
     }
 
     // Free-pitch mode: same authority whether the bike is on the rear wheel
     // only or fully airborne.
-    final pitch = up * (tilt * 1.7);
+    final pitch = up * (tilt * 1.0);
     frontVel.add(pitch);
     rearVel.sub(pitch);
   }
