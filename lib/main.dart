@@ -30,7 +30,7 @@ class RaceRiderGame extends FlameGame with TapCallbacks {
   @override
   Future<void> onLoad() async {
     trackSegments = _buildTrack();
-    player = Bike(Vector2(-540.0, 6.0));
+    player = Bike(_spawnPoint());
     add(Background());
     add(DebugOverlay());
     camera.viewfinder
@@ -91,13 +91,16 @@ class RaceRiderGame extends FlameGame with TapCallbacks {
   @override
   void update(double dt) {
     super.update(dt);
-    camera.viewfinder.position = player.position;
     final normalized = (rawTilt / 9.0).clamp(-1.0, 1.0);
     smoothedTilt = smoothedTilt * 0.2 + normalized * 0.8;
     if (smoothedTilt.abs() < 0.05) {
       smoothedTilt = 0.0;
     }
     player.updateBike(dt, smoothedTilt, isGas, isBrake, trackSegments);
+    if (!player.hasFiniteState) {
+      player = Bike(_spawnPoint());
+    }
+    camera.viewfinder.position = player.position;
   }
 
   @override
@@ -154,6 +157,12 @@ class RaceRiderGame extends FlameGame with TapCallbacks {
 
     player.renderBike(canvas);
     canvas.restore();
+  }
+
+  Vector2 _spawnPoint() {
+    const x = -540.0;
+    const trackY = 38.0;
+    return Vector2(x, trackY - 15.5);
   }
 }
 
@@ -266,6 +275,18 @@ class Bike {
   double get speed => ((rearVel + frontVel + headVel) / 3.0).length;
 
   bool get crashed => state == BikeState.crashed;
+  bool get hasFiniteState {
+    final vectors = [rearPos, frontPos, headPos, rearVel, frontVel, headVel];
+    for (final v in vectors) {
+      if (!v.x.isFinite || !v.y.isFinite) {
+        return false;
+      }
+    }
+    return position.x.isFinite &&
+        position.y.isFinite &&
+        angle.isFinite &&
+        speed.isFinite;
+  }
 
   void updateBike(
     double dt,
@@ -726,8 +747,10 @@ class DebugOverlay extends Component with HasGameRef<RaceRiderGame> {
         text: '3-point prototype'
             '\nState:  ${bike.state.name}'
             '\nTilt:   ${gameRef.smoothedTilt.toStringAsFixed(2)}'
+            '\nFinite: ${bike.hasFiniteState}'
             '\nSpeed:  ${bike.speed.toStringAsFixed(1)}'
             '\nAngle:  ${bike.angle.toStringAsFixed(2)} rad'
+            '\nPos:    ${bike.position.x.toStringAsFixed(1)}, ${bike.position.y.toStringAsFixed(1)}'
             '\nRear:   ${bike.rearOnGround}  comp ${bike.rearCompression.toStringAsFixed(2)}'
             '\nFront:  ${bike.frontOnGround}  comp ${bike.frontCompression.toStringAsFixed(2)}',
         style: const TextStyle(
