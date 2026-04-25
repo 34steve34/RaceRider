@@ -19,7 +19,7 @@ void main() async {
 Offset _off(Vector2 v) => Offset(v.x, v.y);
 
 class RaceRiderGame extends FlameGame with TapCallbacks {
-  static const buildLabel = 'physics v9 - 2026-04-25';
+  static const buildLabel = 'physics v10 - 2026-04-25';
   late Bike player;
   late List<TrackSegment> trackSegments;
   double rawTilt = 0.0;
@@ -271,6 +271,7 @@ class Bike {
   double frontWheelAngle = 0.0;
   double rearWheelAngVel = 0.0;
   double frontWheelAngVel = 0.0;
+  double freePitchBlend = 0.0;
   SurfaceHit? _rearSurface;
   SurfaceHit? _frontSurface;
 
@@ -329,6 +330,7 @@ class Bike {
     frontOnGround = true;
     rearCompression = 0.0;
     frontCompression = 0.0;
+    freePitchBlend = 0.0;
     _rearSurface = rearHit;
     _frontSurface = frontHit;
   }
@@ -369,11 +371,9 @@ class Bike {
     frontVel.y += _gravity * dt;
     headVel.y += _gravity * dt;
 
-    final twoWheelGrounded = rearOnGround && frontOnGround;
     _applyTiltImpulse(
       tilt,
-      tilt * _freePitchAuthority * dt,
-      twoWheelGrounded: twoWheelGrounded,
+      freePitchBlend: freePitchBlend,
     );
 
     final oldRear = rearPos.clone();
@@ -431,6 +431,8 @@ class Bike {
         break;
       }
     }
+
+    _updateControlBlend();
 
     if (state == BikeState.crashed) {
       rearVel = (rearPos - oldRear) / dt;
@@ -515,7 +517,7 @@ class Bike {
     velocity.add(forward * (next - speedAlong));
   }
 
-  void _applyTiltImpulse(double tilt, double impulse, {required bool twoWheelGrounded}) {
+  void _applyTiltImpulse(double tilt, {required double freePitchBlend}) {
     final frame = frontPos - rearPos;
     if (frame.length2 <= 0.0001) {
       return;
@@ -523,35 +525,31 @@ class Bike {
 
     final frameDir = frame.normalized();
     final up = Vector2(frameDir.y, -frameDir.x);
+    final backTilt = max(0.0, tilt);
+    final noseTilt = max(0.0, -tilt);
+    final contactBlend = 1.0 - freePitchBlend;
 
-    if (twoWheelGrounded) {
-      // Two-wheel grounded mode: smooth front-wheel unloading with only a mild
-      // pitch bias, so wheelies begin early without turning into an on/off
-      // threshold. Nose-down never yanks the rear wheel upward.
-      final backTilt = max(0.0, tilt);
-      final noseTilt = max(0.0, -tilt);
-
-      final wheelieBlend = ((backTilt - 0.05) / 0.12).clamp(0.0, 1.0);
-      final loadShift =
-          up * (backTilt * (_twoWheelTiltLift + 1.65 * wheelieBlend));
+    if (contactBlend > 0.001) {
+      // While both wheels still influence the bike, tilt should feel smooth and
+      // progressive rather than binary at the lift-off threshold.
+      final wheelieBlend = ((backTilt - 0.04) / 0.10).clamp(0.0, 1.0);
+      final loadShift = up *
+          (backTilt *
+              (_twoWheelTiltLift + 1.15 * wheelieBlend) *
+              contactBlend);
       frontVel.add(loadShift);
-      rearVel.sub(loadShift * (0.55 + 0.15 * wheelieBlend));
+      rearVel.sub(loadShift * (0.42 + 0.12 * wheelieBlend));
 
-      final pitchBias = up * (backTilt * wheelieBlend * 0.8);
-      frontVel.add(pitchBias);
-      rearVel.sub(pitchBias);
-
-      final settle = up * (-noseTilt * 0.75);
+      final settle = up * (-noseTilt * 0.68 * contactBlend);
       frontVel.add(settle);
-      rearVel.add(settle * 0.12);
-      return;
+      rearVel.add(settle * 0.08);
     }
 
-    // Free-pitch mode: same authority whether the bike is on the rear wheel
-    // only or fully airborne.
-    final pitch = up * (tilt * 1.0);
-    frontVel.add(pitch);
-    rearVel.sub(pitch);
+    if (freePitchBlend > 0.001) {
+      final pitch = up * (tilt * _freePitchAuthority * freePitchBlend);
+      frontVel.add(pitch);
+      rearVel.sub(pitch);
+    }
   }
 
   WheelContact? _solveWheelContact(
@@ -578,7 +576,7 @@ class Bike {
       pos.add(hit.normal * (targetDistance - hit.distance));
       final normalSpeed = vel.dot(hit.normal);
       if (normalSpeed < 0.0) {
-        vel.sub(hit.normal * normalSpeed);
+        vel.sub(hit.normal * normalSpeed * 0.82);
       }
     } else if (allowAssist && hit.distance < magnetDistance && vel.dot(hit.normal) < 4.0) {
       final pull = (magnetDistance - hit.distance) / _magnetRange;
@@ -712,6 +710,25 @@ class Bike {
     rearVel.scale(scale);
     frontVel.scale(scale);
     headVel.scale(scale);
+  }
+
+  void _updateControlBlend() {
+    double target;
+    if (rearOnGround && frontOnGround) {
+      final frontLightness =
+          (1.0 - (frontCompression / max(_suspensionTravel, 0.0001)))
+              .clamp(0.0, 1.0);
+      target = frontLightness * 0.22;
+    } else if (rearOnGround) {
+      target = 1.0;
+    } else if (frontOnGround) {
+      target = 0.65;
+    } else {
+      target = 1.0;
+    }
+
+    final response = target > freePitchBlend ? 0.18 : 0.10;
+    freePitchBlend += (target - freePitchBlend) * response;
   }
 
   void _alignHeadToFrame() {
@@ -852,6 +869,7 @@ class DebugOverlay extends Component with HasGameRef<RaceRiderGame> {
             '\n${RaceRiderGame.buildLabel}'
             '\nState:  ${bike.state.name}'
             '\nCtrl:   ${bike.rearOnGround && bike.frontOnGround ? '2-wheel' : 'free-pitch'}'
+            '\nBlend:  ${bike.freePitchBlend.toStringAsFixed(2)}'
             '\nTilt:   ${gameRef.smoothedTilt.toStringAsFixed(2)}'
             '\nFinite: ${bike.hasFiniteState}'
             '\nSpeed:  ${bike.speed.toStringAsFixed(1)}'
