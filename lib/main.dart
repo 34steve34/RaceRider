@@ -68,9 +68,9 @@ class RaceRiderGame extends FlameGame with TapCallbacks {
     }
 
     final landingRamp = <Vector2>[
-      Vector2(846.0, 18.0),
-      Vector2(944.0, 108.0),
-      Vector2(1018.0, 136.0),
+      Vector2(928.0, 26.0),
+      Vector2(1018.0, 112.0),
+      Vector2(1090.0, 138.0),
       Vector2(1100.0, 130.0),
       Vector2(1240.0, 98.0),
       Vector2(1390.0, 114.0),
@@ -83,11 +83,11 @@ class RaceRiderGame extends FlameGame with TapCallbacks {
       segs.add(TrackSegment(landingRamp[i], landingRamp[i + 1]));
     }
 
-    final loopCenter = Vector2(786.0, -78.0);
-    const loopRadius = 98.0;
+    final loopCenter = Vector2(840.0, -94.0);
+    const loopRadius = 106.0;
     const loopSteps = 48;
-    const startAngle = 2.42;
-    const endAngle = 7.0;
+    const startAngle = 2.34;
+    const endAngle = 6.96;
     Vector2? prev;
     for (int i = 0; i <= loopSteps; i++) {
       final t = i / loopSteps;
@@ -227,14 +227,14 @@ class Bike {
   static const _rearDrive = 420.0;
   static const _brakePerWheel = 430.0;
   static const _coastDrag = 0.9;
-  static const _tiltTorque = 22.0;
+  static const _tiltTorque = 10.0;
   static const _airDrag = 0.06;
   static const _maxSpeed = 250.0;
   static const _wheelRadius = 4.7;
   static const _headRadius = 2.4;
-  static const _magnetRange = 0.12;
-  static const _magnetStrength = 0.006;
-  static const _groundStick = 0.008;
+  static const _magnetRange = 0.04;
+  static const _magnetStrength = 0.002;
+  static const _groundStick = 0.002;
   static const _impactCrashSpeed = 280.0;
   static const _wheelSpinDamp = 0.985;
   static const _rearMass = 1.35;
@@ -373,7 +373,7 @@ class Bike {
     frontVel.y += _gravity * dt;
     headVel.y += _gravity * dt;
 
-    final tiltScale = (rearOnGround || frontOnGround) ? 1.0 : 0.25;
+    final tiltScale = (rearOnGround || frontOnGround) ? 0.6 : 0.1;
     _applyTiltImpulse(tilt * tiltScale, tilt * _tiltTorque * dt * tiltScale);
 
     final oldRear = rearPos.clone();
@@ -384,6 +384,7 @@ class Bike {
     frontPos += frontVel * dt;
     headPos += headVel * dt;
 
+    final wasAirborne = !(rearOnGround || frontOnGround);
     rearOnGround = false;
     frontOnGround = false;
     rearCompression = 0.0;
@@ -420,14 +421,24 @@ class Bike {
         _headMass,
       );
 
-      final rearContact = _solveWheelContact(rearPos, rearVel, segs);
+      final rearContact = _solveWheelContact(
+        rearPos,
+        rearVel,
+        segs,
+        allowAssist: wasAirborne,
+      );
       if (rearContact != null) {
         rearOnGround = true;
         rearSurface = rearContact.hit;
         rearCompression = rearContact.compression;
       }
 
-      final frontContact = _solveWheelContact(frontPos, frontVel, segs);
+      final frontContact = _solveWheelContact(
+        frontPos,
+        frontVel,
+        segs,
+        allowAssist: wasAirborne,
+      );
       if (frontContact != null) {
         frontOnGround = true;
         frontSurface = frontContact.hit;
@@ -451,6 +462,14 @@ class Bike {
     rearVel = (rearPos - oldRear) / dt;
     frontVel = (frontPos - oldFront) / dt;
     headVel = (headPos - oldHead) / dt;
+
+    if (!rearOnGround && !frontOnGround) {
+      final avg = (rearVel + frontVel + headVel) / 3.0;
+      const spinRetention = 0.87;
+      rearVel = avg + (rearVel - avg) * spinRetention;
+      frontVel = avg + (frontVel - avg) * spinRetention;
+      headVel = avg + (headVel - avg) * spinRetention;
+    }
 
     _rearSurface = rearSurface;
     _frontSurface = frontSurface;
@@ -530,12 +549,13 @@ class Bike {
     }
 
     final frame = frontPos - rearPos;
-    if (frame.length2 > 0.0001) {
+    if ((rearOnGround || frontOnGround) && frame.length2 > 0.0001) {
       final frameDir = frame.normalized();
-      final lift = Vector2(-frameDir.y, frameDir.x) * (tilt * 9.0);
-      headVel.add(lift);
-      frontVel.add(lift * 0.55);
-      rearVel.sub(lift * 0.25);
+      final up = Vector2(frameDir.y, -frameDir.x);
+      final wheelieLift = up * (tilt * 4.5);
+      frontVel.add(wheelieLift);
+      headVel.add(wheelieLift * 0.35);
+      rearVel.sub(wheelieLift * 0.18);
     }
   }
 
@@ -543,6 +563,7 @@ class Bike {
     Vector2 pos,
     Vector2 vel,
     List<TrackSegment> segs,
+    {required bool allowAssist}
   ) {
     final hit = _nearestSurface(pos, segs);
     if (hit == null) {
@@ -564,7 +585,7 @@ class Bike {
       if (normalSpeed < 0.0) {
         vel.sub(hit.normal * normalSpeed);
       }
-    } else if (hit.distance < magnetDistance && vel.dot(hit.normal) < 8.0) {
+    } else if (allowAssist && hit.distance < magnetDistance && vel.dot(hit.normal) < 4.0) {
       final pull = (magnetDistance - hit.distance) / _magnetRange;
       pos.add(
         hit.normal * (targetDistance - hit.distance) * (_magnetStrength * pull),
