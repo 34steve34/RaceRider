@@ -19,7 +19,7 @@ void main() async {
 Offset _off(Vector2 v) => Offset(v.x, v.y);
 
 class RaceRiderGame extends FlameGame with TapCallbacks {
-  static const buildLabel = 'physics v10 - 2026-04-25';
+  static const buildLabel = 'physics v11 - 2026-04-25';
   late Bike player;
   late List<TrackSegment> trackSegments;
   double rawTilt = 0.0;
@@ -235,7 +235,10 @@ class Bike {
   static const _brakePerWheel = 430.0;
   static const _coastDrag = 0.9;
   static const _twoWheelTiltLift = 0.85;
-  static const _freePitchAuthority = 1.05;
+  static const _freePitchAuthority = 1.7;
+  static const _maxTwoWheelNoseUpRate = 1.55;
+  static const _maxTwoWheelNoseDownRate = 0.55;
+  static const _maxFreePitchRate = 1.7;
   static const _airDrag = 0.06;
   static const _maxSpeed = 250.0;
   static const _wheelRadius = 4.7;
@@ -297,6 +300,15 @@ class Bike {
   }
 
   double get speed => ((rearVel + frontVel + headVel) / 3.0).length;
+  double get pitchRate {
+    final frame = frontPos - rearPos;
+    if (frame.length2 <= 0.0001) {
+      return 0.0;
+    }
+    final frameDir = frame.normalized();
+    final up = Vector2(frameDir.y, -frameDir.x);
+    return (frontVel - rearVel).dot(up) / max(_wheelbase, 0.0001);
+  }
 
   bool get crashed => state == BikeState.crashed;
   bool get hasFiniteState {
@@ -458,6 +470,7 @@ class Bike {
     _rearSurface = rearSurface;
     _frontSurface = frontSurface;
     _applyDriveAndBrake(dt, gas, brake);
+    _limitPitchRate(twoWheelGrounded: rearOnGround && frontOnGround);
 
     final damp = max(0.0, 1.0 - _airDrag * dt);
     rearVel *= damp;
@@ -712,6 +725,31 @@ class Bike {
     headVel.scale(scale);
   }
 
+  void _limitPitchRate({required bool twoWheelGrounded}) {
+    final frame = frontPos - rearPos;
+    if (frame.length2 <= 0.0001) {
+      return;
+    }
+
+    final frameDir = frame.normalized();
+    final up = Vector2(frameDir.y, -frameDir.x);
+    final rel = frontVel - rearVel;
+    final current = rel.dot(up) / max(_wheelbase, 0.0001);
+    final maxRate = twoWheelGrounded
+        ? (current >= 0.0 ? _maxTwoWheelNoseUpRate : _maxTwoWheelNoseDownRate)
+        : _maxFreePitchRate;
+
+    if (current.abs() <= maxRate) {
+      return;
+    }
+
+    final clamped = current.sign * maxRate;
+    final deltaRate = clamped - current;
+    final correction = up * (deltaRate * _wheelbase * 0.5);
+    frontVel.add(correction);
+    rearVel.sub(correction);
+  }
+
   void _updateControlBlend() {
     double target;
     if (rearOnGround && frontOnGround) {
@@ -871,6 +909,7 @@ class DebugOverlay extends Component with HasGameRef<RaceRiderGame> {
             '\nCtrl:   ${bike.rearOnGround && bike.frontOnGround ? '2-wheel' : 'free-pitch'}'
             '\nBlend:  ${bike.freePitchBlend.toStringAsFixed(2)}'
             '\nTilt:   ${gameRef.smoothedTilt.toStringAsFixed(2)}'
+            '\nPitch:  ${bike.pitchRate.toStringAsFixed(2)}'
             '\nFinite: ${bike.hasFiniteState}'
             '\nSpeed:  ${bike.speed.toStringAsFixed(1)}'
             '\nAngle:  ${bike.angle.toStringAsFixed(2)} rad'
