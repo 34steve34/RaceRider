@@ -216,23 +216,23 @@ class Bike {
   static const _rearDrive = 420.0;
   static const _brakePerWheel = 430.0;
   static const _coastDrag = 0.9;
-  static const _tiltTorque = 24.0;
+  static const _tiltTorque = 34.0;
   static const _airDrag = 0.06;
   static const _maxSpeed = 250.0;
   static const _wheelRadius = 4.7;
   static const _headRadius = 2.4;
-  static const _magnetRange = 1.6;
-  static const _magnetStrength = 0.12;
-  static const _groundStick = 0.08;
-  static const _impactCrashSpeed = 120.0;
+  static const _magnetRange = 0.55;
+  static const _magnetStrength = 0.035;
+  static const _groundStick = 0.025;
+  static const _impactCrashSpeed = 280.0;
   static const _wheelSpinDamp = 0.985;
   static const _rearMass = 1.35;
   static const _frontMass = 1.0;
   static const _headMass = 0.42;
-  static const _frameStiffness = 0.95;
-  static const _suspensionStiffness = 0.92;
-  static const _suspensionTravel = 0.7;
-  static const _reboundTravel = 0.35;
+  static const _frameStiffness = 1.0;
+  static const _suspensionStiffness = 1.0;
+  static const _suspensionTravel = 0.22;
+  static const _reboundTravel = 0.12;
 
   static final _rearLocal = Vector2(-7.0, 6.5);
   static final _frontLocal = Vector2(8.5, 6.5);
@@ -333,7 +333,7 @@ class Bike {
     bool brake,
     List<TrackSegment> segs,
   ) {
-    const substeps = 6;
+    const substeps = 10;
     final stepDt = dt / substeps;
     for (int i = 0; i < substeps; i++) {
       _step(stepDt, tilt, gas, brake, segs);
@@ -363,7 +363,6 @@ class Bike {
     headVel.y += _gravity * dt;
 
     _applyTiltImpulse(tilt * _tiltTorque * dt);
-    _applyDriveAndBrake(dt, gas, brake);
 
     final oldRear = rearPos.clone();
     final oldFront = frontPos.clone();
@@ -380,7 +379,7 @@ class Bike {
     SurfaceHit? rearSurface;
     SurfaceHit? frontSurface;
 
-    for (int i = 0; i < 7; i++) {
+    for (int i = 0; i < 12; i++) {
       _solveBoundedDistance(
         rearPos,
         frontPos,
@@ -441,14 +440,16 @@ class Bike {
     frontVel = (frontPos - oldFront) / dt;
     headVel = (headPos - oldHead) / dt;
 
+    _rearSurface = rearSurface;
+    _frontSurface = frontSurface;
+    _applyDriveAndBrake(dt, gas, brake);
+
     final damp = max(0.0, 1.0 - _airDrag * dt);
     rearVel *= damp;
     frontVel *= damp;
     headVel *= damp;
     _capSpeed();
 
-    _rearSurface = rearSurface;
-    _frontSurface = frontSurface;
     _updateWheelRotation(dt, brake);
   }
 
@@ -514,6 +515,15 @@ class Bike {
       final arm = point - center;
       final tangential = Vector2(-arm.y, arm.x) * (impulse / max(0.1, mass));
       velocity.add(tangential);
+    }
+
+    final frame = frontPos - rearPos;
+    if (frame.length2 > 0.0001) {
+      final frameDir = frame.normalized();
+      final lift = Vector2(-frameDir.y, frameDir.x) * (tilt * 9.0);
+      headVel.add(lift);
+      frontVel.add(lift * 0.55);
+      rearVel.sub(lift * 0.25);
     }
   }
 
