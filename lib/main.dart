@@ -56,41 +56,53 @@ class RaceRiderGame extends FlameGame with TapCallbacks {
       Vector2(310.0, 30.0),
       Vector2(430.0, 40.0),
       Vector2(510.0, 40.0),
-      Vector2(565.0, 26.0),
-      Vector2(612.0, 4.0),
+      Vector2(560.0, 40.0),
+      Vector2(604.0, 36.0),
+      Vector2(642.0, 18.0),
+      Vector2(672.0, 8.0),
     ];
-
-    final loopCenter = Vector2(760.0, -6.0);
-    const loopRadius = 64.0;
-    const loopSteps = 34;
-    const startAngle = 2.55;
-    const endAngle = 6.95;
-    for (int i = 0; i <= loopSteps; i++) {
-      final t = i / loopSteps;
-      final a = startAngle + t * (endAngle - startAngle);
-      points.add(Vector2(
-        loopCenter.x + cos(a) * loopRadius,
-        loopCenter.y + sin(a) * loopRadius,
-      ));
-    }
-
-    points.addAll([
-      Vector2(860.0, 16.0),
-      Vector2(910.0, 34.0),
-      Vector2(980.0, 18.0),
-      Vector2(1100.0, 24.0),
-      Vector2(1240.0, -8.0),
-      Vector2(1390.0, 8.0),
-      Vector2(1540.0, -30.0),
-      Vector2(1710.0, 18.0),
-      Vector2(1910.0, 6.0),
-      Vector2(2120.0, 6.0),
-    ]);
 
     final segs = <TrackSegment>[];
     for (int i = 0; i < points.length - 1; i++) {
       segs.add(TrackSegment(points[i], points[i + 1]));
     }
+
+    final landingRamp = <Vector2>[
+      Vector2(712.0, 14.0),
+      Vector2(808.0, 102.0),
+      Vector2(874.0, 132.0),
+      Vector2(980.0, 138.0),
+      Vector2(1100.0, 130.0),
+      Vector2(1240.0, 98.0),
+      Vector2(1390.0, 114.0),
+      Vector2(1540.0, 76.0),
+      Vector2(1710.0, 124.0),
+      Vector2(1910.0, 112.0),
+      Vector2(2120.0, 112.0),
+    ];
+    for (int i = 0; i < landingRamp.length - 1; i++) {
+      segs.add(TrackSegment(landingRamp[i], landingRamp[i + 1]));
+    }
+
+    final loopCenter = Vector2(760.0, -52.0);
+    const loopRadius = 78.0;
+    const loopSteps = 42;
+    const startAngle = 2.32;
+    const endAngle = 7.08;
+    Vector2? prev;
+    for (int i = 0; i <= loopSteps; i++) {
+      final t = i / loopSteps;
+      final a = startAngle + t * (endAngle - startAngle);
+      final p = Vector2(
+        loopCenter.x + cos(a) * loopRadius,
+        loopCenter.y + sin(a) * loopRadius,
+      );
+      if (prev != null) {
+        segs.add(TrackSegment(prev, p));
+      }
+      prev = p;
+    }
+
     return segs;
   }
 
@@ -362,7 +374,7 @@ class Bike {
     frontVel.y += _gravity * dt;
     headVel.y += _gravity * dt;
 
-    _applyTiltImpulse(tilt * _tiltTorque * dt);
+    _applyTiltImpulse(tilt, tilt * _tiltTorque * dt);
 
     final oldRear = rearPos.clone();
     final oldFront = frontPos.clone();
@@ -502,7 +514,7 @@ class Bike {
     velocity.add(forward * (next - speedAlong));
   }
 
-  void _applyTiltImpulse(double impulse) {
+  void _applyTiltImpulse(double tilt, double impulse) {
     final center = position;
     for (final pointVel in [
       (rearPos, rearVel, _rearMass),
