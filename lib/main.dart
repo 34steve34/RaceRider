@@ -56,14 +56,18 @@ class RaceRiderGame extends FlameGame with TapCallbacks {
       Vector2(310.0, 30.0),
       Vector2(430.0, 40.0),
       Vector2(510.0, 40.0),
+      Vector2(565.0, 26.0),
+      Vector2(612.0, 4.0),
     ];
 
-    final loopCenter = Vector2(620.0, -20.0);
-    const loopRadius = 60.0;
-    const loopSteps = 26;
-    for (int i = 1; i <= loopSteps; i++) {
+    final loopCenter = Vector2(760.0, -6.0);
+    const loopRadius = 64.0;
+    const loopSteps = 34;
+    const startAngle = 2.55;
+    const endAngle = 6.95;
+    for (int i = 0; i <= loopSteps; i++) {
       final t = i / loopSteps;
-      final a = pi / 2 + t * pi * 2;
+      final a = startAngle + t * (endAngle - startAngle);
       points.add(Vector2(
         loopCenter.x + cos(a) * loopRadius,
         loopCenter.y + sin(a) * loopRadius,
@@ -71,8 +75,9 @@ class RaceRiderGame extends FlameGame with TapCallbacks {
     }
 
     points.addAll([
-      Vector2(760.0, 40.0),
-      Vector2(920.0, 16.0),
+      Vector2(860.0, 16.0),
+      Vector2(910.0, 34.0),
+      Vector2(980.0, 18.0),
       Vector2(1100.0, 24.0),
       Vector2(1240.0, -8.0),
       Vector2(1390.0, 8.0),
@@ -211,23 +216,23 @@ class Bike {
   static const _rearDrive = 420.0;
   static const _brakePerWheel = 430.0;
   static const _coastDrag = 0.9;
-  static const _tiltTorque = 17.0;
+  static const _tiltTorque = 24.0;
   static const _airDrag = 0.06;
   static const _maxSpeed = 250.0;
   static const _wheelRadius = 4.7;
   static const _headRadius = 2.4;
-  static const _magnetRange = 4.8;
-  static const _magnetStrength = 0.38;
-  static const _groundStick = 0.22;
+  static const _magnetRange = 1.6;
+  static const _magnetStrength = 0.12;
+  static const _groundStick = 0.08;
   static const _impactCrashSpeed = 120.0;
   static const _wheelSpinDamp = 0.985;
   static const _rearMass = 1.35;
   static const _frontMass = 1.0;
   static const _headMass = 0.42;
   static const _frameStiffness = 0.95;
-  static const _suspensionStiffness = 0.78;
-  static const _suspensionTravel = 2.6;
-  static const _reboundTravel = 1.2;
+  static const _suspensionStiffness = 0.92;
+  static const _suspensionTravel = 0.7;
+  static const _reboundTravel = 0.35;
 
   static final _rearLocal = Vector2(-7.0, 6.5);
   static final _frontLocal = Vector2(8.5, 6.5);
@@ -537,7 +542,7 @@ class Bike {
       if (normalSpeed < 0.0) {
         vel.sub(hit.normal * normalSpeed);
       }
-    } else if (hit.distance < magnetDistance) {
+    } else if (hit.distance < magnetDistance && vel.dot(hit.normal) < 8.0) {
       final pull = (magnetDistance - hit.distance) / _magnetRange;
       pos.add(
         hit.normal * (targetDistance - hit.distance) * (_magnetStrength * pull),
