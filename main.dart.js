@@ -31221,70 +31221,72 @@ m=new A.E(new Float64Array(2))
 m.V(-1.2,1.4)
 a4=l.M(0,m)
 a5=r.b.M(0,r.c).az(0,2)
-m=r.a
-a6=m.M(0,a3.a7(0,m).L(0,0.58))
-m=r.b
-a7=m.M(0,r.c.a7(0,m).L(0,0.54))
-m=r.a
-l=new A.E(new Float64Array(2))
-l.V(1,-1)
-a8=m.M(0,l)
-l=r.b
+m=r.y
+l=r.z
+k=r.a
+a6=k.M(0,a3.a7(0,k).L(0,0.58))
+k=r.b
+a7=k.M(0,r.c.a7(0,k).L(0,0.54))
+k=r.a
+j=new A.E(new Float64Array(2))
+j.V(1,-1-m*8)
+a8=k.M(0,j)
+j=r.b
 m=new A.E(new Float64Array(2))
-m.V(-1,-1)
-a9=l.M(0,m)
+m.V(-1,-1-l*8)
+a9=j.M(0,m)
 m=r.a.a
-l=a3.a
-b4.ei(new A.H(m[0],m[1]),new A.H(l[0],l[1]),f)
+j=a3.a
+b4.ei(new A.H(m[0],m[1]),new A.H(j[0],j[1]),f)
+m=j[0]
+l=j[1]
+k=r.b.a
+b4.ei(new A.H(m,l),new A.H(k[0],k[1]),f)
+k=r.b.a
+l=k[0]
+k=k[1]
+m=r.c.a
+b4.ei(new A.H(l,k),new A.H(m[0],m[1]),e)
+m=r.a.a
+k=m[0]
+m=m[1]
+l=r.c.a
+b4.ei(new A.H(k,m),new A.H(l[0],l[1]),f)
+l=a4.a
 m=l[0]
 k=l[1]
-j=r.b.a
-b4.ei(new A.H(m,k),new A.H(j[0],j[1]),f)
-j=r.b.a
-k=j[0]
-j=j[1]
-m=r.c.a
-b4.ei(new A.H(k,j),new A.H(m[0],m[1]),e)
-m=r.a.a
-j=m[0]
-m=m[1]
-k=r.c.a
-b4.ei(new A.H(j,m),new A.H(k[0],k[1]),f)
-k=a4.a
-m=k[0]
-j=k[1]
 b0=new A.E(new Float64Array(2))
 b0.V(5,-0.8)
 b0=a4.M(0,b0).a
-b4.ei(new A.H(m,j),new A.H(b0[0],b0[1]),e)
+b4.ei(new A.H(m,k),new A.H(b0[0],b0[1]),e)
 b0=a6.a
-j=a8.a
-b4.ei(new A.H(b0[0],b0[1]),new A.H(j[0],j[1]),a)
-j=a7.a
+k=a8.a
+b4.ei(new A.H(b0[0],b0[1]),new A.H(k[0],k[1]),a)
+k=a7.a
 b0=a9.a
-b4.ei(new A.H(j[0],j[1]),new A.H(b0[0],b0[1]),a)
+b4.ei(new A.H(k[0],k[1]),new A.H(b0[0],b0[1]),a)
 b1=A.R_(q.r)
-b1.fK(new A.ot(l[0]-4,l[1]+1.4))
+b1.fK(new A.ot(j[0]-4,j[1]+1.4))
 q=a5.a
 b1.fK(new A.i4(q[0]+1,q[1]+1))
 b1.fK(new A.i4(q[0]+2.5,q[1]-3))
-b1.fK(new A.i4(l[0]-3,l[1]-3.3))
+b1.fK(new A.i4(j[0]-3,j[1]-3.3))
 b1.fK(new A.n2())
 i=d.c2()
-l=b1.gEL().a
-l===$&&A.c()
-l=l.a.snapshot()
-s.drawPath(l,i)
-l.delete()
+j=b1.gEL().a
+j===$&&A.c()
+j=j.a.snapshot()
+s.drawPath(j,i)
+j.delete()
 i.delete()
-b4.jp(A.LM(new A.H(k[0],k[1]),2.4,9),c)
-k=r.c.M(0,a3).az(0,2).a
-k=A.LM(new A.H(k[0],k[1]),5,6)
+b4.jp(A.LM(new A.H(l[0],l[1]),2.4,9),c)
+l=r.c.M(0,a3).az(0,2).a
+l=A.LM(new A.H(l[0],l[1]),5,6)
 i=b.c2()
-s.drawOval(A.c8(k),i)
+s.drawOval(A.c8(l),i)
 i.delete()
-k=r.c.a
-b4.n4(new A.H(k[0],k[1]),2.4,b)
+l=r.c.a
+b4.n4(new A.H(l[0],l[1]),2.4,b)
 if(r.r===B.am){b2=A.IP(B.vm,B.w)
 b2.nH()
 r=r.c
@@ -31445,9 +31447,9 @@ m=i.a
 a1.z=i.c}h=a1.iM(a1.c,a6)
 if(h!=null&&h.d<2.4){a1.r=B.am
 break}}s=a1.w
-if(s&&a1.x)g=B.d.eX(1-a1.z/Math.max(0.22,0.0001),0,1)*0.22
+if(s&&a1.x)g=B.d.eX(1-a1.z/Math.max(0.22,0.0001),0,1)*Math.max(0,a3)*0.32
 else if(s)g=1
-else g=a1.x?0.65:1
+else g=a1.x?0.18:1
 s=a1.ay
 f=g>s?0.18:0.1
 a1.ay=s+(g-s)*f
@@ -31476,9 +31478,9 @@ r=s[1]
 s=s[0]
 b=new A.E(new Float64Array(2))
 b.V(r,-s)
-a=b.L(0,0.22).L(0,a2)
+a=b.L(0,0.55).L(0,a2)
 a1.d.c8(a)
-a1.e.n(0,a.L(0,0.15))}}}else{if(a1.w&&a1.ch!=null)a1.pD(a1.d,a1.ch.c,a2)
+a1.e.n(0,a.L(0,0.08))}}}else{if(a1.w&&a1.ch!=null)a1.pD(a1.d,a1.ch.c,a2)
 if(a1.x&&a1.CW!=null)a1.pD(a1.e,a1.CW.c,a2)}a1.BD(a1.w&&a1.x)
 a0=Math.max(0,1-0.06*a2)
 a1.d=a1.d.L(0,a0)
@@ -31516,9 +31518,9 @@ h.n(0,l)
 h=i.d
 h===$&&A.c()
 h.c8(l.L(0,0.42+0.12*m))
-k=q.L(0,-o*0.22*n)
+k=q.L(0,-o*0.08*n)
 i.e.n(0,k)
-i.d.n(0,k.L(0,0.02))}if(b>0.001){j=q.L(0,a*1.7*b)
+i.d.n(0,k.L(0,0))}if(b>0.001){j=q.L(0,a*1.7*b)
 h=i.e
 h===$&&A.c()
 h.n(0,j)
@@ -31646,7 +31648,7 @@ s=l.a7(0,s).br(q)
 l=m.cx
 l===$&&A.c()
 p=s/Math.max(l,0.0001)
-if(a)o=p>=0?1.55:0.18
+if(a)o=p>=0?1.55:0.04
 else o=1.7
 if(Math.abs(p)<=o)return
 n=q.L(0,(J.Pz(p)*o-p)*l*0.5)
