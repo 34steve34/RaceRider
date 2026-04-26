@@ -19,7 +19,7 @@ void main() async {
 Offset _off(Vector2 v) => Offset(v.x, v.y);
 
 class RaceRiderGame extends FlameGame with TapCallbacks {
-  static const buildLabel = 'physics v11 - 2026-04-25';
+  static const buildLabel = 'physics v12 - 2026-04-25';
   late Bike player;
   late List<TrackSegment> trackSegments;
   double rawTilt = 0.0;
@@ -89,8 +89,8 @@ class RaceRiderGame extends FlameGame with TapCallbacks {
     final loopCenter = Vector2(840.0, -94.0);
     const loopRadius = 106.0;
     const loopSteps = 48;
-    const startAngle = 2.34;
-    const endAngle = 6.96;
+    const startAngle = 2.62;
+    const endAngle = 6.68;
     Vector2? prev;
     for (int i = 0; i <= loopSteps; i++) {
       final t = i / loopSteps;
@@ -237,7 +237,7 @@ class Bike {
   static const _twoWheelTiltLift = 0.85;
   static const _freePitchAuthority = 1.7;
   static const _maxTwoWheelNoseUpRate = 1.55;
-  static const _maxTwoWheelNoseDownRate = 0.55;
+  static const _maxTwoWheelNoseDownRate = 0.18;
   static const _maxFreePitchRate = 1.7;
   static const _airDrag = 0.06;
   static const _maxSpeed = 250.0;
@@ -485,7 +485,9 @@ class Bike {
     if (rearOnGround && _rearSurface != null && gas) {
       final tangent = _forwardTangent(_rearSurface!.tangent);
       rearVel += tangent * (_rearDrive * dt);
-      frontVel += tangent * (_rearDrive * dt * 0.18);
+      if (frontOnGround) {
+        frontVel += tangent * (_rearDrive * dt * 0.14);
+      }
     }
 
     if (brake) {
@@ -494,6 +496,16 @@ class Bike {
       }
       if (frontOnGround && _frontSurface != null) {
         _applyBrakeAtWheel(frontVel, _frontSurface!.tangent, dt);
+      }
+      if (rearOnGround && frontOnGround) {
+        final frame = frontPos - rearPos;
+        if (frame.length2 > 0.0001) {
+          final frameDir = frame.normalized();
+          final up = Vector2(frameDir.y, -frameDir.x);
+          final antiStoppie = up * 0.22 * dt;
+          rearVel.sub(antiStoppie);
+          frontVel.add(antiStoppie * 0.15);
+        }
       }
     } else {
       if (rearOnGround && _rearSurface != null) {
@@ -553,9 +565,9 @@ class Bike {
       frontVel.add(loadShift);
       rearVel.sub(loadShift * (0.42 + 0.12 * wheelieBlend));
 
-      final settle = up * (-noseTilt * 0.68 * contactBlend);
+      final settle = up * (-noseTilt * 0.22 * contactBlend);
       frontVel.add(settle);
-      rearVel.add(settle * 0.08);
+      rearVel.add(settle * 0.02);
     }
 
     if (freePitchBlend > 0.001) {
@@ -799,6 +811,10 @@ class Bike {
     final body = Paint()..color = const Color(0xFFFF4400);
     final seat = Paint()..color = const Color(0xFF111111);
     final rider = Paint()..color = const Color(0xFF2255BB);
+    final shock = Paint()
+      ..color = const Color(0xFFCCDD77)
+      ..strokeWidth = 2.0
+      ..style = PaintingStyle.stroke;
     final wheelFill = Paint()..color = Colors.white;
     final wheelRim = Paint()
       ..color = Colors.black87
@@ -814,12 +830,18 @@ class Bike {
     final bodyTop = (rearPos + headPos) / 2.0;
     final seatPoint = headPos + Vector2(-1.2, 1.4);
     final tankPoint = (frontPos + headPos) / 2.0;
+    final rearShockTop = rearPos + (bodyTop - rearPos) * 0.58;
+    final frontShockTop = frontPos + (headPos - frontPos) * 0.54;
+    final rearShockBottom = rearPos + Vector2(1.0, -1.0);
+    final frontShockBottom = frontPos + Vector2(-1.0, -1.0);
 
     canvas.drawLine(_off(rearPos), _off(bodyTop), frame);
     canvas.drawLine(_off(bodyTop), _off(frontPos), frame);
     canvas.drawLine(_off(frontPos), _off(headPos), fork);
     canvas.drawLine(_off(rearPos), _off(headPos), frame);
     canvas.drawLine(_off(seatPoint), _off(seatPoint + Vector2(5.0, -0.8)), fork);
+    canvas.drawLine(_off(rearShockTop), _off(rearShockBottom), shock);
+    canvas.drawLine(_off(frontShockTop), _off(frontShockBottom), shock);
 
     final bodyPath = Path()
       ..moveTo(bodyTop.x - 4.0, bodyTop.y + 1.4)
