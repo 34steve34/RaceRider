@@ -237,7 +237,7 @@ class Bike {
   static const _twoWheelTiltLift = 0.85;
   static const _freePitchAuthority = 1.7;
   static const _maxTwoWheelNoseUpRate = 1.55;
-  static const _maxTwoWheelNoseDownRate = 0.18;
+  static const _maxTwoWheelNoseDownRate = 0.04;
   static const _maxFreePitchRate = 1.7;
   static const _airDrag = 0.06;
   static const _maxSpeed = 250.0;
@@ -444,7 +444,7 @@ class Bike {
       }
     }
 
-    _updateControlBlend();
+    _updateControlBlend(tilt);
 
     if (state == BikeState.crashed) {
       rearVel = (rearPos - oldRear) / dt;
@@ -502,9 +502,9 @@ class Bike {
         if (frame.length2 > 0.0001) {
           final frameDir = frame.normalized();
           final up = Vector2(frameDir.y, -frameDir.x);
-          final antiStoppie = up * 0.22 * dt;
+          final antiStoppie = up * 0.55 * dt;
           rearVel.sub(antiStoppie);
-          frontVel.add(antiStoppie * 0.15);
+          frontVel.add(antiStoppie * 0.08);
         }
       }
     } else {
@@ -565,9 +565,9 @@ class Bike {
       frontVel.add(loadShift);
       rearVel.sub(loadShift * (0.42 + 0.12 * wheelieBlend));
 
-      final settle = up * (-noseTilt * 0.22 * contactBlend);
+      final settle = up * (-noseTilt * 0.08 * contactBlend);
       frontVel.add(settle);
-      rearVel.add(settle * 0.02);
+      rearVel.add(settle * 0.0);
     }
 
     if (freePitchBlend > 0.001) {
@@ -762,17 +762,18 @@ class Bike {
     rearVel.sub(correction);
   }
 
-  void _updateControlBlend() {
+  void _updateControlBlend(double tilt) {
     double target;
     if (rearOnGround && frontOnGround) {
       final frontLightness =
           (1.0 - (frontCompression / max(_suspensionTravel, 0.0001)))
               .clamp(0.0, 1.0);
-      target = frontLightness * 0.22;
+      final backIntent = max(0.0, tilt);
+      target = frontLightness * backIntent * 0.32;
     } else if (rearOnGround) {
       target = 1.0;
     } else if (frontOnGround) {
-      target = 0.65;
+      target = 0.18;
     } else {
       target = 1.0;
     }
@@ -830,10 +831,12 @@ class Bike {
     final bodyTop = (rearPos + headPos) / 2.0;
     final seatPoint = headPos + Vector2(-1.2, 1.4);
     final tankPoint = (frontPos + headPos) / 2.0;
+    final rearVisualCompression = rearCompression * 8.0;
+    final frontVisualCompression = frontCompression * 8.0;
     final rearShockTop = rearPos + (bodyTop - rearPos) * 0.58;
     final frontShockTop = frontPos + (headPos - frontPos) * 0.54;
-    final rearShockBottom = rearPos + Vector2(1.0, -1.0);
-    final frontShockBottom = frontPos + Vector2(-1.0, -1.0);
+    final rearShockBottom = rearPos + Vector2(1.0, -1.0 - rearVisualCompression);
+    final frontShockBottom = frontPos + Vector2(-1.0, -1.0 - frontVisualCompression);
 
     canvas.drawLine(_off(rearPos), _off(bodyTop), frame);
     canvas.drawLine(_off(bodyTop), _off(frontPos), frame);
