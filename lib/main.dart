@@ -461,15 +461,12 @@ class Bike {
     // TRUE DECOUPLING: Rotate around the exact geometric center.
     final trueCenterLocal = (_rearLocal + _frontLocal + _headLocal) / 3.0;
 
-    // FIX: Changed the last parameter to accept the full SurfaceHit? object
-    // to prevent the dart2js compiler from panicking over the '?.' operator.
     void updatePoint(Vector2 localOffset, Vector2 currentVel, bool isGrounded, SurfaceHit? surface) {
       final currentAngle = angle;
       
       final worldRadius = (localOffset - trueCenterLocal)..rotate(currentAngle);
       final rotVel = Vector2(worldRadius.y, -worldRadius.x) * omega;
 
-      // Extract the normal safely inside the function
       if (isGrounded && surface != null) {
         double intoGround = rotVel.dot(surface.normal);
         if (intoGround < 0) rotVel.sub(surface.normal * intoGround);
@@ -478,7 +475,7 @@ class Bike {
       currentVel.setFrom(masterVel + rotVel);
     }
 
-    // Call the function passing the surface object directly (no ?.)
+    // Call the function passing the surface object directly
     updatePoint(_rearLocal, rearVel, rearOnGround, _rearSurface);
     updatePoint(_frontLocal, frontVel, frontOnGround, _frontSurface);
     updatePoint(_headLocal, headVel, false, null);
