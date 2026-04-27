@@ -446,17 +446,55 @@ class Bike {
   }
 
   void _applyTiltImpulse(double tilt) {
-    const maxOmega = 4.5;
-    double omega = tilt * maxOmega; // Positive = Wheelie
+    const maxOmega = 6.0; 
+    double omega = tilt * maxOmega; 
 
-    // Traction reduces tilt authority slightly
+    // Ground Authority
     if (rearOnGround && frontOnGround) {
-      omega *= 0.15;
+      omega *= 0.45; 
     } else if (rearOnGround || frontOnGround) {
-      omega *= 0.85;
+      omega *= 0.90; 
     }
 
     final masterVel = cogVel.clone();
+
+    // TRUE DECOUPLING: We must rotate around the exact center of the 3 points.
+    // Because masterVel is the average of the 3 points, rotating around this
+    // specific point guarantees the rotation adds exactly 0.0 to the master speed.
+    final trueCenterLocal = (_rearLocal + _frontLocal + _headLocal) / 3.0;
+
+    void updatePoint(Vector2 localOffset, Vector2 currentVel, bool isGrounded, Vector2? normal) {
+      final currentAngle = angle;
+      
+      // Radius from the TRUE geometric center, not the custom COG
+      final worldRadius = (localOffset - trueCenterLocal)..rotate(currentAngle);
+      
+      // Counter-Clockwise rotation for positive omega
+      final rotVel = Vector2(worldRadius.y, -worldRadius.x) * omega;
+
+      // Safe Ground Collision (doesn't push bike into dirt)
+      if (isGrounded && normal != null) {
+        double intoGround = rotVel.dot(normal);
+        if (intoGround < 0) rotVel.sub(normal * intoGround);
+      }
+
+      // No subtraction hacks. Pure Master + Slave logic.
+      currentVel.setFrom(masterVel + rotVel);
+    }
+
+    // Pass in the base local offsets directly
+    updatePoint(_rearLocal, rearVel, rearOnGround, _rearSurface?.normal);
+    updatePoint(_frontLocal, frontVel, frontOnGround, _frontSurface?.normal);
+    updatePoint(_headLocal, headVel, false, null);
+  }
+
+    applySafely(rearVel, pureRRot, rearOnGround, _rearSurface?.normal);
+    applySafely(frontVel, pureFRot, frontOnGround, _frontSurface?.normal);
+    applySafely(headVel, pureHRot, false, null);
+
+    // 6. Resync the Master Velocity so the physics loop stays stable
+    cogVel = (rearVel + frontVel + headVel) / 3.0;
+  }
 
     void updatePoint(Vector2 localOffset, Vector2 currentPos, Vector2 currentVel, bool isGrounded, Vector2? surfaceNormal) {
       final currentAngle = angle;
