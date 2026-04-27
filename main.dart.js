@@ -31247,7 +31247,7 @@ s===$&&A.c()
 i.c=s.U(0,i.r.T(0,a))
 i.t2(a,d)
 return}r=new A.E(new Float64Array(2))
-r.a_(0,250*a)
+r.a_(0,200*a)
 s=i.e
 s===$&&A.c()
 s.n(0,r)
@@ -31480,7 +31480,7 @@ p===$&&A.c()
 p=q.U(0,p)
 q=n.r
 q===$&&A.c()
-n=A.IJ(A.M_(B.vj,"RaceRider Prototype\nphysics v16 - Pure Master/Slave\nState: "+r.b+"\nSpeed: "+B.d.J(Math.sqrt(p.U(0,q).aT(0,3).gcd()),1)+"\nAngle: "+B.d.J(n.gtk(),2)+" rad"),B.w)
+n=A.IJ(A.M_(B.vj,"RaceRider Prototype\nphysics v17 - Pure Master/Slave\nState: "+r.b+"\nSpeed: "+B.d.J(Math.sqrt(p.U(0,q).aT(0,3).gcd()),1)+"\nAngle: "+B.d.J(n.gtk(),2)+" rad"),B.w)
 n.nA()
 n.bt(a,B.tG)}}
 A.qE.prototype={
