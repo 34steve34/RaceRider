@@ -558,67 +558,64 @@ class Bike {
 
   void _applyTiltImpulse(double tilt, {required double freePitchBlend}) {
     final frame = frontPos - rearPos;
-    if (frame.length2 <= 0.0001) {
-      return;
-    }
+    if (frame.length2 <= 0.0001) return;
 
-    // Calculate torque around COG based on tilt input
-    // Note: 'tilt' logic is now flipped in RaceRiderGame.update to match phone orientation
-    const maxTorque = 0.85; 
-    const torqueDamping = 0.35; 
+    // 1. Calculate base torque
+    const maxTorque = 0.75; 
+    double torque = tilt * maxTorque;
     
-    double torque;
+    // 2. Reduce authority based on state to prevent "jumping"
     if (rearOnGround && frontOnGround) {
-      torque = tilt * maxTorque * torqueDamping;
-    } else if (rearOnGround) {
-      torque = tilt * maxTorque * 1.25;
-    } else if (frontOnGround) {
-      torque = tilt * maxTorque * 0.7;
-    } else {
-      torque = tilt * maxTorque * 0.9;
+      torque *= 0.25; // Heavily dampen when both wheels are planted
+    } else if (rearOnGround || frontOnGround) {
+      torque *= 0.6;  // Partial dampening during wheelies/stoppies
     }
     
-    // Convert torque to angular acceleration
     const momentOfInertia = 2.5;
     final angularAccel = torque / momentOfInertia;
     
-    // Calculate tangential vectors relative to COG
+    // 3. Calculate tangential vectors
     final rearToCog = rearPos - cogPos;
     final frontToCog = frontPos - cogPos;
     final headToCog = headPos - cogPos;
     
-    // Perpendicular vectors (rotation)
     final rearTangential = Vector2(-rearToCog.y, rearToCog.x) * angularAccel;
     final frontTangential = Vector2(-frontToCog.y, frontToCog.x) * angularAccel;
     final headTangential = Vector2(-headToCog.y, headToCog.x) * angularAccel;
 
-    // --- ANTI-PROPULSION LOGIC ---
-    // Calculate the average linear force these vectors would accidentally create
-    // If we don't subtract this, the bike "cheats" and gains speed from thin air.
+    // 4. CLEAN ROTATION: Subtract the average push
     final netLinearPush = (rearTangential + frontTangential + headTangential) / 3.0;
     
     final pureRear = rearTangential - netLinearPush;
     final pureFront = frontTangential - netLinearPush;
     final pureHead = headTangential - netLinearPush;
-    // -----------------------------
 
+    // 5. GROUND PROTECTION: If a wheel is on the ground, 
+    // we must NOT allow the tilt to push it "into" the floor (which causes the jump).
+    if (rearOnGround && _rearSurface != null) {
+      // If the tilt wants to push the rear wheel into the ground (normal direction), kill that component
+      double pushIntoGround = pureRear.dot(_rearSurface!.normal);
+      if (pushIntoGround < 0) pureRear.sub(_rearSurface!.normal * pushIntoGround);
+    }
+    if (frontOnGround && _frontSurface != null) {
+      double pushIntoGround = pureFront.dot(_frontSurface!.normal);
+      if (pushIntoGround < 0) pureFront.sub(_frontSurface!.normal * pushIntoGround);
+    }
+
+    // 6. Apply the blended velocities
     final contactBlend = 1.0 - freePitchBlend;
-    
     if (contactBlend > 0.001) {
-      // Apply to wheels primarily when grounded
       rearVel.add(pureRear * contactBlend);
       frontVel.add(pureFront * contactBlend);
       headVel.add(pureHead * contactBlend * 0.3);
     }
     
     if (freePitchBlend > 0.001) {
-      // Apply to all points equally in mid-air
       rearVel.add(pureRear * freePitchBlend);
       frontVel.add(pureFront * freePitchBlend);
       headVel.add(pureHead * freePitchBlend);
     }
     
-    // Synchronize COG velocity
     cogVel = (rearVel + frontVel + headVel) / 3.0;
   }
 
