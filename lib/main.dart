@@ -19,7 +19,7 @@ void main() async {
 Offset _off(Vector2 v) => Offset(v.x, v.y);
 
 class RaceRiderGame extends FlameGame with TapCallbacks {
-  static const buildLabel = 'physics v14 - Decoupled Master/Slave';
+  static const buildLabel = 'physics v15 - Pure Master/Slave';
   late Bike player;
   late List<TrackSegment> trackSegments;
   double rawTilt = 0.0;
@@ -115,7 +115,7 @@ class RaceRiderGame extends FlameGame with TapCallbacks {
       tiltZero = rawTilt;
       tiltCalibrated = true;
     }
-    // Fixed logic: Removing negative sign for 'phone right side up = wheelie'
+    
     final normalized = ((rawTilt - tiltZero) / 5.5).clamp(-1.0, 1.0);
     smoothedTilt = smoothedTilt * 0.2 + normalized * 0.8;
     if (smoothedTilt.abs() < 0.05) {
@@ -365,7 +365,6 @@ class Bike {
     _applyDriveAndBrake(dt, gas, brake);
 
     // 4. THE DECOUPLER: Capture Master Linear Velocity
-    // This is the trajectory the bike wants to follow based on forces.
     cogVel = (rearVel + frontVel + headVel) / 3.0;
 
     // 5. Apply Rotation (Slave points pivot around the Master)
@@ -449,7 +448,6 @@ class Bike {
     const maxOmega = 6.0; 
     double omega = tilt * maxOmega; 
 
-    // Ground Authority
     if (rearOnGround && frontOnGround) {
       omega *= 0.45; 
     } else if (rearOnGround || frontOnGround) {
@@ -457,13 +455,10 @@ class Bike {
     }
 
     final masterVel = cogVel.clone();
-
-    // TRUE DECOUPLING: Rotate around the exact geometric center.
     final trueCenterLocal = (_rearLocal + _frontLocal + _headLocal) / 3.0;
 
     void updatePoint(Vector2 localOffset, Vector2 currentVel, bool isGrounded, SurfaceHit? surface) {
       final currentAngle = angle;
-      
       final worldRadius = (localOffset - trueCenterLocal)..rotate(currentAngle);
       final rotVel = Vector2(worldRadius.y, -worldRadius.x) * omega;
 
@@ -475,40 +470,9 @@ class Bike {
       currentVel.setFrom(masterVel + rotVel);
     }
 
-    // Call the function passing the surface object directly
     updatePoint(_rearLocal, rearVel, rearOnGround, _rearSurface);
     updatePoint(_frontLocal, frontVel, frontOnGround, _frontSurface);
     updatePoint(_headLocal, headVel, false, null);
-  }
-
-    applySafely(rearVel, pureRRot, rearOnGround, _rearSurface?.normal);
-    applySafely(frontVel, pureFRot, frontOnGround, _frontSurface?.normal);
-    applySafely(headVel, pureHRot, false, null);
-
-    // 6. Resync the Master Velocity so the physics loop stays stable
-    cogVel = (rearVel + frontVel + headVel) / 3.0;
-  }
-
-    void updatePoint(Vector2 localOffset, Vector2 currentPos, Vector2 currentVel, bool isGrounded, Vector2? surfaceNormal) {
-      final currentAngle = angle;
-      final worldRadius = localOffset.clone()..rotate(currentAngle);
-      
-      // Rotational velocity: Perpendicular to radius
-      // Vector2(y, -x) for Counter-Clockwise (Front-up) if omega is positive
-      final rotVel = Vector2(worldRadius.y, -worldRadius.x) * omega;
-
-      // ANTI-JUMP: Ground Normal Clipping
-      if (isGrounded && surfaceNormal != null) {
-        double intoGround = rotVel.dot(surfaceNormal);
-        if (intoGround < 0) rotVel.sub(surfaceNormal * intoGround);
-      }
-
-      currentVel.setFrom(masterVel + rotVel);
-    }
-
-    updatePoint(_rearLocal - _cogLocal, rearPos, rearVel, rearOnGround, _rearSurface?.normal);
-    updatePoint(_frontLocal - _cogLocal, frontPos, frontVel, frontOnGround, _frontSurface?.normal);
-    updatePoint(_headLocal - _cogLocal, headPos, headVel, false, null);
   }
 
   WheelContact? _solveWheelContact(Vector2 pos, Vector2 vel, List<TrackSegment> segs, {required bool allowAssist}) {
