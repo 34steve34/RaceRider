@@ -231,7 +231,7 @@ class WheelContact {
 enum BikeState { riding, crashed }
 
 class Bike {
-  static const _gravity = 800.0;
+  static const _gravity = 550.0;
   static const _rearDrive = 420.0;
   static const _brakePerWheel = 430.0;
   static const _coastDrag = 0.9;
@@ -445,8 +445,8 @@ class Bike {
   }
 
   void _applyTiltImpulse(double tilt) {
-    const maxOmega = 6.0; 
-    double omega = tilt * maxOmega; 
+    const maxOmega = 2.5; 
+    double omega = -tilt * maxOmega; 
 
     if (rearOnGround && frontOnGround) {
       omega *= 0.45; 
