@@ -19,7 +19,7 @@ void main() async {
 Offset _off(Vector2 v) => Offset(v.x, v.y);
 
 class RaceRiderGame extends FlameGame with TapCallbacks {
-  static const buildLabel = 'physics v12 - 2026-04-25';
+  static const buildLabel = 'physics v13 - 2026-04-25';
   late Bike player;
   late List<TrackSegment> trackSegments;
   double rawTilt = 0.0;
@@ -557,67 +557,64 @@ class Bike {
   }
 
   void _applyTiltImpulse(double tilt, {required double freePitchBlend}) {
-    final frame = frontPos - rearPos;
-    if (frame.length2 <= 0.0001) return;
+  // 1. SNAPSHOT ORIGINAL MOMENTUM
+  // We calculate the current average velocity. This is the "truth" 
+  // that tilt should NEVER be allowed to change.
+  final oldAvgVel = (rearVel + frontVel + headVel) / 3.0;
 
-    // 1. Calculate base torque
-    const maxTorque = 0.75; 
-    double torque = tilt * maxTorque;
-    
-    // 2. Reduce authority based on state to prevent "jumping"
-    if (rearOnGround && frontOnGround) {
-      torque *= 0.25; // Heavily dampen when both wheels are planted
-    } else if (rearOnGround || frontOnGround) {
-      torque *= 0.6;  // Partial dampening during wheelies/stoppies
-    }
-    
-    const momentOfInertia = 2.5;
-    final angularAccel = torque / momentOfInertia;
-    
-    // 3. Calculate tangential vectors
-    final rearToCog = rearPos - cogPos;
-    final frontToCog = frontPos - cogPos;
-    final headToCog = headPos - cogPos;
-    
-    final rearTangential = Vector2(-rearToCog.y, rearToCog.x) * angularAccel;
-    final frontTangential = Vector2(-frontToCog.y, frontToCog.x) * angularAccel;
-    final headTangential = Vector2(-headToCog.y, headToCog.x) * angularAccel;
+  // 2. DEFINE ROTATION
+  // Adjust this value to make the tilt feel more or less "snappy"
+  const double rotationPower = 3.8; 
+  double targetOmega = tilt * rotationPower;
 
-    // 4. CLEAN ROTATION: Subtract the average push
-    final netLinearPush = (rearTangential + frontTangential + headTangential) / 3.0;
-    
-    final pureRear = rearTangential - netLinearPush;
-    final pureFront = frontTangential - netLinearPush;
-    final pureHead = headTangential - netLinearPush;
-
-    // 5. GROUND PROTECTION: If a wheel is on the ground, 
-    // we must NOT allow the tilt to push it "into" the floor (which causes the jump).
-    if (rearOnGround && _rearSurface != null) {
-      // If the tilt wants to push the rear wheel into the ground (normal direction), kill that component
-      double pushIntoGround = pureRear.dot(_rearSurface!.normal);
-      if (pushIntoGround < 0) pureRear.sub(_rearSurface!.normal * pushIntoGround);
-    }
-    if (frontOnGround && _frontSurface != null) {
-      double pushIntoGround = pureFront.dot(_frontSurface!.normal);
-      if (pushIntoGround < 0) pureFront.sub(_frontSurface!.normal * pushIntoGround);
-    }
-
-    // 6. Apply the blended velocities
-    final contactBlend = 1.0 - freePitchBlend;
-    if (contactBlend > 0.001) {
-      rearVel.add(pureRear * contactBlend);
-      frontVel.add(pureFront * contactBlend);
-      headVel.add(pureHead * contactBlend * 0.3);
-    }
-    
-    if (freePitchBlend > 0.001) {
-      rearVel.add(pureRear * freePitchBlend);
-      frontVel.add(pureFront * freePitchBlend);
-      headVel.add(pureHead * freePitchBlend);
-    }
-    
-    cogVel = (rearVel + frontVel + headVel) / 3.0;
+  // Adjust authority based on ground contact
+  if (rearOnGround && frontOnGround) {
+    targetOmega *= 0.15; // Hard to tilt when both wheels are planted
+  } else if (rearOnGround || frontOnGround) {
+    targetOmega *= 0.7;  // Easier to wheelie
   }
+
+  // 3. APPLY PURE ROTATION
+  // This helper adds velocity only in a circle around the COG
+  void applyRotationToPoint(Vector2 pos, Vector2 vel) {
+    final relPos = pos - cogPos;
+    
+    // The tangential vector is perpendicular to the radius: (x, y) -> (-y, x)
+    final tangential = Vector2(-relPos.y, relPos.x) * targetOmega;
+    
+    // ANTI-JUMP: If a wheel is on the ground, don't let tilt push it "down"
+    // This prevents the physics engine from "bouncing" the bike into the air.
+    if (pos == rearPos && rearOnGround && _rearSurface != null) {
+      if (tangential.dot(_rearSurface!.normal) < 0) return;
+    }
+    if (pos == frontPos && frontOnGround && _frontSurface != null) {
+      if (tangential.dot(_frontSurface!.normal) < 0) return;
+    }
+
+    vel.add(tangential);
+  }
+
+  applyRotationToPoint(rearPos, rearVel);
+  applyRotationToPoint(frontPos, frontVel);
+  applyRotationToPoint(headPos, headVel);
+
+  // 4. THE MOMENTUM CORRECTION (The Fix for mid-air reversing)
+  // Calculate the new average velocity after the tilt impulses.
+  final newAvgVel = (rearVel + frontVel + headVel) / 3.0;
+  
+  // Calculate the "Error" (the accidental propulsion we just created).
+  final velocityError = newAvgVel - oldAvgVel;
+
+  // Subtract that error from every point. 
+  // This mathematically ensures the bike's COG continues on its 
+  // original path regardless of how much you spin it.
+  rearVel.sub(velocityError);
+  frontVel.sub(velocityError);
+  headVel.sub(velocityError);
+  
+  // Keep the COG velocity synced with the original "Truth"
+  cogVel.setFrom(oldAvgVel);
+}
 
   WheelContact? _solveWheelContact(
     Vector2 pos,
