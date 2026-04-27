@@ -31247,7 +31247,7 @@ s===$&&A.c()
 i.c=s.U(0,i.r.T(0,a))
 i.t2(a,d)
 return}r=new A.E(new Float64Array(2))
-r.a_(0,800*a)
+r.a_(0,550*a)
 s=i.e
 s===$&&A.c()
 s.n(0,r)
@@ -31307,7 +31307,7 @@ yK(a,b,c){var s,r=this.fR(b),q=a.bC(r)
 if(Math.abs(q)<0.001)return
 s=0.9*c
 a.n(0,r.T(0,(q>0?Math.max(0,q-s):Math.min(0,q+s))-q))},
-yM(a){var s,r,q,p,o=this,n={},m=n.a=a*6,l=o.y
+yM(a){var s,r,q,p,o=this,n={},m=n.a=-a*2.5,l=o.y
 if(l&&o.z)n.a=m*0.45
 else if(l||o.z)n.a=m*0.9
 l=o.w
