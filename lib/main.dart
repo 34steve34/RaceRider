@@ -256,14 +256,18 @@ class Bike {
   static final _rearLocal = Vector2(-7.0, 6.5);
   static final _frontLocal = Vector2(8.5, 6.5);
   static final _headLocal = Vector2(-3.5, -12.5);
+  // COG is low and rear-biased - positioned between head and rear wheel
+  static final _cogLocal = Vector2(-5.0, -3.0);
   static double get spawnBodyYOffset => _rearLocal.y + _wheelRadius;
 
   late Vector2 rearPos;
   late Vector2 frontPos;
   late Vector2 headPos;
+  late Vector2 cogPos;
   late Vector2 rearVel;
   late Vector2 frontVel;
   late Vector2 headVel;
+  late Vector2 cogVel;
 
   BikeState state = BikeState.riding;
   bool rearOnGround = false;
@@ -285,9 +289,11 @@ class Bike {
     rearPos = startPos + _rearLocal;
     frontPos = startPos + _frontLocal;
     headPos = startPos + _headLocal;
+    cogPos = startPos + _cogLocal;
     rearVel = Vector2.zero();
     frontVel = Vector2.zero();
     headVel = Vector2.zero();
+    cogVel = Vector2.zero();
     _wheelbase = (_frontLocal - _rearLocal).length;
     _headFromWheelCenter = _headLocal - (_rearLocal + _frontLocal) / 2.0;
   }
@@ -312,7 +318,7 @@ class Bike {
 
   bool get crashed => state == BikeState.crashed;
   bool get hasFiniteState {
-    final vectors = [rearPos, frontPos, headPos, rearVel, frontVel, headVel];
+    final vectors = [rearPos, frontPos, headPos, cogPos, rearVel, frontVel, headVel, cogVel];
     for (final v in vectors) {
       if (!v.x.isFinite || !v.y.isFinite) {
         return false;
@@ -334,10 +340,12 @@ class Bike {
     rearPos = rearHit.point + rearHit.normal * _wheelRadius;
     frontPos = frontHit.point + frontHit.normal * _wheelRadius;
     _alignHeadToFrame();
+    cogPos = (rearPos + frontPos + headPos) / 3.0;
 
     rearVel.setZero();
     frontVel.setZero();
     headVel.setZero();
+    cogVel.setZero();
     rearOnGround = true;
     frontOnGround = true;
     rearCompression = 0.0;
@@ -382,6 +390,7 @@ class Bike {
     rearVel.y += _gravity * dt;
     frontVel.y += _gravity * dt;
     headVel.y += _gravity * dt;
+    cogVel.y += _gravity * dt;
 
     _applyTiltImpulse(
       tilt,
@@ -393,6 +402,7 @@ class Bike {
     rearPos += rearVel * dt;
     frontPos += frontVel * dt;
     headPos += headVel * dt;
+    cogPos += cogVel * dt;
 
     final wasAirborne = !(rearOnGround || frontOnGround);
     rearOnGround = false;
@@ -450,6 +460,7 @@ class Bike {
       rearVel = (rearPos - oldRear) / dt;
       frontVel = (frontPos - oldFront) / dt;
       headVel = (rearVel + frontVel) * 0.5;
+      cogVel = (rearVel + frontVel + headVel) / 3.0;
       _updateWheelRotation(dt, brake);
       return;
     }
@@ -458,13 +469,15 @@ class Bike {
     frontVel = (frontPos - oldFront) / dt;
     _alignHeadToFrame();
     headVel = (rearVel + frontVel) * 0.5;
+    cogVel = (rearVel + frontVel + headVel) / 3.0;
 
     if (!rearOnGround && !frontOnGround) {
-      final avg = (rearVel + frontVel + headVel) / 3.0;
+      final avg = (rearVel + frontVel + headVel + cogVel) / 4.0;
       const spinRetention = 0.87;
       rearVel = avg + (rearVel - avg) * spinRetention;
       frontVel = avg + (frontVel - avg) * spinRetention;
       headVel = avg + (headVel - avg) * spinRetention;
+      cogVel = avg + (cogVel - avg) * spinRetention;
     }
 
     _rearSurface = rearSurface;
@@ -476,6 +489,7 @@ class Bike {
     rearVel *= damp;
     frontVel *= damp;
     headVel *= damp;
+    cogVel *= damp;
     _capSpeed();
 
     _updateWheelRotation(dt, brake);
@@ -550,31 +564,62 @@ class Bike {
 
     final frameDir = frame.normalized();
     final up = Vector2(frameDir.y, -frameDir.x);
-    final backTilt = max(0.0, tilt);
-    final noseTilt = max(0.0, -tilt);
+    
+    // Calculate torque around COG based on tilt input
+    // Tilt range: -1.0 (nose down) to 1.0 (wheelie)
+    const maxTorque = 0.8; // Reduced for smoother control
+    const torqueDamping = 0.3; // Dampen torque when both wheels grounded
+    
+    // Apply different torque based on grounding state
+    double torque;
+    if (rearOnGround && frontOnGround) {
+      // Both wheels grounded - reduced torque for stability
+      torque = tilt * maxTorque * torqueDamping;
+    } else if (rearOnGround) {
+      // Wheelie mode - full rear wheel torque
+      torque = tilt * maxTorque * 1.2;
+    } else if (frontOnGround) {
+      // Stoppie mode - reduced front wheel torque  
+      torque = tilt * maxTorque * 0.6;
+    } else {
+      // Airborne - moderate torque
+      torque = tilt * maxTorque * 0.8;
+    }
+    
+    // Apply torque as angular acceleration around COG
+    // Moment of inertia approximation based on mass distribution
+    const momentOfInertia = 2.5;
+    const angularAccel = torque / momentOfInertia;
+    
+    // Convert angular acceleration to linear acceleration at wheel positions
+    final rearToCog = rearPos - cogPos;
+    final frontToCog = frontPos - cogPos;
+    final headToCog = headPos - cogPos;
+    
+    // Tangential acceleration = angularAccel * distance
+    final rearTangential = Vector2(-rearToCog.y, rearToCog.x) * angularAccel;
+    final frontTangential = Vector2(-frontToCog.y, frontToCog.x) * angularAccel;
+    final headTangential = Vector2(-headToCog.y, headToCog.x) * angularAccel;
+    
+    // Apply forces with blending
     final contactBlend = 1.0 - freePitchBlend;
-
+    
     if (contactBlend > 0.001) {
-      // While both wheels still influence the bike, tilt should feel smooth and
-      // progressive rather than binary at the lift-off threshold.
-      final wheelieBlend = ((backTilt - 0.04) / 0.10).clamp(0.0, 1.0);
-      final loadShift = up *
-          (backTilt *
-              (_twoWheelTiltLift + 1.15 * wheelieBlend) *
-              contactBlend);
-      frontVel.add(loadShift);
-      rearVel.sub(loadShift * (0.42 + 0.12 * wheelieBlend));
-
-      final settle = up * (-noseTilt * 0.08 * contactBlend);
-      frontVel.add(settle);
-      rearVel.add(settle * 0.0);
+      // Both wheels influence - smooth transition
+      rearVel.add(rearTangential * contactBlend);
+      frontVel.add(frontTangential * contactBlend);
+      headVel.add(headTangential * contactBlend * 0.3);
     }
-
+    
     if (freePitchBlend > 0.001) {
-      final pitch = up * (tilt * _freePitchAuthority * freePitchBlend);
-      frontVel.add(pitch);
-      rearVel.sub(pitch);
+      // Free pitch mode - apply to all points
+      rearVel.add(rearTangential * freePitchBlend);
+      frontVel.add(frontTangential * freePitchBlend);
+      headVel.add(headTangential * freePitchBlend);
     }
+    
+    // Update COG velocity as average of connected points
+    cogVel = (rearVel + frontVel + headVel) / 3.0;
   }
 
   WheelContact? _solveWheelContact(
@@ -725,7 +770,7 @@ class Bike {
   }
 
   void _capSpeed() {
-    final avgVelocity = (rearVel + frontVel + headVel) / 3.0;
+    final avgVelocity = (rearVel + frontVel + headVel + cogVel) / 4.0;
     final speed = avgVelocity.length;
     if (speed <= _maxSpeed || speed == 0.0) {
       return;
@@ -735,6 +780,7 @@ class Bike {
     rearVel.scale(scale);
     frontVel.scale(scale);
     headVel.scale(scale);
+    cogVel.scale(scale);
   }
 
   void _limitPitchRate({required bool twoWheelGrounded}) {
