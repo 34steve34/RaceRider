@@ -115,7 +115,7 @@ class RaceRiderGame extends FlameGame with TapCallbacks {
       tiltZero = rawTilt;
       tiltCalibrated = true;
     }
-    final normalized = (-(rawTilt - tiltZero) / 5.5).clamp(-1.0, 1.0);
+    final normalized = ((rawTilt - tiltZero) / 5.5).clamp(-1.0, 1.0);
     smoothedTilt = smoothedTilt * 0.2 + normalized * 0.8;
     if (smoothedTilt.abs() < 0.05) {
       smoothedTilt = 0.0;
@@ -562,63 +562,63 @@ class Bike {
       return;
     }
 
-    final frameDir = frame.normalized();
-    final up = Vector2(frameDir.y, -frameDir.x);
-    
     // Calculate torque around COG based on tilt input
-    // Tilt range: -1.0 (nose down) to 1.0 (wheelie)
-    const maxTorque = 0.8; // Reduced for smoother control
-    const torqueDamping = 0.3; // Dampen torque when both wheels grounded
+    // Note: 'tilt' logic is now flipped in RaceRiderGame.update to match phone orientation
+    const maxTorque = 0.85; 
+    const torqueDamping = 0.35; 
     
-    // Apply different torque based on grounding state
     double torque;
     if (rearOnGround && frontOnGround) {
-      // Both wheels grounded - reduced torque for stability
       torque = tilt * maxTorque * torqueDamping;
     } else if (rearOnGround) {
-      // Wheelie mode - full rear wheel torque
-      torque = tilt * maxTorque * 1.2;
+      torque = tilt * maxTorque * 1.25;
     } else if (frontOnGround) {
-      // Stoppie mode - reduced front wheel torque  
-      torque = tilt * maxTorque * 0.6;
+      torque = tilt * maxTorque * 0.7;
     } else {
-      // Airborne - moderate torque
-      torque = tilt * maxTorque * 0.8;
+      torque = tilt * maxTorque * 0.9;
     }
     
-    // Apply torque as angular acceleration around COG
-    // Moment of inertia approximation based on mass distribution
+    // Convert torque to angular acceleration
     const momentOfInertia = 2.5;
     final angularAccel = torque / momentOfInertia;
     
-    // Convert angular acceleration to linear acceleration at wheel positions
+    // Calculate tangential vectors relative to COG
     final rearToCog = rearPos - cogPos;
     final frontToCog = frontPos - cogPos;
     final headToCog = headPos - cogPos;
     
-    // Tangential acceleration = angularAccel * distance
+    // Perpendicular vectors (rotation)
     final rearTangential = Vector2(-rearToCog.y, rearToCog.x) * angularAccel;
     final frontTangential = Vector2(-frontToCog.y, frontToCog.x) * angularAccel;
     final headTangential = Vector2(-headToCog.y, headToCog.x) * angularAccel;
+
+    // --- ANTI-PROPULSION LOGIC ---
+    // Calculate the average linear force these vectors would accidentally create
+    // If we don't subtract this, the bike "cheats" and gains speed from thin air.
+    final netLinearPush = (rearTangential + frontTangential + headTangential) / 3.0;
     
-    // Apply forces with blending
+    final pureRear = rearTangential - netLinearPush;
+    final pureFront = frontTangential - netLinearPush;
+    final pureHead = headTangential - netLinearPush;
+    // -----------------------------
+
     final contactBlend = 1.0 - freePitchBlend;
     
     if (contactBlend > 0.001) {
-      // Both wheels influence - smooth transition
-      rearVel.add(rearTangential * contactBlend);
-      frontVel.add(frontTangential * contactBlend);
-      headVel.add(headTangential * contactBlend * 0.3);
+      // Apply to wheels primarily when grounded
+      rearVel.add(pureRear * contactBlend);
+      frontVel.add(pureFront * contactBlend);
+      headVel.add(pureHead * contactBlend * 0.3);
     }
     
     if (freePitchBlend > 0.001) {
-      // Free pitch mode - apply to all points
-      rearVel.add(rearTangential * freePitchBlend);
-      frontVel.add(frontTangential * freePitchBlend);
-      headVel.add(headTangential * freePitchBlend);
+      // Apply to all points equally in mid-air
+      rearVel.add(pureRear * freePitchBlend);
+      frontVel.add(pureFront * freePitchBlend);
+      headVel.add(pureHead * freePitchBlend);
     }
     
-    // Update COG velocity as average of connected points
+    // Synchronize COG velocity
     cogVel = (rearVel + frontVel + headVel) / 3.0;
   }
 
