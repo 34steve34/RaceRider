@@ -589,7 +589,7 @@ class Bike {
     // Apply torque as angular acceleration around COG
     // Moment of inertia approximation based on mass distribution
     const momentOfInertia = 2.5;
-    const angularAccel = torque / momentOfInertia;
+    final angularAccel = torque / momentOfInertia;
     
     // Convert angular acceleration to linear acceleration at wheel positions
     final rearToCog = rearPos - cogPos;
