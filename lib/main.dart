@@ -458,33 +458,29 @@ class Bike {
 
     final masterVel = cogVel.clone();
 
-    // TRUE DECOUPLING: We must rotate around the exact center of the 3 points.
-    // Because masterVel is the average of the 3 points, rotating around this
-    // specific point guarantees the rotation adds exactly 0.0 to the master speed.
+    // TRUE DECOUPLING: Rotate around the exact geometric center.
     final trueCenterLocal = (_rearLocal + _frontLocal + _headLocal) / 3.0;
 
-    void updatePoint(Vector2 localOffset, Vector2 currentVel, bool isGrounded, Vector2? normal) {
+    // FIX: Changed the last parameter to accept the full SurfaceHit? object
+    // to prevent the dart2js compiler from panicking over the '?.' operator.
+    void updatePoint(Vector2 localOffset, Vector2 currentVel, bool isGrounded, SurfaceHit? surface) {
       final currentAngle = angle;
       
-      // Radius from the TRUE geometric center, not the custom COG
       final worldRadius = (localOffset - trueCenterLocal)..rotate(currentAngle);
-      
-      // Counter-Clockwise rotation for positive omega
       final rotVel = Vector2(worldRadius.y, -worldRadius.x) * omega;
 
-      // Safe Ground Collision (doesn't push bike into dirt)
-      if (isGrounded && normal != null) {
-        double intoGround = rotVel.dot(normal);
-        if (intoGround < 0) rotVel.sub(normal * intoGround);
+      // Extract the normal safely inside the function
+      if (isGrounded && surface != null) {
+        double intoGround = rotVel.dot(surface.normal);
+        if (intoGround < 0) rotVel.sub(surface.normal * intoGround);
       }
 
-      // No subtraction hacks. Pure Master + Slave logic.
       currentVel.setFrom(masterVel + rotVel);
     }
 
-    // Pass in the base local offsets directly
-    updatePoint(_rearLocal, rearVel, rearOnGround, _rearSurface?.normal);
-    updatePoint(_frontLocal, frontVel, frontOnGround, _frontSurface?.normal);
+    // Call the function passing the surface object directly (no ?.)
+    updatePoint(_rearLocal, rearVel, rearOnGround, _rearSurface);
+    updatePoint(_frontLocal, frontVel, frontOnGround, _frontSurface);
     updatePoint(_headLocal, headVel, false, null);
   }
 
