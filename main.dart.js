@@ -31480,7 +31480,7 @@ p===$&&A.c()
 p=q.U(0,p)
 q=n.r
 q===$&&A.c()
-n=A.IJ(A.M_(B.vj,"RaceRider Prototype\nphysics v17 - Pure Master/Slave\nState: "+r.b+"\nSpeed: "+B.d.J(Math.sqrt(p.U(0,q).aT(0,3).gcd()),1)+"\nAngle: "+B.d.J(n.gtk(),2)+" rad"),B.w)
+n=A.IJ(A.M_(B.vj,"RaceRider Prototype\nphysics v18 - Pure Master/Slave\nState: "+r.b+"\nSpeed: "+B.d.J(Math.sqrt(p.U(0,q).aT(0,3).gcd()),1)+"\nAngle: "+B.d.J(n.gtk(),2)+" rad"),B.w)
 n.nA()
 n.bt(a,B.tG)}}
 A.qE.prototype={
@@ -34396,7 +34396,7 @@ r($,"Xf","JP",()=>new A.rm(B.w9,B.y))
 s($,"Yu","Pm",()=>new A.Ax(A.u(t.N,A.a5("T<aF?>?(aF?)"))))
 s($,"Wn","JI",()=>A.ze(""))
 s($,"Wr","HQ",()=>A.Qf())
-s($,"W_","uD",()=>A.DO(-7,6.5))
+s($,"W_","uD",()=>A.DO(-9.5,6.5))
 s($,"VY","JF",()=>A.DO(8.5,6.5))
 s($,"VZ","JG",()=>A.DO(-3.5,-12.5))
 s($,"VX","O0",()=>A.DO(-5,-3))
