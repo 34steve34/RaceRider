@@ -249,13 +249,15 @@ class Bike {
 
   static final _rearLocal = Vector2(-9.5, 6.5);
   static final _frontLocal = Vector2(8.5, 6.5);
-  static final _headLocal = Vector2(-6.0, -12.5);
+  static final _headLocal = Vector2(-6.0, -12.5); // Physics head for COG tuning
+  static final _collisionHeadLocal = Vector2(-3.5, -12.5); // Collision head for crash detection
   static final _cogLocal = Vector2(-5.0, -3.0);
   static double get spawnBodyYOffset => _rearLocal.y + _wheelRadius;
 
   late Vector2 rearPos;
   late Vector2 frontPos;
-  late Vector2 headPos;
+  late Vector2 headPos; // Physics head
+  late Vector2 collisionHeadPos; // Collision head for crash detection
   late Vector2 cogPos;
   late Vector2 rearVel;
   late Vector2 frontVel;
@@ -283,7 +285,8 @@ class Bike {
   Bike(Vector2 startPos) {
     rearPos = startPos + _rearLocal;
     frontPos = startPos + _frontLocal;
-    headPos = startPos + _headLocal;
+    headPos = startPos + _headLocal; // Physics head
+    collisionHeadPos = startPos + _collisionHeadLocal; // Collision head
     cogPos = startPos + _cogLocal;
     rearVel = Vector2.zero();
     frontVel = Vector2.zero();
@@ -295,7 +298,7 @@ class Bike {
     _headFromWheelCenter = _headLocal - (_rearLocal + _frontLocal) / 2.0;
   }
 
-  Vector2 get position => (rearPos * 1.8 + frontPos * 1.2 + headPos * 0.5) / 3.5;
+  Vector2 get position => (rearPos * 1.8 + frontPos * 1.2 + headPos * 0.5) / 3.5; // Uses physics head
 
   double get angle {
     final axis = frontPos - rearPos;
@@ -305,7 +308,7 @@ class Bike {
   double get speed => ((rearVel + frontVel + headVel) / 3.0).length;
 
   bool get hasFiniteState {
-    final vectors = [rearPos, frontPos, headPos, cogPos, rearVel, frontVel, headVel, cogVel];
+    final vectors = [rearPos, frontPos, headPos, collisionHeadPos, cogPos, rearVel, frontVel, headVel, cogVel];
     for (final v in vectors) {
       if (!v.x.isFinite || !v.y.isFinite) return false;
     }
@@ -326,6 +329,8 @@ class Bike {
     frontVel.setZero();
     headVel.setZero();
     cogVel.setZero();
+    // Initialize collision head velocity
+    collisionHeadPos = (rearPos + frontPos) / 2.0 + Vector2(-3.5, -12.5)..rotate(angle);
     rearOnGround = true;
     frontOnGround = true;
     _rearSurface = rearHit;
@@ -347,7 +352,7 @@ class Bike {
       headVel *= 0.99;
       rearPos += rearVel * dt;
       frontPos += frontVel * dt;
-      headPos += headVel * dt;
+      collisionHeadPos += collisionHeadVel * dt;
       _updateWheelRotation(dt, brake);
       return;
     }
@@ -394,6 +399,8 @@ class Bike {
     final currentAngle2 = angle;
     final frameCenter2 = (rearPos + frontPos) / 2.0;
     cogPos = frameCenter2 + (Vector2(-5.0, -3.0)..rotate(currentAngle2));
+    // Update collision head position
+    collisionHeadPos = frameCenter2 + (Vector2(-3.5, -12.5)..rotate(currentAngle2));
 
     // 8. Friction and Speed Cap
     final damp = max(0.0, 1.0 - _airDrag * dt);
@@ -522,7 +529,7 @@ class Bike {
   }
 
   bool _headHitsTrack(List<TrackSegment> segs) {
-    final hit = _nearestSurface(headPos, segs);
+    final hit = _nearestSurface(collisionHeadPos, segs); // Use collision head for crash detection
     return hit != null && hit.distance < _headRadius;
   }
 
@@ -616,13 +623,14 @@ class Bike {
     canvas.drawCircle(_off(rearPos), _wheelRadius, wheelRim);
     canvas.drawCircle(_off(frontPos), _wheelRadius, wheelRim);
     canvas.drawLine(_off(rearPos), _off(frontPos), frame);
-    canvas.drawLine(_off(rearPos), _off(headPos), frame);
+    canvas.drawLine(_off(rearPos), _off(headPos), frame); // Draw physics head (lighter)
     canvas.drawLine(_off(frontPos), _off(headPos), frame);
-    canvas.drawCircle(_off(headPos), _headRadius, rider);
+    canvas.drawCircle(_off(headPos), _headRadius, rider); // Draw physics head
+    canvas.drawCircle(_off(collisionHeadPos), _headRadius, rider.withOpacity(0.3)); // Draw collision head (semi-transparent)
     canvas.drawCircle(_off(cogPos), 1.5, cogDot);
 
     if (state == BikeState.crashed) {
-      TextPainter(textDirection: TextDirection.ltr, text: const TextSpan(text: 'CRASHED', style: TextStyle(color: Colors.redAccent, fontSize: 10, fontWeight: FontWeight.bold)))..layout()..paint(canvas, _off(headPos + Vector2(-14, -16)));
+      TextPainter(textDirection: TextDirection.ltr, text: const TextSpan(text: 'CRASHED', style: TextStyle(color: Colors.redAccent, fontSize: 10, fontWeight: FontWeight.bold)))..layout()..paint(canvas, _off(collisionHeadPos + Vector2(-14, -16)));
     }
   }
 }
