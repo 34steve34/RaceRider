@@ -19,7 +19,7 @@ void main() async {
 Offset _off(Vector2 v) => Offset(v.x, v.y);
 
 class RaceRiderGame extends FlameGame with TapCallbacks {
-  static const buildLabel = 'physics v19 - Pure Master/Slave';
+  static const buildLabel = 'physics v20 - Pure Master/Slave';
   late Bike player;
   late List<TrackSegment> trackSegments;
   double rawTilt = 0.0;
@@ -352,11 +352,15 @@ class Bike {
       return;
     }
 
-    // 1. Apply Gravity (Linear Force)
+    // 1. Apply Gravity at sCOG
     final grav = Vector2(0, _gravity * dt);
-    rearVel.add(grav);
-    frontVel.add(grav);
-    headVel.add(grav);
+    // Apply gravity to sCOG velocity and distribute to points
+    final sCOGVel = (rearVel + frontVel + headVel) / 3.0;
+    sCOGVel.add(grav);
+    // Distribute sCOG velocity back to individual points
+    rearVel.setFrom(sCOGVel.clone());
+    frontVel.setFrom(sCOGVel.clone());
+    headVel.setFrom(sCOGVel.clone());
 
     // 2. Ground Detection & Interaction
     _updateGroundedStatus(segs);
@@ -464,13 +468,11 @@ class Bike {
     }
 
     final masterVel = cogVel.clone();
-    // Use sCOG (simulated COG) as rotation center instead of geometric center
-    final currentAngle = angle;
-    final frameCenter = (rearPos + frontPos) / 2.0;
-    final sCOGWorld = frameCenter + (Vector2(-5.0, -3.0)..rotate(currentAngle));
+    final trueCenterLocal = (_rearLocal + _frontLocal + _headLocal) / 3.0;
 
     void updatePoint(Vector2 localOffset, Vector2 currentVel, bool isGrounded, SurfaceHit? surface) {
-      final worldRadius = (localOffset - Vector2(-5.0, -3.0))..rotate(currentAngle);
+      final currentAngle = angle;
+      final worldRadius = (localOffset - trueCenterLocal)..rotate(currentAngle);
       final rotVel = Vector2(worldRadius.y, -worldRadius.x) * omega;
 
       if (isGrounded && surface != null) {
