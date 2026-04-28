@@ -376,7 +376,8 @@ class Bike {
     headPos.add(headVel * dt);
     // Update sCOG position for rendering
     final currentAngle = angle;
-    cogPos = (rearPos + frontPos + headPos) / 3.0 + Vector2(-5.0, -3.0)..rotate(currentAngle);
+    final frameCenter = (rearPos + frontPos) / 2.0;
+    cogPos = frameCenter + Vector2(-5.0, -3.0)..rotate(currentAngle);
 
     // 7. Solve Hard Constraints
     for (int i = 0; i < 5; i++) {
