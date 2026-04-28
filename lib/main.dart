@@ -598,6 +598,7 @@ class Bike {
     final frame = Paint()..color = const Color(0xFF333333)..strokeWidth = 3.0..style = PaintingStyle.stroke;
     final rider = Paint()..color = const Color(0xFF2255BB);
     final wheelRim = Paint()..color = Colors.black87..style = PaintingStyle.stroke..strokeWidth = 3.0;
+    final cogDot = Paint()..color = const Color(0xFFFF00FF)..style = PaintingStyle.fill;
 
     canvas.drawCircle(_off(rearPos), _wheelRadius, wheelRim);
     canvas.drawCircle(_off(frontPos), _wheelRadius, wheelRim);
@@ -605,6 +606,7 @@ class Bike {
     canvas.drawLine(_off(rearPos), _off(headPos), frame);
     canvas.drawLine(_off(frontPos), _off(headPos), frame);
     canvas.drawCircle(_off(headPos), _headRadius, rider);
+    canvas.drawCircle(_off(cogPos), 1.5, cogDot);
 
     if (state == BikeState.crashed) {
       TextPainter(textDirection: TextDirection.ltr, text: const TextSpan(text: 'CRASHED', style: TextStyle(color: Colors.redAccent, fontSize: 10, fontWeight: FontWeight.bold)))..layout()..paint(canvas, _off(headPos + Vector2(-14, -16)));
