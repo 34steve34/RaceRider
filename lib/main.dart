@@ -19,7 +19,7 @@ void main() async {
 Offset _off(Vector2 v) => Offset(v.x, v.y);
 
 class RaceRiderGame extends FlameGame with TapCallbacks {
-  static const buildLabel = 'physics v22 - Pure Master/Slave';
+  static const buildLabel = 'physics v23 - Pure Master/Slave';
   late Bike player;
   late List<TrackSegment> trackSegments;
   double rawTilt = 0.0;
@@ -458,7 +458,7 @@ class Bike {
   }
 
   void _applyTiltImpulse(double tilt) {
-    const maxOmega = 2.5; 
+    const maxOmega = 4.0; // Increased for faster rotation
     double omega = -tilt * maxOmega; 
 
     if (rearOnGround && frontOnGround) {
@@ -468,11 +468,23 @@ class Bike {
     }
 
     final masterVel = cogVel.clone();
-    final trueCenterLocal = (_rearLocal + _frontLocal + _headLocal) / 3.0;
-
+    
+    // COGr (COG of Rotation) - positioned near rear wheel, just above wheel line
+    final currentAngle = angle;
+    final coGrLocal = Vector2(-8.0, 2.0); // Near rear wheel, slightly above
+    final frameCenter = (rearPos + frontPos) / 2.0;
+    final coGrWorld = frameCenter + (coGrLocal..rotate(currentAngle));
+    
+    // Calculate rotation forces around COGr
     void updatePoint(Vector2 localOffset, Vector2 currentVel, bool isGrounded, SurfaceHit? surface) {
-      final currentAngle = angle;
-      final worldRadius = (localOffset - trueCenterLocal)..rotate(currentAngle);
+      // Get world position of this point
+      final pointWorld = Vector2.zero();
+      if (localOffset == _rearLocal) pointWorld.setFrom(rearPos);
+      else if (localOffset == _frontLocal) pointWorld.setFrom(frontPos);
+      else pointWorld.setFrom(headPos);
+      
+      // Radius from COGr to this point
+      final worldRadius = pointWorld - coGrWorld;
       final rotVel = Vector2(worldRadius.y, -worldRadius.x) * omega;
 
       if (isGrounded && surface != null) {
@@ -480,6 +492,7 @@ class Bike {
         if (intoGround < 0) rotVel.sub(surface.normal * intoGround);
       }
 
+      // Apply rotation force to actual COG velocity, then distribute
       currentVel.setFrom(masterVel + rotVel);
     }
 
