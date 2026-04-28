@@ -19,7 +19,7 @@ void main() async {
 Offset _off(Vector2 v) => Offset(v.x, v.y);
 
 class RaceRiderGame extends FlameGame with TapCallbacks {
-  static const buildLabel = 'physics v20 - Pure Master/Slave';
+  static const buildLabel = 'physics v21 - Pure Master/Slave';
   late Bike player;
   late List<TrackSegment> trackSegments;
   double rawTilt = 0.0;
@@ -468,11 +468,19 @@ class Bike {
     }
 
     final masterVel = cogVel.clone();
-    final trueCenterLocal = (_rearLocal + _frontLocal + _headLocal) / 3.0;
+    // Use sCOG as rotation center
+    final currentAngle = angle;
+    final frameCenter = (rearPos + frontPos) / 2.0;
+    final sCOGWorld = frameCenter + (Vector2(-5.0, -3.0)..rotate(currentAngle));
 
     void updatePoint(Vector2 localOffset, Vector2 currentVel, bool isGrounded, SurfaceHit? surface) {
-      final currentAngle = angle;
-      final worldRadius = (localOffset - trueCenterLocal)..rotate(currentAngle);
+      // Calculate radius from sCOG to this point
+      final pointWorld = Vector2.zero();
+      if (localOffset == _rearLocal) pointWorld.setFrom(rearPos);
+      else if (localOffset == _frontLocal) pointWorld.setFrom(frontPos);
+      else pointWorld.setFrom(headPos);
+      
+      final worldRadius = pointWorld - sCOGWorld;
       final rotVel = Vector2(worldRadius.y, -worldRadius.x) * omega;
 
       if (isGrounded && surface != null) {
