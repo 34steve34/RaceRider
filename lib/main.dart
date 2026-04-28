@@ -377,7 +377,7 @@ class Bike {
     // Update sCOG position for rendering
     final currentAngle = angle;
     final frameCenter = (rearPos + frontPos) / 2.0;
-    cogPos = frameCenter + Vector2(-5.0, -3.0)..rotate(currentAngle);
+    cogPos = frameCenter + (Vector2(-5.0, -3.0)..rotate(currentAngle));
 
     // 7. Solve Hard Constraints
     for (int i = 0; i < 5; i++) {
