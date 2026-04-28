@@ -19,7 +19,7 @@ void main() async {
 Offset _off(Vector2 v) => Offset(v.x, v.y);
 
 class RaceRiderGame extends FlameGame with TapCallbacks {
-  static const buildLabel = 'physics v23 - Pure Master/Slave';
+  static const buildLabel = 'physics v24 - Pure Master/Slave';
   late Bike player;
   late List<TrackSegment> trackSegments;
   double rawTilt = 0.0;
@@ -249,7 +249,7 @@ class Bike {
 
   static final _rearLocal = Vector2(-9.5, 6.5);
   static final _frontLocal = Vector2(8.5, 6.5);
-  static final _headLocal = Vector2(0.0, -12.5);
+  static final _headLocal = Vector2(-6.0, -12.5);
   static final _cogLocal = Vector2(-5.0, -3.0);
   static double get spawnBodyYOffset => _rearLocal.y + _wheelRadius;
 
@@ -458,7 +458,7 @@ class Bike {
   }
 
   void _applyTiltImpulse(double tilt) {
-    const maxOmega = 4.0; // Increased for faster rotation
+    const maxOmega = 4.0; // Faster rotation
     double omega = -tilt * maxOmega; 
 
     if (rearOnGround && frontOnGround) {
@@ -468,23 +468,11 @@ class Bike {
     }
 
     final masterVel = cogVel.clone();
-    
-    // COGr (COG of Rotation) - positioned near rear wheel, just above wheel line
-    final currentAngle = angle;
-    final coGrLocal = Vector2(-8.0, 2.0); // Near rear wheel, slightly above
-    final frameCenter = (rearPos + frontPos) / 2.0;
-    final coGrWorld = frameCenter + (coGrLocal..rotate(currentAngle));
-    
-    // Calculate rotation forces around COGr
+    final trueCenterLocal = (_rearLocal + _frontLocal + _headLocal) / 3.0;
+
     void updatePoint(Vector2 localOffset, Vector2 currentVel, bool isGrounded, SurfaceHit? surface) {
-      // Get world position of this point
-      final pointWorld = Vector2.zero();
-      if (localOffset == _rearLocal) pointWorld.setFrom(rearPos);
-      else if (localOffset == _frontLocal) pointWorld.setFrom(frontPos);
-      else pointWorld.setFrom(headPos);
-      
-      // Radius from COGr to this point
-      final worldRadius = pointWorld - coGrWorld;
+      final currentAngle = angle;
+      final worldRadius = (localOffset - trueCenterLocal)..rotate(currentAngle);
       final rotVel = Vector2(worldRadius.y, -worldRadius.x) * omega;
 
       if (isGrounded && surface != null) {
@@ -492,7 +480,6 @@ class Bike {
         if (intoGround < 0) rotVel.sub(surface.normal * intoGround);
       }
 
-      // Apply rotation force to actual COG velocity, then distribute
       currentVel.setFrom(masterVel + rotVel);
     }
 
