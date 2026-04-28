@@ -31288,9 +31288,8 @@ m=g.gmv()
 l=g.a.T(0,g.b).aP(0,2)
 s=new A.E(new Float64Array(2))
 s.V(-5,-3)
-s=l.T(0,s)
 A.IO(s,m)
-g.d=s
+g.d=l.T(0,s)
 for(k=0;k<5;++k){s=g.a
 j=g.b
 i=g.db
