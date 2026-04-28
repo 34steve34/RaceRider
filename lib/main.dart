@@ -19,7 +19,7 @@ void main() async {
 Offset _off(Vector2 v) => Offset(v.x, v.y);
 
 class RaceRiderGame extends FlameGame with TapCallbacks {
-  static const buildLabel = 'physics v24 - Pure Master/Slave';
+  static const buildLabel = 'physics v25 - Pure Master/Slave';
   late Bike player;
   late List<TrackSegment> trackSegments;
   double rawTilt = 0.0;
@@ -262,6 +262,7 @@ class Bike {
   late Vector2 rearVel;
   late Vector2 frontVel;
   late Vector2 headVel;
+  late Vector2 collisionHeadVel; // Velocity for collision head
   late Vector2 cogVel;
 
   BikeState state = BikeState.riding;
@@ -291,6 +292,7 @@ class Bike {
     rearVel = Vector2.zero();
     frontVel = Vector2.zero();
     headVel = Vector2.zero();
+    collisionHeadVel = Vector2.zero(); // Initialize collision head velocity
     cogVel = Vector2.zero();
     _wheelbase = (_frontLocal - _rearLocal).length;
     _distRH = (_headLocal - _rearLocal).length;
@@ -350,6 +352,7 @@ class Bike {
       rearVel *= 0.99;
       frontVel *= 0.99;
       headVel *= 0.99;
+      collisionHeadVel *= 0.99; // Dampen collision head velocity
       rearPos += rearVel * dt;
       frontPos += frontVel * dt;
       collisionHeadPos += collisionHeadVel * dt;
@@ -626,7 +629,9 @@ class Bike {
     canvas.drawLine(_off(rearPos), _off(headPos), frame); // Draw physics head (lighter)
     canvas.drawLine(_off(frontPos), _off(headPos), frame);
     canvas.drawCircle(_off(headPos), _headRadius, rider); // Draw physics head
-    canvas.drawCircle(_off(collisionHeadPos), _headRadius, rider.withOpacity(0.3)); // Draw collision head (semi-transparent)
+    final collisionPaint = Paint()..color = const Color(0xFF2255BB)..style = PaintingStyle.fill;
+    collisionPaint.color = collisionPaint.color.withOpacity(0.3);
+    canvas.drawCircle(_off(collisionHeadPos), _headRadius, collisionPaint); // Draw collision head (semi-transparent)
     canvas.drawCircle(_off(cogPos), 1.5, cogDot);
 
     if (state == BikeState.crashed) {
