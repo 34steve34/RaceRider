@@ -374,7 +374,9 @@ class Bike {
     rearPos.add(rearVel * dt);
     frontPos.add(frontVel * dt);
     headPos.add(headVel * dt);
-    cogPos = (rearPos + frontPos + headPos) / 3.0;
+    // Update sCOG position for rendering
+    final currentAngle = angle;
+    cogPos = (rearPos + frontPos + headPos) / 3.0 + Vector2(-5.0, -3.0)..rotate(currentAngle);
 
     // 7. Solve Hard Constraints
     for (int i = 0; i < 5; i++) {
@@ -456,11 +458,12 @@ class Bike {
     }
 
     final masterVel = cogVel.clone();
-    final trueCenterLocal = (_rearLocal + _frontLocal + _headLocal) / 3.0;
+    // Use sCOG (simulated COG) as rotation center instead of geometric center
+    final currentAngle = angle;
+    final sCOGWorld = (rearPos + frontPos + headPos) / 3.0 + Vector2(-5.0, -3.0)..rotate(currentAngle);
 
     void updatePoint(Vector2 localOffset, Vector2 currentVel, bool isGrounded, SurfaceHit? surface) {
-      final currentAngle = angle;
-      final worldRadius = (localOffset - trueCenterLocal)..rotate(currentAngle);
+      final worldRadius = (localOffset - Vector2(-5.0, -3.0))..rotate(currentAngle);
       final rotVel = Vector2(worldRadius.y, -worldRadius.x) * omega;
 
       if (isGrounded && surface != null) {
