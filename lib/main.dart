@@ -374,6 +374,7 @@ class Bike {
     rearPos.add(rearVel * dt);
     frontPos.add(frontVel * dt);
     headPos.add(headVel * dt);
+    cogPos = (rearPos + frontPos + headPos) / 3.0;
 
     // 7. Solve Hard Constraints
     for (int i = 0; i < 5; i++) {
