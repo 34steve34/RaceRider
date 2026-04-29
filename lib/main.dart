@@ -19,7 +19,7 @@ void main() async {
 Offset _off(Vector2 v) => Offset(v.x, v.y);
 
 class RaceRiderGame extends FlameGame with TapCallbacks {
-  static const buildLabel = 'physics v27 - Pure Master/Slave';
+  static const buildLabel = 'physics v28 - Pure Master/Slave';
   late Bike player;
   late List<TrackSegment> trackSegments;
   double rawTilt = 0.0;
@@ -249,7 +249,7 @@ class Bike {
 
   static final _rearLocal = Vector2(-9.5, 6.5);
   static final _frontLocal = Vector2(8.5, 6.5);
-  static final _headLocal = Vector2(-12.0, -12.5); // Physics head for COG tuning
+  static final _headLocal = Vector2(-2.0, -12.5); // Physics head for COG tuning
   static final _collisionHeadLocal = Vector2(-3.5, -12.5); // Collision head for crash detection
   static final _cogLocal = Vector2(-5.0, -3.0);
   static double get spawnBodyYOffset => _rearLocal.y + _wheelRadius;
@@ -468,7 +468,7 @@ class Bike {
   }
 
   void _applyTiltImpulse(double tilt) {
-    const maxOmega = 2.0; // Reduced rotation authority
+    const maxOmega = 1.5; // Further reduced rotation authority
     double omega = -tilt * maxOmega; 
 
     if (rearOnGround && frontOnGround) {
