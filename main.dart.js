@@ -31540,7 +31540,7 @@ p===$&&A.c()
 p=q.N(0,p)
 q=n.w
 q===$&&A.c()
-n=A.IK(A.M0(B.vk,"RaceRider Prototype\nphysics v25 - Pure Master/Slave\nState: "+r.b+"\nSpeed: "+B.d.J(Math.sqrt(p.N(0,q).aG(0,3).gcd()),1)+"\nAngle: "+B.d.J(n.gh8(),2)+" rad"),B.w)
+n=A.IK(A.M0(B.vk,"RaceRider Prototype\nphysics v26 - Pure Master/Slave\nState: "+r.b+"\nSpeed: "+B.d.J(Math.sqrt(p.N(0,q).aG(0,3).gcd()),1)+"\nAngle: "+B.d.J(n.gh8(),2)+" rad"),B.w)
 n.nB()
 n.bt(a,B.tH)}}
 A.qG.prototype={
@@ -34459,7 +34459,7 @@ s($,"Wp","JJ",()=>A.zg(""))
 s($,"Wt","HR",()=>A.Qh())
 s($,"W1","uF",()=>A.q4(-9.5,6.5))
 s($,"W_","JG",()=>A.q4(8.5,6.5))
-s($,"W0","JH",()=>A.q4(-6,-12.5))
+s($,"W0","JH",()=>A.q4(-12,-12.5))
 s($,"VZ","O2",()=>A.q4(-3.5,-12.5))
 s($,"VY","O1",()=>A.q4(-5,-3))
 s($,"XY","P4",()=>{var q=$.LO
