@@ -31367,7 +31367,7 @@ yK(a,b,c){var s,r=this.fR(b),q=a.bC(r)
 if(Math.abs(q)<0.001)return
 s=0.9*c
 a.n(0,r.U(0,(q>0?Math.max(0,q-s):Math.min(0,q+s))-q))},
-yM(a){var s,r,q,p,o=this,n={},m=n.a=-a*1.5,l=o.Q
+yM(a){var s,r,q,p,o=this,n={},m=n.a=-a*2,l=o.Q
 if(l&&o.as)n.a=m*0.45
 else if(l||o.as)n.a=m*0.9
 l=o.y
@@ -31540,7 +31540,7 @@ p===$&&A.c()
 p=q.N(0,p)
 q=n.w
 q===$&&A.c()
-n=A.IK(A.M0(B.vk,"RaceRider Prototype\nphysics v29 - Pure Master/Slave\nState: "+r.b+"\nSpeed: "+B.d.J(Math.sqrt(p.N(0,q).aG(0,3).gcd()),1)+"\nAngle: "+B.d.J(n.gh8(),2)+" rad"),B.w)
+n=A.IK(A.M0(B.vk,"RaceRider Prototype\nphysics v.30 - Pure Master/Slave\nState: "+r.b+"\nSpeed: "+B.d.J(Math.sqrt(p.N(0,q).aG(0,3).gcd()),1)+"\nAngle: "+B.d.J(n.gh8(),2)+" rad"),B.w)
 n.nB()
 n.bt(a,B.tH)}}
 A.qG.prototype={
@@ -34459,7 +34459,7 @@ s($,"Wp","JJ",()=>A.zg(""))
 s($,"Wt","HR",()=>A.Qh())
 s($,"W1","uF",()=>A.q4(-9.5,6.5))
 s($,"W_","JG",()=>A.q4(8.5,6.5))
-s($,"W0","JH",()=>A.q4(-5,-12.5))
+s($,"W0","JH",()=>A.q4(-5,-6.25))
 s($,"VZ","O2",()=>A.q4(-3.5,-12.5))
 s($,"VY","O1",()=>A.q4(-5,-3))
 s($,"XY","P4",()=>{var q=$.LO
