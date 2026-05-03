@@ -271,12 +271,12 @@ class RaceRiderGame extends FlameGame with TapCallbacks {
     
     // Control hints
     TextPainter(
-      text: const TextSpan(text: '← → Adjust | Next →', style: labelStyle),
+      text: TextSpan(text: '← → Adjust | Next →', style: labelStyle),
       textDirection: TextDirection.ltr,
     )..layout()..paint(canvas, const Offset(10, 50));
     
     TextPainter(
-      text: const TextSpan(text: 'Exit: Top-left', style: labelStyle),
+      text: TextSpan(text: 'Exit: Top-left', style: labelStyle),
       textDirection: TextDirection.ltr,
     )..layout()..paint(canvas, const Offset(200, 50));
   }
