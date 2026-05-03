@@ -19,7 +19,7 @@ void main() async {
 Offset _off(Vector2 v) => Offset(v.x, v.y);
 
 class RaceRiderGame extends FlameGame with TapCallbacks {
-  static const buildLabel = 'physics v.35 - Pure Master/Slave';
+  static const buildLabel = 'physics v.36 - Pure Master/Slave';
   late Bike player;
   late List<TrackSegment> trackSegments;
   double rawTilt = 0.0;
@@ -629,7 +629,11 @@ class Bike {
 
     if (rearOnGround && frontOnGround) {
       omega *= 0.45; 
-    } else if (rearOnGround || frontOnGround) {
+    } else if (frontOnGround && !rearOnGround) {
+      // Front wheelie (rear up) - much harder when front wheel grounded
+      omega *= 0.125; // Divide by 8 to simulate real front wheelie difficulty
+    } else {
+      // Rear wheelie (front up) or airborne - normal tilt response
       omega *= 0.90; 
     }
 
