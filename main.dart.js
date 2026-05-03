@@ -31463,7 +31463,8 @@ s=0.9*c
 a.n(0,r.V(0,(q>0?Math.max(0,q-s):Math.min(0,q+s))-q))},
 yP(a){var s,r,q,p,o,n,m,l,k,j=this,i={},h=i.a=-a*2,g=j.Q
 if(g&&j.as)i.a=h*0.45
-else if(g||j.as)i.a=h*0.9
+else if(j.as&&!g)i.a=h*0.125
+else i.a=h*0.9
 s=j.geX()
 if(j.Q&&j.db!=null){g=j.db.b.a
 r=Math.atan2(g[1],g[0])+1.5707963267948966}else if(j.as&&j.dx!=null){g=j.dx.b.a
@@ -31646,7 +31647,7 @@ p===$&&A.c()
 p=q.O(0,p)
 q=n.w
 q===$&&A.c()
-n=A.e0(A.eH(B.vo,"RaceRider Prototype\nphysics v.35 - Pure Master/Slave\nState: "+r.b+"\nSpeed: "+B.d.J(Math.sqrt(p.O(0,q).aG(0,3).gcg()),1)+"\nAngle: "+B.d.J(n.geX(),2)+" rad"),B.n)
+n=A.e0(A.eH(B.vo,"RaceRider Prototype\nphysics v.36 - Pure Master/Slave\nState: "+r.b+"\nSpeed: "+B.d.J(Math.sqrt(p.O(0,q).aG(0,3).gcg()),1)+"\nAngle: "+B.d.J(n.geX(),2)+" rad"),B.n)
 n.cB()
 n.aN(a,B.tH)}}
 A.qJ.prototype={
