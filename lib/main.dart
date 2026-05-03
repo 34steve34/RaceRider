@@ -19,7 +19,7 @@ void main() async {
 Offset _off(Vector2 v) => Offset(v.x, v.y);
 
 class RaceRiderGame extends FlameGame with TapCallbacks {
-  static const buildLabel = 'physics v.31 - Pure Master/Slave';
+  static const buildLabel = 'physics v.32 - Pure Master/Slave';
   late Bike player;
   late List<TrackSegment> trackSegments;
   double rawTilt = 0.0;
@@ -29,6 +29,12 @@ class RaceRiderGame extends FlameGame with TapCallbacks {
   bool isGas = false;
   bool isBrake = false;
   late StreamSubscription _accelSub;
+  
+  // Real-time tuning controls
+  bool isTuningMode = false;
+  int currentTuningParam = 0;
+  final List<String> tuningParamNames = ['Torque', 'Balance', 'Jump', 'RearHelp', 'FrontHard'];
+  final List<double> tuningParamSteps = [0.1, 0.05, 0.05, 0.05, 0.05];
 
   @override
   Future<void> onLoad() async {
@@ -131,7 +137,30 @@ class RaceRiderGame extends FlameGame with TapCallbacks {
 
   @override
   void onTapDown(TapDownEvent event) {
-    isBrake = event.localPosition.x < size.x / 2;
+    final x = event.localPosition.x;
+    final y = event.localPosition.y;
+    
+    // Tuning mode controls (top 20% of screen)
+    if (y < size.y * 0.2) {
+      if (x < size.x * 0.2) {
+        // Top-left: Toggle tuning mode
+        isTuningMode = !isTuningMode;
+      } else if (x > size.x * 0.8 && isTuningMode) {
+        // Top-right: Next parameter
+        currentTuningParam = (currentTuningParam + 1) % tuningParamNames.length;
+      } else if (isTuningMode) {
+        // Top-middle: Adjust parameter up/down based on left/right
+        if (x < size.x * 0.5) {
+          _adjustTuningParam(-1);
+        } else {
+          _adjustTuningParam(1);
+        }
+      }
+      return;
+    }
+    
+    // Normal game controls (below 20%)
+    isBrake = x < size.x / 2;
     isGas = !isBrake;
   }
 
@@ -141,6 +170,18 @@ class RaceRiderGame extends FlameGame with TapCallbacks {
     isBrake = false;
   }
 
+  void _adjustTuningParam(double direction) {
+    final step = tuningParamSteps[currentTuningParam] * direction;
+    
+    switch (currentTuningParam) {
+      case 0: Bike._gravityTorqueStrength = (Bike._gravityTorqueStrength + step).clamp(0.0, 3.0); break;
+      case 1: Bike._wheelieBalanceThreshold = (Bike._wheelieBalanceThreshold + step).clamp(0.1, 1.0); break;
+      case 2: Bike._airborneGravityFactor = (Bike._airborneGravityFactor + step).clamp(0.3, 1.0); break;
+      case 3: Bike._rearWheelieAssist = (Bike._rearWheelieAssist + step).clamp(0.0, 0.8); break;
+      case 4: Bike._frontWheelieDifficulty = (Bike._frontWheelieDifficulty + step).clamp(0.0, 2.0); break;
+    }
+  }
+  
   @override
   void render(Canvas canvas) {
     super.render(canvas);
@@ -183,6 +224,61 @@ class RaceRiderGame extends FlameGame with TapCallbacks {
 
     player.renderBike(canvas);
     canvas.restore();
+    
+    // Render tuning UI
+    _renderTuningUI(canvas);
+  }
+  
+  void _renderTuningUI(Canvas canvas) {
+    if (!isTuningMode) {
+      // Show tuning mode hint
+      final hintPaint = Paint()..color = Colors.white.withOpacity(0.3);
+      final hintStyle = TextStyle(color: Colors.white.withOpacity(0.5), fontSize: 10);
+      TextPainter(
+        text: TextSpan(text: 'Top-left: Tune', style: hintStyle),
+        textDirection: TextDirection.ltr,
+      )..layout()..paint(canvas, const Offset(10, 10));
+      return;
+    }
+    
+    // Tuning mode UI
+    final bgPaint = Paint()..color = Colors.black.withOpacity(0.7);
+    canvas.drawRect(const Rect.fromLTWH(0, 0, 400, 80), bgPaint);
+    
+    final paramStyle = const TextStyle(color: Colors.yellow, fontSize: 12, fontWeight: FontWeight.bold);
+    final valueStyle = const TextStyle(color: Colors.white, fontSize: 11);
+    final labelStyle = const TextStyle(color: Colors.cyan, fontSize: 10);
+    
+    // Current parameter name and value
+    double currentValue = 0.0;
+    switch (currentTuningParam) {
+      case 0: currentValue = Bike._gravityTorqueStrength; break;
+      case 1: currentValue = Bike._wheelieBalanceThreshold; break;
+      case 2: currentValue = Bike._airborneGravityFactor; break;
+      case 3: currentValue = Bike._rearWheelieAssist; break;
+      case 4: currentValue = Bike._frontWheelieDifficulty; break;
+    }
+    
+    TextPainter(
+      text: TextSpan(text: tuningParamNames[currentTuningParam], style: paramStyle),
+      textDirection: TextDirection.ltr,
+    )..layout()..paint(canvas, const Offset(10, 10));
+    
+    TextPainter(
+      text: TextSpan(text: currentValue.toStringAsFixed(2), style: valueStyle),
+      textDirection: TextDirection.ltr,
+    )..layout()..paint(canvas, const Offset(10, 30));
+    
+    // Control hints
+    TextPainter(
+      text: const TextSpan(text: '← → Adjust | Next →', style: labelStyle),
+      textDirection: TextDirection.ltr,
+    )..layout()..paint(canvas, const Offset(10, 50));
+    
+    TextPainter(
+      text: const TextSpan(text: 'Exit: Top-left', style: labelStyle),
+      textDirection: TextDirection.ltr,
+    )..layout()..paint(canvas, const Offset(200, 50));
   }
 
   Vector2 _spawnPoint() {
@@ -231,7 +327,7 @@ class WheelContact {
 enum BikeState { riding, crashed }
 
 class Bike {
-  // === TUNABLE PHYSICS PARAMETERS ===
+  // === TUNABLE PHYSICS PARAMETERS (REAL-TIME ADJUSTABLE) ===
   static const _gravity = 200.0;
   static const _rearDrive = 420.0;
   static const _brakePerWheel = 430.0;
@@ -248,10 +344,12 @@ class Bike {
   static const _frameStiffness = 1.0;
   static const _suspensionTravel = 0.22;
   
-  // === TUNING PARAMETERS FOR ITERATION ===
-  static const double _gravityTorqueStrength = 0.8; // TUNE THIS: How strongly gravity tries to level the bike (0.0 = none, 2.0 = very strong)
-  static const double _wheelieBalanceThreshold = 0.3; // TUNE THIS: Angle threshold where bike is "balanced" in wheelie
-  static const double _airborneGravityFactor = 0.7; // TUNE THIS: Gravity strength when airborne (affects jump feel)
+  // === REAL-TIME TUNING PARAMETERS ===
+  static double _gravityTorqueStrength = 0.8; // TUNE IN-GAME: How strongly gravity tries to level the bike
+  static double _wheelieBalanceThreshold = 0.3; // TUNE IN-GAME: Angle threshold for wheelie balance
+  static double _airborneGravityFactor = 0.7; // TUNE IN-GAME: Gravity strength when airborne
+  static double _rearWheelieAssist = 0.3; // TUNE IN-GAME: Extra help for rear wheelies (front up)
+  static double _frontWheelieDifficulty = 0.8; // TUNE IN-GAME: Extra difficulty for front wheelies (rear up)
 
   static final _rearLocal = Vector2(-9.5, 6.5);
   static final _frontLocal = Vector2(8.5, 6.5);
@@ -505,11 +603,18 @@ class Bike {
       while (angleDiff > pi) angleDiff -= 2 * pi;
       while (angleDiff < -pi) angleDiff += 2 * pi;
       
-      // Apply gravity torque (weaker when balanced in wheelie)
+      // Apply gravity torque (wheelie-specific behavior)
       double torqueMultiplier = _gravityTorqueStrength;
-      if (rearOnGround && !frontOnGround && angleDiff.abs() < _wheelieBalanceThreshold) {
-        // Bike is balanced in wheelie - reduce torque to allow stable wheelies
-        torqueMultiplier *= 0.2;
+      if (rearOnGround && !frontOnGround) {
+        // Rear wheelie (front up) - make it easier with assist
+        if (angleDiff.abs() < _wheelieBalanceThreshold) {
+          torqueMultiplier *= 0.2; // Balanced - very stable
+        } else {
+          torqueMultiplier *= (1.0 - _rearWheelieAssist); // Easier to hold wheelie
+        }
+      } else if (frontOnGround && !rearOnGround) {
+        // Front wheelie (rear up) - make it harder
+        torqueMultiplier *= (1.0 + _frontWheelieDifficulty); // Harder to hold
       }
       
       omega += angleDiff * torqueMultiplier;
