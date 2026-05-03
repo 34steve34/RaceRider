@@ -31463,35 +31463,36 @@ s=0.9*c
 a.n(0,r.V(0,(q>0?Math.max(0,q-s):Math.min(0,q+s))-q))},
 yP(a){var s,r,q,p,o,n,m,l,k,j=this,i={},h=i.a=-a*2,g=j.Q
 if(g&&j.as)i.a=h*0.45
-else if(j.as&&!g)i.a=h*0.125
-else i.a=h*0.9
-s=j.geX()
+else{s=j.as
+if(s&&!g)i.a=h*0.45
+else if(g&&!s)i.a=h*0.45
+else i.a=h*0.9}r=j.geX()
 if(j.Q&&j.db!=null){g=j.db.b.a
-r=Math.atan2(g[1],g[0])+1.5707963267948966}else if(j.as&&j.dx!=null){g=j.dx.b.a
-r=Math.atan2(g[1],g[0])+1.5707963267948966}else r=0
-q=r-s
-while(q>3.141592653589793)q-=6.283185307179586
-while(q<-3.141592653589793)q+=6.283185307179586
-p=$.vk
+q=Math.atan2(g[1],g[0])+1.5707963267948966}else if(j.as&&j.dx!=null){g=j.dx.b.a
+q=Math.atan2(g[1],g[0])+1.5707963267948966}else q=0
+p=q-r
+while(p>3.141592653589793)p-=6.283185307179586
+while(p<-3.141592653589793)p+=6.283185307179586
+o=$.vk
 g=j.Q
-if(g&&!j.as)p=Math.abs(q)<$.vm?p*0.2:p*(1-$.vl)
-else if(j.as&&!g)p*=1+$.vj
-i.a=i.a+q*p
+if(g&&!j.as)o=Math.abs(p)<$.vm?o*0.2:o*(1-$.vl)
+else if(j.as&&!g)o*=1+$.vj
+i.a=i.a+p*o
 g=j.y
 g===$&&A.c()
-o=new A.E(new Float64Array(2))
-o.ad(g)
+n=new A.E(new Float64Array(2))
+n.ad(g)
 g=$.uI()
-n=$.JN()
-m=g.O(0,n)
+s=$.JN()
+m=g.O(0,s)
 l=$.JO()
-m=new A.vi(i,j,m.O(0,l).aG(0,3),o)
+m=new A.vi(i,j,m.O(0,l).aG(0,3),n)
 k=j.f
 k===$&&A.c()
 m.$4(g,k,j.Q,j.db)
 k=j.r
 k===$&&A.c()
-m.$4(n,k,j.as,j.dx)
+m.$4(s,k,j.as,j.dx)
 k=j.w
 k===$&&A.c()
 m.$4(l,k,!1,null)},
@@ -31647,7 +31648,7 @@ p===$&&A.c()
 p=q.O(0,p)
 q=n.w
 q===$&&A.c()
-n=A.e0(A.eH(B.vo,"RaceRider Prototype\nphysics v.36 - Pure Master/Slave\nState: "+r.b+"\nSpeed: "+B.d.J(Math.sqrt(p.O(0,q).aG(0,3).gcg()),1)+"\nAngle: "+B.d.J(n.geX(),2)+" rad"),B.n)
+n=A.e0(A.eH(B.vo,"RaceRider Prototype\nphysics v.37 - Pure Master/Slave\nState: "+r.b+"\nSpeed: "+B.d.J(Math.sqrt(p.O(0,q).aG(0,3).gcg()),1)+"\nAngle: "+B.d.J(n.geX(),2)+" rad"),B.n)
 n.cB()
 n.aN(a,B.tH)}}
 A.qJ.prototype={
