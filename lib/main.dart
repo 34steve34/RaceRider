@@ -19,7 +19,7 @@ void main() async {
 Offset _off(Vector2 v) => Offset(v.x, v.y);
 
 class RaceRiderGame extends FlameGame with TapCallbacks {
-  static const buildLabel = 'physics v.34 - Pure Master/Slave';
+  static const buildLabel = 'physics v.35 - Pure Master/Slave';
   late Bike player;
   late List<TrackSegment> trackSegments;
   double rawTilt = 0.0;
@@ -633,8 +633,9 @@ class Bike {
       omega *= 0.90; 
     }
 
-    // === GRAVITY TORQUE: Natural leveling force ===
-    if (!rearOnGround || !frontOnGround) {
+    // === GRAVITY TORQUE: Ever-present force seeking lowest potential energy ===
+    // Gravity torque always acts on the bike's center of mass
+    {
       final bikeAngle = angle;
       
       // Calculate target angle based on ground contact
