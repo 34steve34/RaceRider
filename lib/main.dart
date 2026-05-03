@@ -19,7 +19,7 @@ void main() async {
 Offset _off(Vector2 v) => Offset(v.x, v.y);
 
 class RaceRiderGame extends FlameGame with TapCallbacks {
-  static const buildLabel = 'physics v.30 - Pure Master/Slave';
+  static const buildLabel = 'physics v.31 - Pure Master/Slave';
   late Bike player;
   late List<TrackSegment> trackSegments;
   double rawTilt = 0.0;
@@ -231,6 +231,7 @@ class WheelContact {
 enum BikeState { riding, crashed }
 
 class Bike {
+  // === TUNABLE PHYSICS PARAMETERS ===
   static const _gravity = 200.0;
   static const _rearDrive = 420.0;
   static const _brakePerWheel = 430.0;
@@ -246,6 +247,11 @@ class Bike {
   static const _wheelSpinDamp = 0.985;
   static const _frameStiffness = 1.0;
   static const _suspensionTravel = 0.22;
+  
+  // === TUNING PARAMETERS FOR ITERATION ===
+  static const double _gravityTorqueStrength = 0.8; // TUNE THIS: How strongly gravity tries to level the bike (0.0 = none, 2.0 = very strong)
+  static const double _wheelieBalanceThreshold = 0.3; // TUNE THIS: Angle threshold where bike is "balanced" in wheelie
+  static const double _airborneGravityFactor = 0.7; // TUNE THIS: Gravity strength when airborne (affects jump feel)
 
   static final _rearLocal = Vector2(-9.5, 6.5);
   static final _frontLocal = Vector2(8.5, 6.5);
@@ -360,8 +366,9 @@ class Bike {
       return;
     }
 
-    // 1. Apply Gravity at sCOG
-    final grav = Vector2(0, _gravity * dt);
+    // 1. Apply Gravity at sCOG (reduced when airborne for better jump feel)
+    final gravityMultiplier = (rearOnGround || frontOnGround) ? 1.0 : _airborneGravityFactor;
+    final grav = Vector2(0, _gravity * dt * gravityMultiplier);
     // Apply gravity to sCOG velocity and distribute to points
     final sCOGVel = (rearVel + frontVel + headVel) / 3.0;
     sCOGVel.add(grav);
@@ -475,6 +482,37 @@ class Bike {
       omega *= 0.45; 
     } else if (rearOnGround || frontOnGround) {
       omega *= 0.90; 
+    }
+
+    // === GRAVITY TORQUE: Natural leveling force ===
+    if (!rearOnGround || !frontOnGround) {
+      final bikeAngle = angle;
+      
+      // Calculate target angle based on ground contact
+      double targetAngle = 0.0; // Default to level
+      if (rearOnGround && _rearSurface != null) {
+        // Target angle perpendicular to rear wheel surface
+        targetAngle = atan2(_rearSurface!.normal.y, _rearSurface!.normal.x) + pi/2;
+      } else if (frontOnGround && _frontSurface != null) {
+        // Target angle perpendicular to front wheel surface  
+        targetAngle = atan2(_frontSurface!.normal.y, _frontSurface!.normal.x) + pi/2;
+      }
+      
+      // Calculate angle difference
+      double angleDiff = targetAngle - bikeAngle;
+      
+      // Normalize angle difference to [-pi, pi]
+      while (angleDiff > pi) angleDiff -= 2 * pi;
+      while (angleDiff < -pi) angleDiff += 2 * pi;
+      
+      // Apply gravity torque (weaker when balanced in wheelie)
+      double torqueMultiplier = _gravityTorqueStrength;
+      if (rearOnGround && !frontOnGround && angleDiff.abs() < _wheelieBalanceThreshold) {
+        // Bike is balanced in wheelie - reduce torque to allow stable wheelies
+        torqueMultiplier *= 0.2;
+      }
+      
+      omega += angleDiff * torqueMultiplier;
     }
 
     final masterVel = cogVel.clone();
