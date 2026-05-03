@@ -19,7 +19,7 @@ void main() async {
 Offset _off(Vector2 v) => Offset(v.x, v.y);
 
 class RaceRiderGame extends FlameGame with TapCallbacks {
-  static const buildLabel = 'physics v.33 - Pure Master/Slave';
+  static const buildLabel = 'physics v.34 - Pure Master/Slave';
   late Bike player;
   late List<TrackSegment> trackSegments;
   double rawTilt = 0.0;
@@ -35,6 +35,10 @@ class RaceRiderGame extends FlameGame with TapCallbacks {
   int currentTuningParam = 0;
   final List<String> tuningParamNames = ['Torque', 'Balance', 'Jump', 'RearHelp', 'FrontHard'];
   final List<double> tuningParamSteps = [0.1, 0.05, 0.05, 0.05, 0.05];
+  
+  // Auto-restart system
+  double crashTimer = 0.0;
+  static const double _crashRestartDelay = 1.0; // 1 second delay
 
   @override
   Future<void> onLoad() async {
@@ -127,12 +131,29 @@ class RaceRiderGame extends FlameGame with TapCallbacks {
     if (smoothedTilt.abs() < 0.05) {
       smoothedTilt = 0.0;
     }
+    
+    // Handle auto-restart after crash
+    if (player.state == BikeState.crashed) {
+      crashTimer += dt;
+      if (crashTimer >= _crashRestartDelay) {
+        _restartBike();
+      }
+    } else {
+      crashTimer = 0.0;
+    }
+    
     player.updateBike(dt, smoothedTilt, isGas, isBrake, trackSegments);
     if (!player.hasFiniteState) {
-      player = Bike(_spawnPoint());
-      player.settleOnTrack(trackSegments);
+      _restartBike();
     }
     camera.viewfinder.position = player.position;
+  }
+  
+  void _restartBike() {
+    // Keep tuning parameters by not resetting them
+    player = Bike(_spawnPoint());
+    player.settleOnTrack(trackSegments);
+    crashTimer = 0.0;
   }
 
   @override
@@ -643,7 +664,7 @@ class Bike {
           torqueMultiplier *= (1.0 - _rearWheelieAssist); // Easier to hold wheelie
         }
       } else if (frontOnGround && !rearOnGround) {
-        // Front wheelie (rear up) - make it harder
+        // Front wheelie (rear up) - make it harder through base physics only
         torqueMultiplier *= (1.0 + _frontWheelieDifficulty); // Harder to hold
       }
       
