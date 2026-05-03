@@ -19,7 +19,7 @@ void main() async {
 Offset _off(Vector2 v) => Offset(v.x, v.y);
 
 class RaceRiderGame extends FlameGame with TapCallbacks {
-  static const buildLabel = 'physics v.36 - Pure Master/Slave';
+  static const buildLabel = 'physics v.37 - Pure Master/Slave';
   late Bike player;
   late List<TrackSegment> trackSegments;
   double rawTilt = 0.0;
@@ -630,10 +630,13 @@ class Bike {
     if (rearOnGround && frontOnGround) {
       omega *= 0.45; 
     } else if (frontOnGround && !rearOnGround) {
-      // Front wheelie (rear up) - much harder when front wheel grounded
-      omega *= 0.125; // Divide by 8 to simulate real front wheelie difficulty
+      // Front wheelie (rear up) - make it harder when front wheel grounded
+      omega *= 0.45; // Same as normal riding - requires momentum and skill
+    } else if (rearOnGround && !frontOnGround) {
+      // Rear wheelie (front up) - same difficulty as front wheelie
+      omega *= 0.45; // Equal difficulty - requires momentum and skill
     } else {
-      // Rear wheelie (front up) or airborne - normal tilt response
+      // Airborne - normal tilt response
       omega *= 0.90; 
     }
 
@@ -662,14 +665,14 @@ class Bike {
       // Apply gravity torque (wheelie-specific behavior)
       double torqueMultiplier = _gravityTorqueStrength;
       if (rearOnGround && !frontOnGround) {
-        // Rear wheelie (front up) - make it easier with assist
+        // Rear wheelie (front up) - make it easier with assist (the "normal" wheelie)
         if (angleDiff.abs() < _wheelieBalanceThreshold) {
           torqueMultiplier *= 0.2; // Balanced - very stable
         } else {
           torqueMultiplier *= (1.0 - _rearWheelieAssist); // Easier to hold wheelie
         }
       } else if (frontOnGround && !rearOnGround) {
-        // Front wheelie (rear up) - make it harder through base physics only
+        // Front wheelie (rear up) - make it harder (the "stoppie")
         torqueMultiplier *= (1.0 + _frontWheelieDifficulty); // Harder to hold
       }
       
