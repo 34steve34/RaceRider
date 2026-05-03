@@ -19,7 +19,7 @@ void main() async {
 Offset _off(Vector2 v) => Offset(v.x, v.y);
 
 class RaceRiderGame extends FlameGame with TapCallbacks {
-  static const buildLabel = 'physics v.32 - Pure Master/Slave';
+  static const buildLabel = 'physics v.33 - Pure Master/Slave';
   late Bike player;
   late List<TrackSegment> trackSegments;
   double rawTilt = 0.0;
@@ -139,18 +139,20 @@ class RaceRiderGame extends FlameGame with TapCallbacks {
   void onTapDown(TapDownEvent event) {
     final x = event.localPosition.x;
     final y = event.localPosition.y;
+    final width = size.x;
+    final height = size.y;
     
-    // Tuning mode controls (top 20% of screen)
-    if (y < size.y * 0.2) {
-      if (x < size.x * 0.2) {
-        // Top-left: Toggle tuning mode
+    // Tuning mode controls (top 25% of screen - larger area)
+    if (y < height * 0.25) {
+      if (x < width * 0.3) {
+        // Left 30%: Toggle tuning mode
         isTuningMode = !isTuningMode;
-      } else if (x > size.x * 0.8 && isTuningMode) {
-        // Top-right: Next parameter
+      } else if (x > width * 0.7 && isTuningMode) {
+        // Right 30%: Next parameter
         currentTuningParam = (currentTuningParam + 1) % tuningParamNames.length;
       } else if (isTuningMode) {
-        // Top-middle: Adjust parameter up/down based on left/right
-        if (x < size.x * 0.5) {
+        // Middle 40%: Adjust parameter up/down based on left/right
+        if (x < width * 0.5) {
           _adjustTuningParam(-1);
         } else {
           _adjustTuningParam(1);
@@ -159,8 +161,8 @@ class RaceRiderGame extends FlameGame with TapCallbacks {
       return;
     }
     
-    // Normal game controls (below 20%)
-    isBrake = x < size.x / 2;
+    // Normal game controls (below 25%)
+    isBrake = x < width / 2;
     isGas = !isBrake;
   }
 
@@ -230,26 +232,44 @@ class RaceRiderGame extends FlameGame with TapCallbacks {
   }
   
   void _renderTuningUI(Canvas canvas) {
+    final width = size.x;
+    final height = size.y;
+    
     if (!isTuningMode) {
-      // Show tuning mode hint
-      final hintPaint = Paint()..color = Colors.white.withOpacity(0.3);
-      final hintStyle = TextStyle(color: Colors.white.withOpacity(0.5), fontSize: 10);
+      // Show tuning mode hint - larger text and button area
+      final hintPaint = Paint()..color = Colors.black.withOpacity(0.5);
+      final hintRect = Rect.fromLTWH(0, 0, width * 0.3, height * 0.25);
+      canvas.drawRect(hintRect, hintPaint);
+      
+      final hintStyle = TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.bold);
       TextPainter(
-        text: TextSpan(text: 'Top-left: Tune', style: hintStyle),
+        text: TextSpan(text: 'TUNE', style: hintStyle),
         textDirection: TextDirection.ltr,
-      )..layout()..paint(canvas, const Offset(10, 10));
+      )..layout()..paint(canvas, Offset(width * 0.1, height * 0.1));
       return;
     }
     
-    // Tuning mode UI
-    final bgPaint = Paint()..color = Colors.black.withOpacity(0.7);
-    canvas.drawRect(const Rect.fromLTWH(0, 0, 400, 80), bgPaint);
+    // Tuning mode UI - larger background
+    final bgPaint = Paint()..color = Colors.black.withOpacity(0.8);
+    canvas.drawRect(Rect.fromLTWH(0, 0, width, height * 0.25), bgPaint);
     
-    final paramStyle = const TextStyle(color: Colors.yellow, fontSize: 12, fontWeight: FontWeight.bold);
-    final valueStyle = const TextStyle(color: Colors.white, fontSize: 11);
-    final labelStyle = const TextStyle(color: Colors.cyan, fontSize: 10);
+    // Draw touch zone indicators
+    final zonePaint = Paint()..color = Colors.white.withOpacity(0.2);
+    // Left zone (toggle)
+    canvas.drawRect(Rect.fromLTWH(0, 0, width * 0.3, height * 0.25), zonePaint);
+    // Middle-left zone (decrease)
+    canvas.drawRect(Rect.fromLTWH(width * 0.3, 0, width * 0.2, height * 0.25), zonePaint);
+    // Middle-right zone (increase)
+    canvas.drawRect(Rect.fromLTWH(width * 0.5, 0, width * 0.2, height * 0.25), zonePaint);
+    // Right zone (next param)
+    canvas.drawRect(Rect.fromLTWH(width * 0.7, 0, width * 0.3, height * 0.25), zonePaint);
     
-    // Current parameter name and value
+    final paramStyle = const TextStyle(color: Colors.yellow, fontSize: 18, fontWeight: FontWeight.bold);
+    final valueStyle = const TextStyle(color: Colors.white, fontSize: 16);
+    final labelStyle = const TextStyle(color: Colors.cyan, fontSize: 14);
+    final zoneStyle = TextStyle(color: Colors.white.withOpacity(0.7), fontSize: 12);
+    
+    // Current parameter name and value - centered
     double currentValue = 0.0;
     switch (currentTuningParam) {
       case 0: currentValue = Bike._gravityTorqueStrength; break;
@@ -262,23 +282,33 @@ class RaceRiderGame extends FlameGame with TapCallbacks {
     TextPainter(
       text: TextSpan(text: tuningParamNames[currentTuningParam], style: paramStyle),
       textDirection: TextDirection.ltr,
-    )..layout()..paint(canvas, const Offset(10, 10));
+    )..layout()..paint(canvas, Offset(width * 0.4, height * 0.02));
     
     TextPainter(
       text: TextSpan(text: currentValue.toStringAsFixed(2), style: valueStyle),
       textDirection: TextDirection.ltr,
-    )..layout()..paint(canvas, const Offset(10, 30));
+    )..layout()..paint(canvas, Offset(width * 0.42, height * 0.08));
     
-    // Control hints
+    // Zone labels
     TextPainter(
-      text: TextSpan(text: '← → Adjust | Next →', style: labelStyle),
+      text: TextSpan(text: 'EXIT', style: zoneStyle),
       textDirection: TextDirection.ltr,
-    )..layout()..paint(canvas, const Offset(10, 50));
+    )..layout()..paint(canvas, Offset(width * 0.12, height * 0.18));
     
     TextPainter(
-      text: TextSpan(text: 'Exit: Top-left', style: labelStyle),
+      text: TextSpan(text: 'DOWN', style: zoneStyle),
       textDirection: TextDirection.ltr,
-    )..layout()..paint(canvas, const Offset(200, 50));
+    )..layout()..paint(canvas, Offset(width * 0.35, height * 0.18));
+    
+    TextPainter(
+      text: TextSpan(text: 'UP', style: zoneStyle),
+      textDirection: TextDirection.ltr,
+    )..layout()..paint(canvas, Offset(width * 0.57, height * 0.18));
+    
+    TextPainter(
+      text: TextSpan(text: 'NEXT', style: zoneStyle),
+      textDirection: TextDirection.ltr,
+    )..layout()..paint(canvas, Offset(width * 0.82, height * 0.18));
   }
 
   Vector2 _spawnPoint() {
