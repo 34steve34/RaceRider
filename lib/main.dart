@@ -19,7 +19,7 @@ void main() async {
 Offset _off(Vector2 v) => Offset(v.x, v.y);
 
 class RaceRiderGame extends FlameGame with TapCallbacks {
-  static const buildLabel = 'physics v.46 - Pure Master/Slave';
+  static const buildLabel = 'physics v.47 - full time magnets';
   late Bike player;
   late List<TrackSegment> trackSegments;
   double rawTilt = 0.0;
@@ -582,14 +582,14 @@ class Bike {
     rearOnGround = false;
     frontOnGround = false;
     
-    final rearContact = _solveWheelContact(rearPos, rearVel, segs, allowAssist: wasAirborne);
+    final rearContact = _solveWheelContact(rearPos, rearVel, segs, allowAssist: true);
     if (rearContact != null) {
       rearOnGround = true;
       _rearSurface = rearContact.hit;
       rearCompression = rearContact.compression;
     }
     
-    final frontContact = _solveWheelContact(frontPos, frontVel, segs, allowAssist: wasAirborne);
+    final frontContact = _solveWheelContact(frontPos, frontVel, segs, allowAssist: true);
     if (frontContact != null) {
       frontOnGround = true;
       _frontSurface = frontContact.hit;
