@@ -19,7 +19,7 @@ void main() async {
 Offset _off(Vector2 v) => Offset(v.x, v.y);
 
 class RaceRiderGame extends FlameGame with TapCallbacks {
-  static const buildLabel = 'physics v.48 - front wheelie killer';
+  static const buildLabel = 'physics v.49 - front wheelie killer';
   late Bike player;
   late List<TrackSegment> trackSegments;
   double rawTilt = 0.0;
@@ -629,28 +629,26 @@ class Bike {
   }
 
   void _applyTiltImpulse(double tilt) {
-    // Simple direct torque model - equal rotation speed for all conditions
-    const maxOmega = 1.5; // Base rotation speed
+    const maxOmega = 1.5; 
     double omega = -tilt * maxOmega;
     
-    // Apply damping to prevent vibration
-    omega *= 0.8;
+    omega *= 0.8; // Base damping
 
-    // --- FORWARD PITCH REDUCTION ---
-    // In a Y-down system, positive omega = clockwise rotation (pitching forward)
+    // --- POSITIVE OMEGA (Pitching Forward / Clockwise) ---
     if (omega > 0) {
       if (frontOnGround) {
-        // Severely kill torque when pivoting on the front tire (lifting rear wheel)
-        omega *= 0.15; // 85% reduction - TUNE THIS VALUE
-      } else {
-        // Optionally reduce airborne forward pitch, 
-        // as front-flips are mechanically harder to initiate than back-flips.
-        omega *= 0.75; // 25% reduction - TUNE THIS VALUE
+        // ONLY penalize if the front wheel is planted (trying to lift the rear).
+        // This stops the violent forward snap.
+        omega *= 0.15; 
       }
-    }
-    // Negative omega (back-wheelies / backward pitch) remains untouched.
+      // If airborne or in a wheelie, you get 100% power to slam the nose down.
+    } 
+    
+    // --- NEGATIVE OMEGA (Pitching Backward / Counter-Clockwise) ---
+    // No code needed here. 
+    // Whether on a flat, an uphill, or in the air, pulling back on the controls 
+    // provides 100% of the rotational torque. All angles are strictly equal.
 
-    // Apply rotation using master/slave system
     _applyRotationToPoints(omega);
   }
   
