@@ -31476,7 +31476,7 @@ while(q<-3.141592653589793)q+=6.283185307179586
 p=$.vk
 g=j.Q
 if(g&&!j.as)p=Math.abs(q)<$.vm?p*0.2:p*(1-$.vl)
-else if(j.as&&!g)p*=1+$.vj
+else if(j.as&&!g)p/=1+$.vj
 i.a=i.a+q*p
 g=j.y
 g===$&&A.c()
@@ -31648,7 +31648,7 @@ p===$&&A.c()
 p=q.O(0,p)
 q=n.w
 q===$&&A.c()
-n=A.e0(A.eH(B.vo,"RaceRider Prototype\nphysics v.38 - Pure Master/Slave\nState: "+r.b+"\nSpeed: "+B.d.J(Math.sqrt(p.O(0,q).aG(0,3).gcg()),1)+"\nAngle: "+B.d.J(n.geX(),2)+" rad"),B.n)
+n=A.e0(A.eH(B.vo,"RaceRider Prototype\nphysics v.39 - Pure Master/Slave\nState: "+r.b+"\nSpeed: "+B.d.J(Math.sqrt(p.O(0,q).aG(0,3).gcg()),1)+"\nAngle: "+B.d.J(n.geX(),2)+" rad"),B.n)
 n.cB()
 n.aN(a,B.tH)}}
 A.qJ.prototype={
