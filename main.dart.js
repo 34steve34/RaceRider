@@ -31349,112 +31349,111 @@ p.db=s
 p.dx=r},
 IN(a,b,c,d,e){var s,r=a/10
 for(s=0;s<10;++s)this.Dk(r,b,c,d,e)},
-Dk(a,b,a0,a1,a2){var s,r,q,p,o,n,m,l,k,j,i,h,g,f,e,d,c=this
-if(c.z===B.ap){s=c.f
+Dk(a,b,c,a0,a1){var s,r,q,p,o,n,m,l,k,j,i,h,g,f,e,d=this
+if(d.z===B.ap){s=d.f
 s===$&&A.c()
-c.f=s.V(0,0.99)
-s=c.r
+d.f=s.V(0,0.99)
+s=d.r
 s===$&&A.c()
-c.r=s.V(0,0.99)
-s=c.w
+d.r=s.V(0,0.99)
+s=d.w
 s===$&&A.c()
-c.w=s.V(0,0.99)
-s=c.x
+d.w=s.V(0,0.99)
+s=d.x
 s===$&&A.c()
-c.x=s.V(0,0.99)
-s=c.a
+d.x=s.V(0,0.99)
+s=d.a
 s===$&&A.c()
-c.a=s.O(0,c.f.V(0,a))
-s=c.b
+d.a=s.O(0,d.f.V(0,a))
+s=d.b
 s===$&&A.c()
-c.b=s.O(0,c.r.V(0,a))
-s=c.d
+d.b=s.O(0,d.r.V(0,a))
+s=d.d
 s===$&&A.c()
-c.d=s.O(0,c.x.V(0,a))
-c.t7(a,a1)
-return}r=c.Q||c.as?1:$.vg
+d.d=s.O(0,d.x.V(0,a))
+d.t7(a,a0)
+return}r=d.Q||d.as?1:$.vg
 q=new A.E(new Float64Array(2))
 q.W(0,200*a*r)
-s=c.f
+s=d.f
 s===$&&A.c()
-p=c.r
+p=d.r
 p===$&&A.c()
 p=s.O(0,p)
-s=c.w
+s=d.w
 s===$&&A.c()
 o=p.O(0,s).aG(0,3)
 o.n(0,q)
-s=c.f
+s=d.f
 p=new A.E(new Float64Array(2))
 p.ad(o)
 s.ad(p)
-p=c.r
+p=d.r
 s=new A.E(new Float64Array(2))
 s.ad(o)
 p.ad(s)
-s=c.w
+s=d.w
 p=new A.E(new Float64Array(2))
 p.ad(o)
 s.ad(p)
-n=!(c.Q||c.as)
-c.as=c.Q=!1
-s=c.a
+d.as=d.Q=!1
+s=d.a
 s===$&&A.c()
-m=c.rH(s,c.f,a2,n)
-if(m!=null){c.Q=!0
-c.db=m.a}s=c.b
+n=d.rH(s,d.f,a1,!0)
+if(n!=null){d.Q=!0
+d.db=n.a}s=d.b
 s===$&&A.c()
-l=c.rH(s,c.r,a2,n)
-if(l!=null){c.as=!0
-c.dx=l.a}s=c.d
+m=d.rH(s,d.r,a1,!0)
+if(m!=null){d.as=!0
+d.dx=m.a}s=d.d
 s===$&&A.c()
-k=c.iO(s,a2)
-if(k!=null&&k.d<2.4)c.z=B.ap
-if(c.Q&&c.db!=null&&a0)c.f=c.f.O(0,c.fV(c.db.c).V(0,420*a))
-if(a1){if(c.Q&&c.db!=null)c.py(c.f,c.db.c,a)
-if(c.as&&c.dx!=null)c.py(c.r,c.dx.c,a)}else if(c.Q&&c.db!=null)c.yN(c.f,c.db.c,a)
-c.y=c.f.O(0,c.r).O(0,c.w).aG(0,3)
-c.yP(-b*1.5*0.8)
-c.a.n(0,c.f.V(0,a))
-c.b.n(0,c.r.V(0,a))
-s=c.c
+l=d.iO(s,a1)
+if(l!=null&&l.d<2.4)d.z=B.ap
+if(d.Q&&d.db!=null&&c)d.f=d.f.O(0,d.fV(d.db.c).V(0,420*a))
+if(a0){if(d.Q&&d.db!=null)d.py(d.f,d.db.c,a)
+if(d.as&&d.dx!=null)d.py(d.r,d.dx.c,a)}else if(d.Q&&d.db!=null)d.yN(d.f,d.db.c,a)
+d.y=d.f.O(0,d.r).O(0,d.w).aG(0,3)
+d.yP(-b*1.5*0.8)
+d.a.n(0,d.f.V(0,a))
+d.b.n(0,d.r.V(0,a))
+s=d.c
 s===$&&A.c()
-s.n(0,c.w.V(0,a))
-j=c.ghc()
-i=c.a.O(0,c.b).aG(0,2)
+s.n(0,d.w.V(0,a))
+k=d.ghc()
+j=d.a.O(0,d.b).aG(0,2)
 s=new A.E(new Float64Array(2))
 s.W(-5,-3)
-A.q6(s,j)
-c.e=i.O(0,s)
-for(h=0;h<5;++h){s=c.a
-p=c.b
-g=$.PG
-c.ma(s,p,g,g,1,1.35,1)
-g=c.a
-p=c.c
-s=c.dy
+A.q6(s,k)
+d.e=j.O(0,s)
+for(i=0;i<5;++i){s=d.a
+p=d.b
+h=$.PG
+d.ma(s,p,h,h,1,1.35,1)
+h=d.a
+p=d.c
+s=d.dy
 s===$&&A.c()
-c.ma(g,p,s,s,1,1.35,0.5)
-s=c.b
-p=c.c
-g=c.fr
-g===$&&A.c()
-c.ma(s,p,g,g,1,1,0.5)}f=c.ghc()
-e=c.a.O(0,c.b).aG(0,2)
+d.ma(h,p,s,s,1,1.35,0.5)
+s=d.b
+p=d.c
+h=d.fr
+h===$&&A.c()
+d.ma(s,p,h,h,1,1,0.5)}g=d.ghc()
+f=d.a.O(0,d.b).aG(0,2)
 s=new A.E(new Float64Array(2))
 s.W(-5,-3)
-A.q6(s,f)
-c.e=e.O(0,s)
+A.q6(s,g)
+d.e=f.O(0,s)
 s=new A.E(new Float64Array(2))
 s.W(-3.5,-12.5)
-A.q6(s,f)
-c.d=e.O(0,s)
-d=Math.max(0,1-0.08*a)
-c.f=c.f.V(0,d)
-c.r=c.r.V(0,d)
-c.w=c.w.V(0,d)
-c.yV()
-c.t7(a,a1)},
+A.q6(s,g)
+d.d=f.O(0,s)
+e=Math.max(0,1-0.08*a)
+d.f=d.f.V(0,e)
+d.r=d.r.V(0,e)
+d.w=d.w.V(0,e)
+d.yV()
+d.t7(a,a0)},
 py(a,b,c){var s,r=this.fV(b),q=a.bD(r)
 if(Math.abs(q)<0.001)return
 s=430*c
@@ -31490,7 +31489,7 @@ p=q<4.7
 if(p&&-r>280){this.z=B.ap
 return null}if(p){a.n(0,s.V(0,4.7-q))
 o=b.bD(s)
-if(o<0)b.dj(s.V(0,o).V(0,0.82))}else if(d&&q<4.74&&b.bD(s)<4){n=(4.74-q)/0.04
+if(o<0)b.dj(s.V(0,o).V(0,0.82))}else if(q<4.74&&b.bD(s)<4){n=(4.74-q)/0.04
 a.n(0,s.V(0,4.7-q).V(0,0.002*n))
 b.dj(s.V(0,b.bD(s)*0.002*n))}else return null
 return new A.Ec(m,B.d.cW(4.74-q,0,0.22))},
@@ -31633,7 +31632,7 @@ p===$&&A.c()
 p=q.O(0,p)
 q=n.w
 q===$&&A.c()
-n=A.e0(A.eH(B.vo,"RaceRider Prototype\nphysics v.46 - Pure Master/Slave\nState: "+r.b+"\nSpeed: "+B.d.J(Math.sqrt(p.O(0,q).aG(0,3).gcB()),1)+"\nAngle: "+B.d.J(n.ghc(),2)+" rad"),B.n)
+n=A.e0(A.eH(B.vo,"RaceRider Prototype\nphysics v.47 - full time magnets\nState: "+r.b+"\nSpeed: "+B.d.J(Math.sqrt(p.O(0,q).aG(0,3).gcB()),1)+"\nAngle: "+B.d.J(n.ghc(),2)+" rad"),B.n)
 n.cA()
 n.aN(a,B.tH)}}
 A.qI.prototype={
