@@ -19,7 +19,7 @@ void main() async {
 Offset _off(Vector2 v) => Offset(v.x, v.y);
 
 class RaceRiderGame extends FlameGame with TapCallbacks {
-  static const buildLabel = 'physics v.44 - Pure Master/Slave';
+  static const buildLabel = 'physics v.45 - Pure Master/Slave';
   late Bike player;
   late List<TrackSegment> trackSegments;
   double rawTilt = 0.0;
@@ -402,7 +402,7 @@ class Bike {
   static double _bikeMass = 10.0; // Bike mass for moment of inertia
   
   // === REAL-TIME TUNING PARAMETERS ===
-  static double _playerTorqueStrength = 150.0; // TUNE IN-GAME: Player input torque strength
+  static double _playerTorqueStrength = 500.0; // TUNE IN-GAME: Player input torque strength (increased)
   static double _airborneGravityFactor = 0.7; // TUNE IN-GAME: Gravity strength when airborne
 
   static final _rearLocal = Vector2(-9.5, 6.5);
@@ -680,15 +680,15 @@ class Bike {
       double frontToCog = _wheelbase - b;
       I = _bikeMass * (frontToCog * frontToCog + h * h);
     } else {
-      // Airborne or both grounded - rotate about COG
-      I = _bikeMass * (_cogHeight * _cogHeight); // Simplified I = mr²
+      // Airborne or both grounded - rotate about COG with simplified inertia
+      I = _bikeMass * 25.0; // Fixed reasonable inertia for airborne rotation
     }
     
     // Angular acceleration
     double alpha = netTorque / I;
     
     // Apply angular velocity change with scaling for responsiveness
-    double omega = alpha * 0.5; // Increased responsiveness factor
+    double omega = alpha * 2.0; // Much higher responsiveness factor
     
     // Apply rotation using master/slave system
     _applyRotationToPoints(omega);
