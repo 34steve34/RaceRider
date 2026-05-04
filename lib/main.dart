@@ -436,7 +436,6 @@ class Bike {
   SurfaceHit? _rearSurface;
   SurfaceHit? _frontSurface;
 
-  late double _wheelbase;
   late final double _distRH;
   late final double _distFH;
   late final Vector2 _headFromWheelCenter;
