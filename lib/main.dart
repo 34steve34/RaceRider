@@ -19,7 +19,7 @@ void main() async {
 Offset _off(Vector2 v) => Offset(v.x, v.y);
 
 class RaceRiderGame extends FlameGame with TapCallbacks {
-  static const buildLabel = 'physics v.43 - Pure Master/Slave';
+  static const buildLabel = 'physics v.44 - Pure Master/Slave';
   late Bike player;
   late List<TrackSegment> trackSegments;
   double rawTilt = 0.0;
@@ -662,19 +662,33 @@ class Bike {
     } else if (rearOnGround && frontOnGround) {
       // Both wheels grounded - simplified torque based on bike angle
       restoringTorque = gPerp * b * sin(bikeAngle) + gPara * h * cos(bikeAngle);
+    } else {
+      // Airborne - no ground contact, free rotation
+      restoringTorque = 0.0;
     }
     
     // Net torque
     double netTorque = playerTorque - restoringTorque;
     
-    // Moment of inertia about pivot point
-    double I = _bikeMass * (b * b + h * h); // Approximate as point mass
+    // Moment of inertia calculation
+    double I;
+    if (rearOnGround && !frontOnGround) {
+      // Rear wheelie pivot - rotate about rear wheel
+      I = _bikeMass * (b * b + h * h);
+    } else if (frontOnGround && !rearOnGround) {
+      // Front wheelie pivot - rotate about front wheel
+      double frontToCog = _wheelbase - b;
+      I = _bikeMass * (frontToCog * frontToCog + h * h);
+    } else {
+      // Airborne or both grounded - rotate about COG
+      I = _bikeMass * (_cogHeight * _cogHeight); // Simplified I = mr²
+    }
     
     // Angular acceleration
     double alpha = netTorque / I;
     
-    // Apply angular velocity change
-    double omega = alpha * 0.016; // Convert to angular velocity (assuming 60fps)
+    // Apply angular velocity change with scaling for responsiveness
+    double omega = alpha * 0.5; // Increased responsiveness factor
     
     // Apply rotation using master/slave system
     _applyRotationToPoints(omega);
