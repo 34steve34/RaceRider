@@ -31414,8 +31414,7 @@ if(a1){if(c.Q&&c.db!=null)c.py(c.f,c.db.c,a)
 if(c.as&&c.dx!=null)c.py(c.r,c.dx.c,a)}else if(c.Q&&c.db!=null)c.yN(c.f,c.db.c,a)
 c.y=c.f.O(0,c.r).O(0,c.w).aG(0,3)
 k=-b*1.5*0.8
-if(k>0)k=c.as?k*0.15:k*0.75
-c.yP(k)
+c.yP(k>0?c.as?k*0.15:k:k)
 c.a.n(0,c.f.V(0,a))
 c.b.n(0,c.r.V(0,a))
 s=c.c
@@ -31634,7 +31633,7 @@ p===$&&A.c()
 p=q.O(0,p)
 q=n.w
 q===$&&A.c()
-n=A.e0(A.eH(B.vo,"RaceRider Prototype\nphysics v.48 - front wheelie killer\nState: "+r.b+"\nSpeed: "+B.d.J(Math.sqrt(p.O(0,q).aG(0,3).gcB()),1)+"\nAngle: "+B.d.J(n.ghc(),2)+" rad"),B.n)
+n=A.e0(A.eH(B.vo,"RaceRider Prototype\nphysics v.49 - front wheelie killer\nState: "+r.b+"\nSpeed: "+B.d.J(Math.sqrt(p.O(0,q).aG(0,3).gcB()),1)+"\nAngle: "+B.d.J(n.ghc(),2)+" rad"),B.n)
 n.cA()
 n.aN(a,B.tH)}}
 A.qI.prototype={
