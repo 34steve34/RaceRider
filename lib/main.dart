@@ -19,7 +19,7 @@ void main() async {
 Offset _off(Vector2 v) => Offset(v.x, v.y);
 
 class RaceRiderGame extends FlameGame with TapCallbacks {
-  static const buildLabel = 'physics v.49 - front wheelie killer';
+  static const buildLabel = 'physics v.50 - restoring torque';
   late Bike player;
   late List<TrackSegment> trackSegments;
   double rawTilt = 0.0;
@@ -633,6 +633,39 @@ class Bike {
     double omega = -tilt * maxOmega;
     
     omega *= 0.8; // Base damping
+
+    // --- NATURAL RESTORING FORCE (SLOPE-AWARE) ---
+    if (tilt.abs() < 0.1) { // When not actively tilting
+      double surfaceAngle = 0.0;
+      bool shouldApplyRestoringForce = true;
+      
+      // Check if both wheels are on different surfaces
+      if (rearOnGround && frontOnGround && 
+          _rearSurface != null && _frontSurface != null) {
+        
+        double rearAngle = atan2(_rearSurface!.tangent.y, _rearSurface!.tangent.x);
+        double frontAngle = atan2(_frontSurface!.tangent.y, _frontSurface!.tangent.x);
+        
+        // If wheels are on significantly different slopes, don't apply restoring force
+        if ((rearAngle - frontAngle).abs() > 0.1) { // ~6 degrees difference
+          shouldApplyRestoringForce = false;
+        } else {
+          surfaceAngle = rearAngle; // They're similar, use either
+        }
+      } else if (rearOnGround && _rearSurface != null) {
+        // Only rear wheel grounded - use rear surface
+        surfaceAngle = atan2(_rearSurface!.tangent.y, _rearSurface!.tangent.x);
+      } else if (frontOnGround && _frontSurface != null) {
+        // Only front wheel grounded - use front surface  
+        surfaceAngle = atan2(_frontSurface!.tangent.y, _frontSurface!.tangent.x);
+      }
+      
+      if (shouldApplyRestoringForce) {
+        final relativeAngle = angle - surfaceAngle;
+        final restoringTorque = sin(relativeAngle) * 0.3;
+        omega += restoringTorque;
+      }
+    }
 
     // --- POSITIVE OMEGA (Pitching Forward / Clockwise) ---
     if (omega > 0) {
