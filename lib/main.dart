@@ -19,7 +19,7 @@ void main() async {
 Offset _off(Vector2 v) => Offset(v.x, v.y);
 
 class RaceRiderGame extends FlameGame with TapCallbacks {
-  static const buildLabel = 'physics v.40 - Pure Master/Slave';
+  static const buildLabel = 'physics v.41 - Pure Master/Slave';
   late Bike player;
   late List<TrackSegment> trackSegments;
   double rawTilt = 0.0;
@@ -33,8 +33,8 @@ class RaceRiderGame extends FlameGame with TapCallbacks {
   // Real-time tuning controls
   bool isTuningMode = false;
   int currentTuningParam = 0;
-  final List<String> tuningParamNames = ['Torque', 'Balance', 'Jump', 'RearHelp', 'FrontHard'];
-  final List<double> tuningParamSteps = [0.1, 0.05, 0.05, 0.05, 0.05];
+  final List<String> tuningParamNames = ['Torque', 'Jump', 'Mass', 'CogDist', 'CogHeight'];
+  final List<double> tuningParamSteps = [10.0, 0.05, 1.0, 0.5, 0.5];
   
   // Auto-restart system
   double crashTimer = 0.0;
@@ -197,11 +197,11 @@ class RaceRiderGame extends FlameGame with TapCallbacks {
     final step = tuningParamSteps[currentTuningParam] * direction;
     
     switch (currentTuningParam) {
-      case 0: Bike._gravityTorqueStrength = (Bike._gravityTorqueStrength + step).clamp(0.0, 3.0); break;
-      case 1: Bike._wheelieBalanceThreshold = (Bike._wheelieBalanceThreshold + step).clamp(0.1, 1.0); break;
-      case 2: Bike._airborneGravityFactor = (Bike._airborneGravityFactor + step).clamp(0.3, 1.0); break;
-      case 3: Bike._rearWheelieAssist = (Bike._rearWheelieAssist + step).clamp(0.0, 0.8); break;
-      case 4: Bike._frontWheelieDifficulty = (Bike._frontWheelieDifficulty + step).clamp(0.0, 2.0); break;
+      case 0: Bike._playerTorqueStrength = (Bike._playerTorqueStrength + step).clamp(50.0, 500.0); break;
+      case 1: Bike._airborneGravityFactor = (Bike._airborneGravityFactor + step).clamp(0.3, 1.0); break;
+      case 2: Bike._bikeMass = (Bike._bikeMass + step).clamp(5.0, 20.0); break;
+      case 3: Bike._cogDistanceFromRear = (Bike._cogDistanceFromRear + step).clamp(3.0, 12.0); break;
+      case 4: Bike._cogHeight = (Bike._cogHeight + step).clamp(2.0, 10.0); break;
     }
   }
   
@@ -293,11 +293,11 @@ class RaceRiderGame extends FlameGame with TapCallbacks {
     // Current parameter name and value - centered
     double currentValue = 0.0;
     switch (currentTuningParam) {
-      case 0: currentValue = Bike._gravityTorqueStrength; break;
-      case 1: currentValue = Bike._wheelieBalanceThreshold; break;
-      case 2: currentValue = Bike._airborneGravityFactor; break;
-      case 3: currentValue = Bike._rearWheelieAssist; break;
-      case 4: currentValue = Bike._frontWheelieDifficulty; break;
+      case 0: currentValue = Bike._playerTorqueStrength; break;
+      case 1: currentValue = Bike._airborneGravityFactor; break;
+      case 2: currentValue = Bike._bikeMass; break;
+      case 3: currentValue = Bike._cogDistanceFromRear; break;
+      case 4: currentValue = Bike._cogHeight; break;
     }
     
     TextPainter(
@@ -378,7 +378,7 @@ class WheelContact {
 enum BikeState { riding, crashed }
 
 class Bike {
-  // === TUNABLE PHYSICS PARAMETERS (REAL-TIME ADJUSTABLE) ===
+  // === PRINCIPLED TORQUE PHYSICS PARAMETERS ===
   static const _gravity = 200.0;
   static const _rearDrive = 420.0;
   static const _brakePerWheel = 430.0;
@@ -395,18 +395,21 @@ class Bike {
   static const _frameStiffness = 1.0;
   static const _suspensionTravel = 0.22;
   
+  // === TORQUE PHYSICS PARAMETERS ===
+  static const _wheelbase = 18.0; // L = 1.8m * 10 scale
+  static const _cogDistanceFromRear = 7.0; // b = 0.7m * 10 scale (forward of rear wheel)
+  static const _cogHeight = 5.0; // h = 0.5m * 10 scale
+  static const _bikeMass = 10.0; // Bike mass for moment of inertia
+  
   // === REAL-TIME TUNING PARAMETERS ===
-  static double _gravityTorqueStrength = 0.8; // TUNE IN-GAME: How strongly gravity tries to level the bike
-  static double _wheelieBalanceThreshold = 0.3; // TUNE IN-GAME: Angle threshold for wheelie balance
+  static double _playerTorqueStrength = 150.0; // TUNE IN-GAME: Player input torque strength
   static double _airborneGravityFactor = 0.7; // TUNE IN-GAME: Gravity strength when airborne
-  static double _rearWheelieAssist = 0.3; // TUNE IN-GAME: Extra help for rear wheelies (front up)
-  static double _frontWheelieDifficulty = 0.8; // TUNE IN-GAME: Extra difficulty for front wheelies (rear up)
 
   static final _rearLocal = Vector2(-9.5, 6.5);
   static final _frontLocal = Vector2(8.5, 6.5);
   static final _headLocal = Vector2(-5.0, -6.25); // Physics head for COG tuning
   static final _collisionHeadLocal = Vector2(-3.5, -12.5); // Collision head for crash detection
-  static final _cogLocal = Vector2(-5.0, -3.0);
+  static final _cogLocal = Vector2(-9.5 + _cogDistanceFromRear, -_cogHeight); // Forward of rear wheel!
   static double get spawnBodyYOffset => _rearLocal.y + _wheelRadius;
 
   late Vector2 rearPos;
@@ -624,67 +627,55 @@ class Bike {
   }
 
   void _applyTiltImpulse(double tilt) {
-    const maxOmega = 2.0; // Increased rotation speed by 30%
-    double omega = -tilt * maxOmega; 
-
-    if (rearOnGround && frontOnGround) {
-      omega *= 0.45; 
-    } else if (rearOnGround && !frontOnGround) {
-      // Rear wheelie (front up) - this is what LEFT TILT does, make it easy
-      omega *= 0.90; // Normal tilt response for rear wheelies
+    // Player input torque (positive = lift front, negative = lift rear)
+    double playerTorque = -tilt * _playerTorqueStrength;
+    
+    // Calculate ground angle
+    double groundAngle = 0.0;
+    if (rearOnGround && _rearSurface != null) {
+      groundAngle = atan2(_rearSurface!.normal.y, _rearSurface!.normal.x) + pi/2;
+    } else if (frontOnGround && _frontSurface != null) {
+      groundAngle = atan2(_frontSurface!.normal.y, _frontSurface!.normal.x) + pi/2;
+    }
+    
+    // Bike angle relative to ground
+    double bikeAngle = angle - groundAngle;
+    
+    // Calculate gravity restoring torque
+    double gPerp = _bikeMass * _gravity * cos(bikeAngle);
+    double gPara = _bikeMass * _gravity * sin(bikeAngle);
+    
+    // Moment arms from COG to contact points
+    double b = _cogDistanceFromRear; // Distance from rear to COG
+    double h = _cogHeight; // Height of COG
+    
+    double restoringTorque = 0.0;
+    if (rearOnGround && !frontOnGround) {
+      // Rear wheelie pivot - gravity tries to bring front down
+      restoringTorque = gPerp * b - gPara * h;
     } else if (frontOnGround && !rearOnGround) {
-      // Front wheelie (rear up) - reduce tilt when lifting rear, but allow recovery
-      if (omega > 0) {
-        // Lifting rear wheel - make it hard
-        omega *= 0.125; // Divide by 8 to simulate real front wheelie difficulty
-      } else {
-        // Bringing rear wheel down - normal response
-        omega *= 0.90; // Allow recovery
-      }
-    } else {
-      // Both airborne - normal tilt response
-      omega *= 0.90; 
+      // Front wheelie pivot - gravity tries to bring rear down  
+      double frontToCog = _wheelbase - b;
+      restoringTorque = -(gPerp * frontToCog + gPara * h);
     }
-
-    // === GRAVITY TORQUE: Ever-present force seeking lowest potential energy ===
-    // Gravity torque always acts on the bike's center of mass
-    {
-      final bikeAngle = angle;
-      
-      // Calculate target angle based on ground contact
-      double targetAngle = 0.0; // Default to level
-      if (rearOnGround && _rearSurface != null) {
-        // Target angle perpendicular to rear wheel surface
-        targetAngle = atan2(_rearSurface!.normal.y, _rearSurface!.normal.x) + pi/2;
-      } else if (frontOnGround && _frontSurface != null) {
-        // Target angle perpendicular to front wheel surface  
-        targetAngle = atan2(_frontSurface!.normal.y, _frontSurface!.normal.x) + pi/2;
-      }
-      
-      // Calculate angle difference
-      double angleDiff = targetAngle - bikeAngle;
-      
-      // Normalize angle difference to [-pi, pi]
-      while (angleDiff > pi) angleDiff -= 2 * pi;
-      while (angleDiff < -pi) angleDiff += 2 * pi;
-      
-      // Apply gravity torque (wheelie-specific behavior)
-      double torqueMultiplier = _gravityTorqueStrength;
-      if (rearOnGround && !frontOnGround) {
-        // Rear wheelie (front up) - make it easier with assist
-        if (angleDiff.abs() < _wheelieBalanceThreshold) {
-          torqueMultiplier *= 0.2; // Balanced - very stable
-        } else {
-          torqueMultiplier *= (1.0 - _rearWheelieAssist); // Easier to hold wheelie
-        }
-      } else if (frontOnGround && !rearOnGround) {
-        // Front wheelie (rear up) - make it harder through base physics only
-        torqueMultiplier /= (1.0 + _frontWheelieDifficulty); // Harder to hold
-      }
-      
-      omega += angleDiff * torqueMultiplier;
-    }
-
+    
+    // Net torque
+    double netTorque = playerTorque - restoringTorque;
+    
+    // Moment of inertia about pivot point
+    double I = _bikeMass * (b * b + h * h); // Approximate as point mass
+    
+    // Angular acceleration
+    double alpha = netTorque / I;
+    
+    // Apply angular velocity change
+    double omega = alpha * 0.016; // Convert to angular velocity (assuming 60fps)
+    
+    // Apply rotation using master/slave system
+    _applyRotationToPoints(omega);
+  }
+  
+  void _applyRotationToPoints(double omega) {
     final masterVel = cogVel.clone();
     final trueCenterLocal = (_rearLocal + _frontLocal + _headLocal) / 3.0;
 
