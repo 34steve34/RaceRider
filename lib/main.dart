@@ -19,7 +19,7 @@ void main() async {
 Offset _off(Vector2 v) => Offset(v.x, v.y);
 
 class RaceRiderGame extends FlameGame with TapCallbacks {
-  static const buildLabel = 'physics v.51 - no B.S. rotational code';
+  static const buildLabel = 'physics v.52 - no B.S. rotational code';
   late Bike player;
   late List<TrackSegment> trackSegments;
   double rawTilt = 0.0;
@@ -650,8 +650,12 @@ class Bike {
     }
     
     // Convert torque to angular velocity change
-    // Moment of inertia for point masses: I = Σ(m * r²)
-    final momentOfInertia = _bikeMass * (pow(cogPos.distanceTo(rearPos), 2) + pow(cogPos.distanceTo(frontPos), 2));
+    // Moment of inertia for point masses: I = Σ(m * r²) - average, not sum
+    final momentOfInertia = _bikeMass * (
+      pow(cogPos.distanceTo(rearPos), 2) + 
+      pow(cogPos.distanceTo(frontPos), 2) + 
+      pow(cogPos.distanceTo(headPos), 2)
+    ) / 3.0;
     return momentOfInertia > 0 ? totalTorque / momentOfInertia : 0.0;
   }
 
@@ -661,8 +665,8 @@ class Bike {
     
     omega *= 0.8; // Base damping
 
-    // Add natural gravity torque
-    final gravityTorque = _calculateGravityTorque();
+    // Add natural gravity torque with damping to prevent oscillations
+    final gravityTorque = _calculateGravityTorque() * 0.1; // Reduce by 90%
     omega += gravityTorque;
 
     // --- POSITIVE OMEGA (Pitching Forward / Clockwise) ---
