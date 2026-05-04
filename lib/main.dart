@@ -19,7 +19,7 @@ void main() async {
 Offset _off(Vector2 v) => Offset(v.x, v.y);
 
 class RaceRiderGame extends FlameGame with TapCallbacks {
-  static const buildLabel = 'physics v.50 - restoring torque';
+  static const buildLabel = 'physics v.51 - no B.S. rotational code';
   late Bike player;
   late List<TrackSegment> trackSegments;
   double rawTilt = 0.0;
@@ -409,7 +409,7 @@ class Bike {
   static final _frontLocal = Vector2(8.5, 6.5);
   static final _headLocal = Vector2(-5.0, -6.25); // Physics head for COG tuning
   static final _collisionHeadLocal = Vector2(-3.5, -12.5); // Collision head for crash detection
-  static Vector2 get _cogLocal => Vector2(-9.5 + _cogDistanceFromRear, 6.5 - _cogHeight); // Dynamic COG position
+  static Vector2 get _cogLocal => (_rearLocal + _frontLocal) / 2.0; // COG at center of wheelbase
   static double get spawnBodyYOffset => _rearLocal.y + _wheelRadius;
 
   late Vector2 rearPos;
@@ -628,44 +628,42 @@ class Bike {
     velocity.add(forward * (next - speedAlong));
   }
 
+  double _calculateGravityTorque() {
+    if (!rearOnGround && !frontOnGround) return 0.0; // No torque when airborne
+    
+    double totalTorque = 0.0;
+    
+    // Calculate torque from rear wheel contact
+    if (rearOnGround && _rearSurface != null) {
+      final cogToRear = cogPos - rearPos;
+      final gravityForce = Vector2(0, _gravity * _bikeMass);
+      // Torque = r × F (cross product in 2D)
+      totalTorque += cogToRear.x * gravityForce.y - cogToRear.y * gravityForce.x;
+    }
+    
+    // Calculate torque from front wheel contact  
+    if (frontOnGround && _frontSurface != null) {
+      final cogToFront = cogPos - frontPos;
+      final gravityForce = Vector2(0, _gravity * _bikeMass);
+      // Torque = r × F (cross product in 2D)
+      totalTorque += cogToFront.x * gravityForce.y - cogToFront.y * gravityForce.x;
+    }
+    
+    // Convert torque to angular velocity change
+    // Moment of inertia for point masses: I = Σ(m * r²)
+    final momentOfInertia = _bikeMass * (pow(cogPos.distanceTo(rearPos), 2) + pow(cogPos.distanceTo(frontPos), 2));
+    return momentOfInertia > 0 ? totalTorque / momentOfInertia : 0.0;
+  }
+
   void _applyTiltImpulse(double tilt) {
     const maxOmega = 1.5; 
     double omega = -tilt * maxOmega;
     
     omega *= 0.8; // Base damping
 
-    // --- NATURAL RESTORING FORCE (SLOPE-AWARE) ---
-    if (tilt.abs() < 0.1) { // When not actively tilting
-      double surfaceAngle = 0.0;
-      bool shouldApplyRestoringForce = true;
-      
-      // Check if both wheels are on different surfaces
-      if (rearOnGround && frontOnGround && 
-          _rearSurface != null && _frontSurface != null) {
-        
-        double rearAngle = atan2(_rearSurface!.tangent.y, _rearSurface!.tangent.x);
-        double frontAngle = atan2(_frontSurface!.tangent.y, _frontSurface!.tangent.x);
-        
-        // If wheels are on significantly different slopes, don't apply restoring force
-        if ((rearAngle - frontAngle).abs() > 0.1) { // ~6 degrees difference
-          shouldApplyRestoringForce = false;
-        } else {
-          surfaceAngle = rearAngle; // They're similar, use either
-        }
-      } else if (rearOnGround && _rearSurface != null) {
-        // Only rear wheel grounded - use rear surface
-        surfaceAngle = atan2(_rearSurface!.tangent.y, _rearSurface!.tangent.x);
-      } else if (frontOnGround && _frontSurface != null) {
-        // Only front wheel grounded - use front surface  
-        surfaceAngle = atan2(_frontSurface!.tangent.y, _frontSurface!.tangent.x);
-      }
-      
-      if (shouldApplyRestoringForce) {
-        final relativeAngle = angle - surfaceAngle;
-        final restoringTorque = sin(relativeAngle) * 0.3;
-        omega += restoringTorque;
-      }
-    }
+    // Add natural gravity torque
+    final gravityTorque = _calculateGravityTorque();
+    omega += gravityTorque;
 
     // --- POSITIVE OMEGA (Pitching Forward / Clockwise) ---
     if (omega > 0) {
