@@ -19,7 +19,7 @@ void main() async {
 Offset _off(Vector2 v) => Offset(v.x, v.y);
 
 class RaceRiderGame extends FlameGame with TapCallbacks {
-  static const buildLabel = 'physics v.37 - Pure Master/Slave';
+  static const buildLabel = 'physics v.38 - Pure Master/Slave';
   late Bike player;
   late List<TrackSegment> trackSegments;
   double rawTilt = 0.0;
@@ -629,14 +629,14 @@ class Bike {
 
     if (rearOnGround && frontOnGround) {
       omega *= 0.45; 
-    } else if (frontOnGround && !rearOnGround) {
-      // Front wheelie (rear up) - make it harder when front wheel grounded
-      omega *= 0.45; // Same as normal riding - requires momentum and skill
     } else if (rearOnGround && !frontOnGround) {
-      // Rear wheelie (front up) - same difficulty as front wheelie
-      omega *= 0.45; // Equal difficulty - requires momentum and skill
+      // Rear wheelie (front up) - this is what LEFT TILT does, make it easy
+      omega *= 0.90; // Normal tilt response for rear wheelies
+    } else if (frontOnGround && !rearOnGround) {
+      // Front wheelie (rear up) - this is what RIGHT TILT does, make it hard
+      omega *= 0.125; // Divide by 8 to simulate real front wheelie difficulty
     } else {
-      // Airborne - normal tilt response
+      // Both airborne - normal tilt response
       omega *= 0.90; 
     }
 
@@ -665,14 +665,14 @@ class Bike {
       // Apply gravity torque (wheelie-specific behavior)
       double torqueMultiplier = _gravityTorqueStrength;
       if (rearOnGround && !frontOnGround) {
-        // Rear wheelie (front up) - make it easier with assist (the "normal" wheelie)
+        // Rear wheelie (front up) - make it easier with assist
         if (angleDiff.abs() < _wheelieBalanceThreshold) {
           torqueMultiplier *= 0.2; // Balanced - very stable
         } else {
           torqueMultiplier *= (1.0 - _rearWheelieAssist); // Easier to hold wheelie
         }
       } else if (frontOnGround && !rearOnGround) {
-        // Front wheelie (rear up) - make it harder (the "stoppie")
+        // Front wheelie (rear up) - make it harder through base physics only
         torqueMultiplier *= (1.0 + _frontWheelieDifficulty); // Harder to hold
       }
       
