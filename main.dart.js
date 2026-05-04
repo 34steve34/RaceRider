@@ -31425,33 +31425,34 @@ f=$.mU
 e=$.mV
 p=a4.Q
 if(p&&!a4.as)d=h*f-g*e
-else d=a4.as&&!p?-(h*($.Kk-f)+g*e):0
-a4.yP((-a6*s-d)/($.jl*(f*f+e*e))*0.016)
+else{c=a4.as
+if(c&&!p)d=-(h*($.Kk-f)+g*e)
+else d=p&&c?h*f*Math.sin(i)+g*e*Math.cos(i):0}a4.yP((-a6*s-d)/($.jl*(f*f+e*e))*0.016)
 a4.a.n(0,a4.f.V(0,a5))
 a4.b.n(0,a4.r.V(0,a5))
 s=a4.c
 s===$&&A.c()
 s.n(0,a4.w.V(0,a5))
-c=a4.geX()
-b=a4.a.O(0,a4.b).aG(0,2)
+b=a4.geX()
+a=a4.a.O(0,a4.b).aG(0,2)
 s=new A.E(new Float64Array(2))
 s.W(-5,-3)
-A.q9(s,c)
-a4.e=b.O(0,s)
-for(a=0;a<5;++a){s=a4.a
+A.q9(s,b)
+a4.e=a.O(0,s)
+for(a0=0;a0<5;++a0){s=a4.a
 p=a4.b
-a0=$.Kk
-a4.ma(s,p,a0,a0,1,1.35,1)
-a0=a4.a
+c=$.Kk
+a4.ma(s,p,c,c,1,1.35,1)
+c=a4.a
 p=a4.c
 s=a4.dy
 s===$&&A.c()
-a4.ma(a0,p,s,s,1,1.35,0.5)
+a4.ma(c,p,s,s,1,1.35,0.5)
 s=a4.b
 p=a4.c
-a0=a4.fr
-a0===$&&A.c()
-a4.ma(s,p,a0,a0,1,1,0.5)}a1=a4.geX()
+c=a4.fr
+c===$&&A.c()
+a4.ma(s,p,c,c,1,1,0.5)}a1=a4.geX()
 a2=a4.a.O(0,a4.b).aG(0,2)
 s=new A.E(new Float64Array(2))
 s.W(-5,-3)
@@ -31645,7 +31646,7 @@ p===$&&A.c()
 p=q.O(0,p)
 q=n.w
 q===$&&A.c()
-n=A.e0(A.eH(B.vo,"RaceRider Prototype\nphysics v.42 - Pure Master/Slave\nState: "+r.b+"\nSpeed: "+B.d.J(Math.sqrt(p.O(0,q).aG(0,3).gcB()),1)+"\nAngle: "+B.d.J(n.geX(),2)+" rad"),B.n)
+n=A.e0(A.eH(B.vo,"RaceRider Prototype\nphysics v.43 - Pure Master/Slave\nState: "+r.b+"\nSpeed: "+B.d.J(Math.sqrt(p.O(0,q).aG(0,3).gcB()),1)+"\nAngle: "+B.d.J(n.geX(),2)+" rad"),B.n)
 n.cA()
 n.aN(a,B.tH)}}
 A.qL.prototype={
