@@ -19,7 +19,7 @@ void main() async {
 Offset _off(Vector2 v) => Offset(v.x, v.y);
 
 class RaceRiderGame extends FlameGame with TapCallbacks {
-  static const buildLabel = 'physics v.39 - Pure Master/Slave';
+  static const buildLabel = 'physics v.40 - Pure Master/Slave';
   late Bike player;
   late List<TrackSegment> trackSegments;
   double rawTilt = 0.0;
@@ -633,8 +633,14 @@ class Bike {
       // Rear wheelie (front up) - this is what LEFT TILT does, make it easy
       omega *= 0.90; // Normal tilt response for rear wheelies
     } else if (frontOnGround && !rearOnGround) {
-      // Front wheelie (rear up) - this is what RIGHT TILT does, make it hard
-      omega *= 0.125; // Divide by 8 to simulate real front wheelie difficulty
+      // Front wheelie (rear up) - reduce tilt when lifting rear, but allow recovery
+      if (omega > 0) {
+        // Lifting rear wheel - make it hard
+        omega *= 0.125; // Divide by 8 to simulate real front wheelie difficulty
+      } else {
+        // Bringing rear wheel down - normal response
+        omega *= 0.90; // Allow recovery
+      }
     } else {
       // Both airborne - normal tilt response
       omega *= 0.90; 
