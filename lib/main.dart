@@ -19,7 +19,7 @@ void main() async {
 Offset _off(Vector2 v) => Offset(v.x, v.y);
 
 class RaceRiderGame extends FlameGame with TapCallbacks {
-  static const buildLabel = 'physics v.47 - full time magnets';
+  static const buildLabel = 'physics v.48 - front wheelie killer';
   late Bike player;
   late List<TrackSegment> trackSegments;
   double rawTilt = 0.0;
@@ -635,7 +635,21 @@ class Bike {
     
     // Apply damping to prevent vibration
     omega *= 0.8;
-    
+
+    // --- FORWARD PITCH REDUCTION ---
+    // In a Y-down system, positive omega = clockwise rotation (pitching forward)
+    if (omega > 0) {
+      if (frontOnGround) {
+        // Severely kill torque when pivoting on the front tire (lifting rear wheel)
+        omega *= 0.15; // 85% reduction - TUNE THIS VALUE
+      } else {
+        // Optionally reduce airborne forward pitch, 
+        // as front-flips are mechanically harder to initiate than back-flips.
+        omega *= 0.75; // 25% reduction - TUNE THIS VALUE
+      }
+    }
+    // Negative omega (back-wheelies / backward pitch) remains untouched.
+
     // Apply rotation using master/slave system
     _applyRotationToPoints(omega);
   }
