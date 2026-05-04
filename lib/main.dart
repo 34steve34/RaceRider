@@ -19,7 +19,7 @@ void main() async {
 Offset _off(Vector2 v) => Offset(v.x, v.y);
 
 class RaceRiderGame extends FlameGame with TapCallbacks {
-  static const buildLabel = 'physics v.41 - Pure Master/Slave';
+  static const buildLabel = 'physics v.42 - Pure Master/Slave';
   late Bike player;
   late List<TrackSegment> trackSegments;
   double rawTilt = 0.0;
@@ -396,10 +396,10 @@ class Bike {
   static const _suspensionTravel = 0.22;
   
   // === TORQUE PHYSICS PARAMETERS ===
-  static const _wheelbase = 18.0; // L = 1.8m * 10 scale
-  static const _cogDistanceFromRear = 7.0; // b = 0.7m * 10 scale (forward of rear wheel)
-  static const _cogHeight = 5.0; // h = 0.5m * 10 scale
-  static const _bikeMass = 10.0; // Bike mass for moment of inertia
+  static double _wheelbase = 18.0; // L = 1.8m * 10 scale
+  static double _cogDistanceFromRear = 7.0; // b = 0.7m * 10 scale (forward of rear wheel)
+  static double _cogHeight = 5.0; // h = 0.5m * 10 scale
+  static double _bikeMass = 10.0; // Bike mass for moment of inertia
   
   // === REAL-TIME TUNING PARAMETERS ===
   static double _playerTorqueStrength = 150.0; // TUNE IN-GAME: Player input torque strength
@@ -409,7 +409,7 @@ class Bike {
   static final _frontLocal = Vector2(8.5, 6.5);
   static final _headLocal = Vector2(-5.0, -6.25); // Physics head for COG tuning
   static final _collisionHeadLocal = Vector2(-3.5, -12.5); // Collision head for crash detection
-  static final _cogLocal = Vector2(-9.5 + _cogDistanceFromRear, -_cogHeight); // Forward of rear wheel!
+  static Vector2 get _cogLocal => Vector2(-9.5 + _cogDistanceFromRear, 6.5 - _cogHeight); // Dynamic COG position
   static double get spawnBodyYOffset => _rearLocal.y + _wheelRadius;
 
   late Vector2 rearPos;
@@ -436,12 +436,13 @@ class Bike {
   SurfaceHit? _rearSurface;
   SurfaceHit? _frontSurface;
 
-  late final double _wheelbase;
+  late double _wheelbase;
   late final double _distRH;
   late final double _distFH;
   late final Vector2 _headFromWheelCenter;
 
   Bike(Vector2 startPos) {
+    // Initialize positions
     rearPos = startPos + _rearLocal;
     frontPos = startPos + _frontLocal;
     headPos = startPos + _headLocal; // Physics head
@@ -452,7 +453,9 @@ class Bike {
     headVel = Vector2.zero();
     collisionHeadVel = Vector2.zero(); // Initialize collision head velocity
     cogVel = Vector2.zero();
-    _wheelbase = (_frontLocal - _rearLocal).length;
+    
+    // Initialize dynamic parameters
+    _wheelbase = Bike._wheelbase;
     _distRH = (_headLocal - _rearLocal).length;
     _distFH = (_headLocal - _frontLocal).length;
     _headFromWheelCenter = _headLocal - (_rearLocal + _frontLocal) / 2.0;
