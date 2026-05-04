@@ -19,7 +19,7 @@ void main() async {
 Offset _off(Vector2 v) => Offset(v.x, v.y);
 
 class RaceRiderGame extends FlameGame with TapCallbacks {
-  static const buildLabel = 'physics v.45 - Pure Master/Slave';
+  static const buildLabel = 'physics v.46 - Pure Master/Slave';
   late Bike player;
   late List<TrackSegment> trackSegments;
   double rawTilt = 0.0;
@@ -629,66 +629,12 @@ class Bike {
   }
 
   void _applyTiltImpulse(double tilt) {
-    // Player input torque (positive = lift front, negative = lift rear)
-    double playerTorque = -tilt * _playerTorqueStrength;
+    // Simple direct torque model - equal rotation speed for all conditions
+    const maxOmega = 1.5; // Base rotation speed
+    double omega = -tilt * maxOmega;
     
-    // Calculate ground angle
-    double groundAngle = 0.0;
-    if (rearOnGround && _rearSurface != null) {
-      groundAngle = atan2(_rearSurface!.normal.y, _rearSurface!.normal.x) + pi/2;
-    } else if (frontOnGround && _frontSurface != null) {
-      groundAngle = atan2(_frontSurface!.normal.y, _frontSurface!.normal.x) + pi/2;
-    }
-    
-    // Bike angle relative to ground
-    double bikeAngle = angle - groundAngle;
-    
-    // Calculate gravity restoring torque
-    double gPerp = _bikeMass * _gravity * cos(bikeAngle);
-    double gPara = _bikeMass * _gravity * sin(bikeAngle);
-    
-    // Moment arms from COG to contact points
-    double b = _cogDistanceFromRear; // Distance from rear to COG
-    double h = _cogHeight; // Height of COG
-    
-    double restoringTorque = 0.0;
-    if (rearOnGround && !frontOnGround) {
-      // Rear wheelie pivot - gravity tries to bring front down
-      restoringTorque = gPerp * b - gPara * h;
-    } else if (frontOnGround && !rearOnGround) {
-      // Front wheelie pivot - gravity tries to bring rear down  
-      double frontToCog = _wheelbase - b;
-      restoringTorque = -(gPerp * frontToCog + gPara * h);
-    } else if (rearOnGround && frontOnGround) {
-      // Both wheels grounded - simplified torque based on bike angle
-      restoringTorque = gPerp * b * sin(bikeAngle) + gPara * h * cos(bikeAngle);
-    } else {
-      // Airborne - no ground contact, free rotation
-      restoringTorque = 0.0;
-    }
-    
-    // Net torque
-    double netTorque = playerTorque - restoringTorque;
-    
-    // Moment of inertia calculation
-    double I;
-    if (rearOnGround && !frontOnGround) {
-      // Rear wheelie pivot - rotate about rear wheel
-      I = _bikeMass * (b * b + h * h);
-    } else if (frontOnGround && !rearOnGround) {
-      // Front wheelie pivot - rotate about front wheel
-      double frontToCog = _wheelbase - b;
-      I = _bikeMass * (frontToCog * frontToCog + h * h);
-    } else {
-      // Airborne or both grounded - rotate about COG with simplified inertia
-      I = _bikeMass * 25.0; // Fixed reasonable inertia for airborne rotation
-    }
-    
-    // Angular acceleration
-    double alpha = netTorque / I;
-    
-    // Apply angular velocity change with scaling for responsiveness
-    double omega = alpha * 2.0; // Much higher responsiveness factor
+    // Apply damping to prevent vibration
+    omega *= 0.8;
     
     // Apply rotation using master/slave system
     _applyRotationToPoints(omega);
