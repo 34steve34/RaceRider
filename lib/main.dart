@@ -19,7 +19,7 @@ void main() async {
 Offset _off(Vector2 v) => Offset(v.x, v.y);
 
 class RaceRiderGame extends FlameGame with TapCallbacks {
-  static const buildLabel = 'physics v.38 - Pure Master/Slave';
+  static const buildLabel = 'physics v.39 - Pure Master/Slave';
   late Bike player;
   late List<TrackSegment> trackSegments;
   double rawTilt = 0.0;
@@ -673,7 +673,7 @@ class Bike {
         }
       } else if (frontOnGround && !rearOnGround) {
         // Front wheelie (rear up) - make it harder through base physics only
-        torqueMultiplier *= (1.0 + _frontWheelieDifficulty); // Harder to hold
+        torqueMultiplier /= (1.0 + _frontWheelieDifficulty); // Harder to hold
       }
       
       omega += angleDiff * torqueMultiplier;
