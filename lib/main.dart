@@ -19,7 +19,7 @@ void main() async {
 Offset _off(Vector2 v) => Offset(v.x, v.y);
 
 class RaceRiderGame extends FlameGame with TapCallbacks {
-  static const buildLabel = 'physics v.42 - Pure Master/Slave';
+  static const buildLabel = 'physics v.43 - Pure Master/Slave';
   late Bike player;
   late List<TrackSegment> trackSegments;
   double rawTilt = 0.0;
@@ -659,6 +659,9 @@ class Bike {
       // Front wheelie pivot - gravity tries to bring rear down  
       double frontToCog = _wheelbase - b;
       restoringTorque = -(gPerp * frontToCog + gPara * h);
+    } else if (rearOnGround && frontOnGround) {
+      // Both wheels grounded - simplified torque based on bike angle
+      restoringTorque = gPerp * b * sin(bikeAngle) + gPara * h * cos(bikeAngle);
     }
     
     // Net torque
