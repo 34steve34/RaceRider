@@ -19,7 +19,7 @@ void main() async {
 Offset _off(Vector2 v) => Offset(v.x, v.y);
 
 class RaceRiderGame extends FlameGame with TapCallbacks {
-  static const buildLabel = 'physics v.52 - no B.S. rotational code';
+  static const buildLabel = 'physics v.53 - COG midpoint';
   late Bike player;
   late List<TrackSegment> trackSegments;
   double rawTilt = 0.0;
@@ -547,10 +547,10 @@ class Bike {
     rearPos.add(rearVel * dt);
     frontPos.add(frontVel * dt);
     headPos.add(headVel * dt);
-    // Update sCOG position for rendering
+    // Update COG position for rendering - use actual center point
     final currentAngle = angle;
     final frameCenter = (rearPos + frontPos) / 2.0;
-    cogPos = frameCenter + (Vector2(-5.0, -3.0)..rotate(currentAngle));
+    cogPos = frameCenter; // True center, no offset
 
     // 7. Solve Hard Constraints
     for (int i = 0; i < 5; i++) {
@@ -559,10 +559,10 @@ class Bike {
       _solveBoundedDistance(frontPos, headPos, _distFH, _distFH, 1.0, 1.0, 0.5);
     }
     
-    // Update sCOG position after constraints
+    // Update COG position after constraints - use actual center point
     final currentAngle2 = angle;
     final frameCenter2 = (rearPos + frontPos) / 2.0;
-    cogPos = frameCenter2 + (Vector2(-5.0, -3.0)..rotate(currentAngle2));
+    cogPos = frameCenter2; // True center, no offset
     // Update collision head position
     collisionHeadPos = frameCenter2 + (Vector2(-3.5, -12.5)..rotate(currentAngle2));
 
@@ -629,6 +629,8 @@ class Bike {
   }
 
   double _calculateGravityTorque() {
+    // Only apply gravity torque for single-wheel contact
+    if (rearOnGround && frontOnGround) return 0.0; // No torque when both wheels grounded
     if (!rearOnGround && !frontOnGround) return 0.0; // No torque when airborne
     
     double totalTorque = 0.0;
