@@ -19,7 +19,7 @@ void main() async {
 Offset _off(Vector2 v) => Offset(v.x, v.y);
 
 class RaceRiderGame extends FlameGame with TapCallbacks {
-  static const buildLabel = 'physics v.56 - controllable COG';
+  static const buildLabel = 'physics v.57 - controllable front wheel';
   late Bike player;
   late List<TrackSegment> trackSegments;
   double rawTilt = 0.0;
@@ -33,8 +33,8 @@ class RaceRiderGame extends FlameGame with TapCallbacks {
   // Real-time tuning controls
   bool isTuningMode = false;
   int currentTuningParam = 0;
-  final List<String> tuningParamNames = ['Torque', 'Jump', 'Mass', 'CogDist', 'CogHeight', 'MagStr'];
-  final List<double> tuningParamSteps = [10.0, 0.05, 1.0, 0.5, 0.5, 0.0005];
+  final List<String> tuningParamNames = ['Torque', 'Jump', 'Mass', 'CogDist', 'CogHeight', 'MagStr', 'FrontPen'];
+  final List<double> tuningParamSteps = [10.0, 0.05, 1.0, 0.5, 0.5, 0.0005, 0.05];
   
   // Auto-restart system
   double crashTimer = 0.0;
@@ -203,6 +203,7 @@ class RaceRiderGame extends FlameGame with TapCallbacks {
       case 3: Bike._cogDistanceFromRear += step; break;
       case 4: Bike._cogHeight += step; break;
       case 5: Bike._magnetStrength += step; break;
+      case 6: Bike._frontWheelPenalty += step; break;
     }
   }
   
@@ -300,6 +301,7 @@ class RaceRiderGame extends FlameGame with TapCallbacks {
       case 3: currentValue = Bike._cogDistanceFromRear; break;
       case 4: currentValue = Bike._cogHeight; break;
       case 5: currentValue = Bike._magnetStrength; break;
+      case 6: currentValue = Bike._frontWheelPenalty; break;
     }
     
     TextPainter(
@@ -391,6 +393,7 @@ class Bike {
   static const _headRadius = 2.4;
   static const _magnetRange = 0.04;
   static double _magnetStrength = 0.002; // TUNE IN-GAME: Micro-magnet strength
+  static double _frontWheelPenalty = 0.15; // TUNE IN-GAME: Front wheel grounded rotation penalty
   static const _impactCrashSpeed = 280.0;
   static const _wheelSpinDamp = 0.985;
   static const _frameStiffness = 1.0;
@@ -550,8 +553,13 @@ class Bike {
     headPos.add(headVel * dt);
     // Update COG position for rendering - use dynamic COG
     final currentAngle = angle;
-    final bikeCenter = (rearPos + frontPos + headPos) / 3.0;
-    cogPos = bikeCenter + _cogLocal..rotate(currentAngle);
+    // Calculate COG as weighted average of bike parts based on tuning parameters
+    final rearWeight = 1.0;
+    final frontWeight = 1.0;
+    final headWeight = 0.5;
+    final totalWeight = rearWeight + frontWeight + headWeight;
+    
+    cogPos = (rearPos * rearWeight + frontPos * frontWeight + headPos * headWeight) / totalWeight;
 
     // 7. Solve Hard Constraints
     for (int i = 0; i < 5; i++) {
@@ -562,10 +570,16 @@ class Bike {
     
     // Update COG position after constraints - use dynamic COG
     final currentAngle2 = angle;
-    final bikeCenter2 = (rearPos + frontPos + headPos) / 3.0;
-    cogPos = bikeCenter2 + _cogLocal..rotate(currentAngle2);
+    // Calculate COG as weighted average of bike parts based on tuning parameters
+    final rearWeight = 1.0;
+    final frontWeight = 1.0;
+    final headWeight = 0.5;
+    final totalWeight = rearWeight + frontWeight + headWeight;
+    
+    cogPos = (rearPos * rearWeight + frontPos * frontWeight + headPos * headWeight) / totalWeight;
     // Update collision head position
-    collisionHeadPos = bikeCenter2 + (Vector2(-3.5, -12.5)..rotate(currentAngle2));
+    final frameCenter = (rearPos + frontPos) / 2.0;
+    collisionHeadPos = frameCenter + (Vector2(-3.5, -12.5)..rotate(currentAngle2));
 
     // 8. Friction and Speed Cap
     final damp = max(0.0, 1.0 - _airDrag * dt);
@@ -677,7 +691,7 @@ class Bike {
       if (frontOnGround) {
         // ONLY penalize if the front wheel is planted (trying to lift the rear).
         // This stops the violent forward snap.
-        omega *= 0.15; 
+        omega *= _frontWheelPenalty; 
       }
       // If airborne or in a wheelie, you get 100% power to slam the nose down.
     } 
