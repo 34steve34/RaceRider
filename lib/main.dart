@@ -19,7 +19,7 @@ void main() async {
 Offset _off(Vector2 v) => Offset(v.x, v.y);
 
 class RaceRiderGame extends FlameGame with TapCallbacks {
-  static const buildLabel = 'physics v.58 - controllable front wheel';
+  static const buildLabel = 'physics v.58b - controllable front wheel';
   late Bike player;
   late List<TrackSegment> trackSegments;
   double rawTilt = 0.0;
@@ -33,7 +33,7 @@ class RaceRiderGame extends FlameGame with TapCallbacks {
   // Real-time tuning controls
   bool isTuningMode = false;
   int currentTuningParam = 0;
-  final List<String> tuningParamNames = ['Torque', 'Jump', 'Mass', 'CogDist', 'CogHeight', 'MagStr', 'FrontPen'];
+  final List<String> tuningParamNames = ['Torque', 'Jump', 'Mass', 'CogDist', 'CogHeight', 'MagStr', 'FrontTorque'];
   final List<double> tuningParamSteps = [10.0, 0.05, 1.0, 0.5, 0.5, 0.0005, 0.05];
   
   // Auto-restart system
@@ -203,7 +203,7 @@ class RaceRiderGame extends FlameGame with TapCallbacks {
       case 3: Bike._cogDistanceFromRear += step; break;
       case 4: Bike._cogHeight += step; break;
       case 5: Bike._magnetStrength += step; break;
-      case 6: Bike._frontWheelPenalty += step; break;
+      case 6: Bike._frontGroundedTorqueScale += step; break;
     }
   }
   
@@ -301,7 +301,7 @@ class RaceRiderGame extends FlameGame with TapCallbacks {
       case 3: currentValue = Bike._cogDistanceFromRear; break;
       case 4: currentValue = Bike._cogHeight; break;
       case 5: currentValue = Bike._magnetStrength; break;
-      case 6: currentValue = Bike._frontWheelPenalty; break;
+      case 6: currentValue = Bike._frontGroundedTorqueScale; break;
     }
     
     TextPainter(
@@ -392,8 +392,8 @@ class Bike {
   static const _wheelRadius = 4.7;
   static const _headRadius = 2.4;
   static const _magnetRange = 0.04;
-  static double _magnetStrength = 0.002; // TUNE IN-GAME: Micro-magnet strength
-  static double _frontWheelPenalty = 0.15; // TUNE IN-GAME: Front wheel grounded rotation penalty
+  static double _magnetStrength = 0.04; // TUNE IN-GAME: Micro-magnet strength
+  static double _frontGroundedTorqueScale = 0.3; // TUNE IN-GAME: Forward pitch torque when front wheel grounded (0.0-1.0)
   static const _impactCrashSpeed = 280.0;
   static const _wheelSpinDamp = 0.985;
   static const _frameStiffness = 1.0;
@@ -678,7 +678,7 @@ class Bike {
     // This weakens torque (can't lift rear wheel) without killing rotation speed
     double effectiveTilt = tilt;
     if (tilt > 0 && frontOnGround) {
-      effectiveTilt = tilt * 0.3;  // Weaken forward pitch torque when front grounded
+      effectiveTilt = tilt * _frontGroundedTorqueScale;
     }
     
     double omega = -effectiveTilt * maxOmega;
