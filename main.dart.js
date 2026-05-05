@@ -31430,7 +31430,7 @@ s===$&&A.c()
 s.n(0,e.w.T(0,a))
 e.ghb()
 e.e=e.a.T(0,1).N(0,e.b.T(0,1)).N(0,e.c.T(0,0.5)).aC(0,2.5)
-for(j=0;j<5;++j){s=e.a
+for(j=0;j<10;++j){s=e.a
 p=e.b
 i=$.PI
 e.ma(s,p,i,i,1,1.35,1)
