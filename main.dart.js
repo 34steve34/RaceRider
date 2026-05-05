@@ -10104,7 +10104,7 @@ $.bp.toString
 s=2
 return A.D(A.Dg(A.d([B.oM],t.lB)),$async$HK)
 case 2:q=A.d(["Torque","Jump","Mass","CogDist","CogHeight","MagStr","FrontTorque"],t.s)
-p=A.d([10,0.05,1,0.5,0.5,0.0005,0.05],t.zp)
+p=A.d([10,0.05,1,0.5,0.5,0.0005,0.01],t.zp)
 o=new A.h0(-2147483647,null,new A.bc([]),new A.bc([]))
 n=new Float64Array(2)
 m=A.Mc()
@@ -31259,7 +31259,7 @@ break
 default:l=0}j=A.e0(A.eH(B.vn,k.aK[j]),B.n)
 j.cA()
 j.aN(a,new A.H(i*0.4,h*0.02))
-j=A.e0(A.eH(B.vj,B.d.J(l,2)),B.n)
+j=A.e0(A.eH(B.vj,B.d.J(l,3)),B.n)
 j.cA()
 j.aN(a,new A.H(i*0.42,h*0.08))
 j=A.e0(A.eH(m,"EXIT"),B.n)
@@ -31663,7 +31663,7 @@ p===$&&A.c()
 p=q.N(0,p)
 q=n.w
 q===$&&A.c()
-n=A.e0(A.eH(B.vo,"RaceRider Prototype\nphysics v.58b - controllable front wheel\nState: "+r.b+"\nSpeed: "+B.d.J(Math.sqrt(p.N(0,q).aC(0,3).gcB()),1)+"\nAngle: "+B.d.J(n.ghb(),2)+" rad"),B.n)
+n=A.e0(A.eH(B.vo,"RaceRider Prototype\nphysics v.59 - controllable front wheel\nState: "+r.b+"\nSpeed: "+B.d.J(Math.sqrt(p.N(0,q).aC(0,3).gcB()),1)+"\nAngle: "+B.d.J(n.ghb(),2)+" rad"),B.n)
 n.cA()
 n.aN(a,B.tH)}}
 A.qI.prototype={
@@ -34405,7 +34405,7 @@ $.bp=null
 $.Lm=0
 $.R2=A.u(t.N,t.qB)
 $.vl=0.04
-$.vk=0.3
+$.vk=0.04
 $.PI=18
 $.vi=7
 $.vj=5
