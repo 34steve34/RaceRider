@@ -639,30 +639,28 @@ class Bike {
   }
 
   double _calculateGravityTorque() {
-    // Only apply gravity torque for single-wheel contact
-    if (rearOnGround && frontOnGround) return 0.0; // No torque when both wheels grounded
-    if (!rearOnGround && !frontOnGround) return 0.0; // No torque when airborne
+    // Only when airborne is gravity torque not applied
+    if (!rearOnGround && !frontOnGround) return 0.0;
     
     double totalTorque = 0.0;
     
-    // Calculate torque from rear wheel contact
+    // Weight acts at COG, pivot is at wheel contact point
+    // Torque = weight × horizontal moment arm
+    // COG forward of pivot = front down (clockwise)
+    // COG behind pivot = rear down (counter-clockwise)
+    
     if (rearOnGround && _rearSurface != null) {
-      final cogToRear = cogPos - rearPos;
-      final gravityForce = Vector2(0, _gravity * _bikeMass);
-      // Torque = r × F (cross product in 2D)
-      totalTorque += cogToRear.x * gravityForce.y - cogToRear.y * gravityForce.x;
+      // Rear is pivot, COG forward = front down
+      double momentArm = cogPos.x - rearPos.x;
+      totalTorque += _gravity * _bikeMass * momentArm / 1000.0;
     }
     
-    // Calculate torque from front wheel contact  
     if (frontOnGround && _frontSurface != null) {
-      final cogToFront = cogPos - frontPos;
-      final gravityForce = Vector2(0, _gravity * _bikeMass);
-      // Torque = r × F (cross product in 2D)
-      totalTorque += cogToFront.x * gravityForce.y - cogToFront.y * gravityForce.x;
+      // Front is pivot, COG behind = rear down
+      double momentArm = frontPos.x - cogPos.x;
+      totalTorque += _gravity * _bikeMass * momentArm / 1000.0;
     }
     
-    // Convert torque to angular velocity change
-    // Moment of inertia for point masses: I = Σ(m * r²) - average, not sum
     final momentOfInertia = _bikeMass * (
       pow(cogPos.distanceTo(rearPos), 2) + 
       pow(cogPos.distanceTo(frontPos), 2) + 
@@ -684,8 +682,8 @@ class Bike {
     double omega = -effectiveTilt * maxOmega;
     omega *= 0.95; // Light damping only
 
-    // Add natural gravity torque with damping to prevent oscillations
-    final gravityTorque = _calculateGravityTorque() * 0.1; // Reduce by 90%
+    // Add natural gravity torque - stronger restoring force for level bike
+    final gravityTorque = _calculateGravityTorque() * 0.5;
     omega += gravityTorque;
 
     _applyRotationToPoints(omega);
