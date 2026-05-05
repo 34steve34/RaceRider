@@ -19,7 +19,7 @@ void main() async {
 Offset _off(Vector2 v) => Offset(v.x, v.y);
 
 class RaceRiderGame extends FlameGame with TapCallbacks {
-  static const buildLabel = 'physics v.54 - controllable COG';
+  static const buildLabel = 'physics v.55 - controllable COG';
   late Bike player;
   late List<TrackSegment> trackSegments;
   double rawTilt = 0.0;
@@ -550,8 +550,8 @@ class Bike {
     headPos.add(headVel * dt);
     // Update COG position for rendering - use dynamic COG
     final currentAngle = angle;
-    final frameCenter = (rearPos + frontPos) / 2.0;
-    cogPos = frameCenter + (_cogLocal - (_rearLocal + _frontLocal) / 2.0)..rotate(currentAngle);
+    final bikeCenter = (rearPos + frontPos + headPos) / 3.0;
+    cogPos = bikeCenter + _cogLocal..rotate(currentAngle);
 
     // 7. Solve Hard Constraints
     for (int i = 0; i < 5; i++) {
@@ -562,8 +562,8 @@ class Bike {
     
     // Update COG position after constraints - use dynamic COG
     final currentAngle2 = angle;
-    final frameCenter2 = (rearPos + frontPos) / 2.0;
-    cogPos = frameCenter2 + (_cogLocal - (_rearLocal + _frontLocal) / 2.0)..rotate(currentAngle2);
+    final bikeCenter2 = (rearPos + frontPos + headPos) / 3.0;
+    cogPos = bikeCenter2 + _cogLocal..rotate(currentAngle2);
     // Update collision head position
     collisionHeadPos = frameCenter2 + (Vector2(-3.5, -12.5)..rotate(currentAngle2));
 
