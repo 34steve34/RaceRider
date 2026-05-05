@@ -31679,7 +31679,7 @@ p===$&&A.c()
 p=q.L(0,p)
 q=n.w
 q===$&&A.c()
-n=A.e0(A.eH(B.vo,"RaceRider Prototype\nphysics v.55 - controllable COG\nState: "+r.b+"\nSpeed: "+B.d.J(Math.sqrt(p.L(0,q).aG(0,3).gcB()),1)+"\nAngle: "+B.d.J(n.ghb(),2)+" rad"),B.n)
+n=A.e0(A.eH(B.vo,"RaceRider Prototype\nphysics v.56 - controllable COG\nState: "+r.b+"\nSpeed: "+B.d.J(Math.sqrt(p.L(0,q).aG(0,3).gcB()),1)+"\nAngle: "+B.d.J(n.ghb(),2)+" rad"),B.n)
 n.cA()
 n.aN(a,B.tH)}}
 A.qL.prototype={
