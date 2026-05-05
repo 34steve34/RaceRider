@@ -565,7 +565,7 @@ class Bike {
     final bikeCenter2 = (rearPos + frontPos + headPos) / 3.0;
     cogPos = bikeCenter2 + _cogLocal..rotate(currentAngle2);
     // Update collision head position
-    collisionHeadPos = frameCenter2 + (Vector2(-3.5, -12.5)..rotate(currentAngle2));
+    collisionHeadPos = bikeCenter2 + (Vector2(-3.5, -12.5)..rotate(currentAngle2));
 
     // 8. Friction and Speed Cap
     final damp = max(0.0, 1.0 - _airDrag * dt);
