@@ -19,7 +19,7 @@ void main() async {
 Offset _off(Vector2 v) => Offset(v.x, v.y);
 
 class RaceRiderGame extends FlameGame with TapCallbacks {
-  static const buildLabel = 'physics v.59 - no inertial forces';
+  static const buildLabel = 'physics v.60 - ground hysteresis';
   late Bike player;
   late List<TrackSegment> trackSegments;
   double rawTilt = 0.0;
@@ -384,7 +384,7 @@ enum BikeState { riding, crashed }
 class Bike {
   // === PRINCIPLED TORQUE PHYSICS PARAMETERS ===
   static const _gravity = 200.0;
-  static const _rearDrive = 420.0;
+  static const _rearDrive = 350.0; // Reduced from 420 for better feel
   static const _brakePerWheel = 430.0;
   static const _coastDrag = 0.9;
   static const _airDrag = 0.08;
@@ -398,6 +398,7 @@ class Bike {
   static const _wheelSpinDamp = 0.985;
   static const _frameStiffness = 0.5;
   static const _suspensionTravel = 0.22;
+  static const _groundedHysteresis = 0.3; // Stay grounded until this far from surface
   
   // === TORQUE PHYSICS PARAMETERS ===
   static double _wheelbase = 18.0; // L = 1.8m * 10 scale
@@ -430,6 +431,8 @@ class Bike {
   BikeState state = BikeState.riding;
   bool rearOnGround = false;
   bool frontOnGround = false;
+  bool rearGroundedSticky = false; // Hysteresis for rear wheel
+  bool frontGroundedSticky = false; // Hysteresis for front wheel
   double rearCompression = 0.0;
   double frontCompression = 0.0;
   double rearWheelAngle = 0.0;
@@ -589,21 +592,52 @@ class Bike {
 
   void _updateGroundedStatus(List<TrackSegment> segs) {
     final wasAirborne = !(rearOnGround || frontOnGround);
-    rearOnGround = false;
-    frontOnGround = false;
     
-    final rearContact = _solveWheelContact(rearPos, rearVel, segs, allowAssist: true);
-    if (rearContact != null) {
-      rearOnGround = true;
-      _rearSurface = rearContact.hit;
-      rearCompression = rearContact.compression;
+    // Check actual wheel contact
+    bool rearContactFound = false;
+    bool frontContactFound = false;
+    
+    final rearHit = _nearestSurface(rearPos, segs);
+    if (rearHit != null && rearHit.distance <= _wheelRadius) {
+      rearContactFound = true;
+      _rearSurface = rearHit;
+      rearCompression = (_wheelRadius + _magnetRange - rearHit.distance).clamp(0.0, _suspensionTravel);
+      // Position correction
+      rearPos.add(rearHit.normal * (_wheelRadius - rearHit.distance));
+      final normalSpeed = rearVel.dot(rearHit.normal);
+      if (normalSpeed < 0.0) rearVel.sub(rearHit.normal * normalSpeed * 0.82);
     }
     
-    final frontContact = _solveWheelContact(frontPos, frontVel, segs, allowAssist: true);
-    if (frontContact != null) {
+    final frontHit = _nearestSurface(frontPos, segs);
+    if (frontHit != null && frontHit.distance <= _wheelRadius) {
+      frontContactFound = true;
+      _frontSurface = frontHit;
+      frontCompression = (_wheelRadius + _magnetRange - frontHit.distance).clamp(0.0, _suspensionTravel);
+      // Position correction
+      frontPos.add(frontHit.normal * (_wheelRadius - frontHit.distance));
+      final normalSpeed = frontVel.dot(frontHit.normal);
+      if (normalSpeed < 0.0) frontVel.sub(frontHit.normal * normalSpeed * 0.82);
+    }
+    
+    // Apply hysteresis - once grounded, stay grounded until far away
+    if (rearContactFound) {
+      rearOnGround = true;
+      rearGroundedSticky = true;
+    } else if (rearGroundedSticky && rearHit != null && rearHit.distance < _wheelRadius + _groundedHysteresis) {
+      rearOnGround = true; // Keep grounded while within hysteresis zone
+    } else {
+      rearOnGround = false;
+      rearGroundedSticky = false;
+    }
+    
+    if (frontContactFound) {
       frontOnGround = true;
-      _frontSurface = frontContact.hit;
-      frontCompression = frontContact.compression;
+      frontGroundedSticky = true;
+    } else if (frontGroundedSticky && frontHit != null && frontHit.distance < _wheelRadius + _groundedHysteresis) {
+      frontOnGround = true; // Keep grounded while within hysteresis zone
+    } else {
+      frontOnGround = false;
+      frontGroundedSticky = false;
     }
 
     if (_headHitsTrack(segs)) _crash();
