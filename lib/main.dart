@@ -19,7 +19,7 @@ void main() async {
 Offset _off(Vector2 v) => Offset(v.x, v.y);
 
 class RaceRiderGame extends FlameGame with TapCallbacks {
-  static const buildLabel = 'physics v.58b - controllable front wheel';
+  static const buildLabel = 'physics v.59 - controllable front wheel';
   late Bike player;
   late List<TrackSegment> trackSegments;
   double rawTilt = 0.0;
@@ -34,7 +34,7 @@ class RaceRiderGame extends FlameGame with TapCallbacks {
   bool isTuningMode = false;
   int currentTuningParam = 0;
   final List<String> tuningParamNames = ['Torque', 'Jump', 'Mass', 'CogDist', 'CogHeight', 'MagStr', 'FrontTorque'];
-  final List<double> tuningParamSteps = [10.0, 0.05, 1.0, 0.5, 0.5, 0.0005, 0.05];
+  final List<double> tuningParamSteps = [10.0, 0.05, 1.0, 0.5, 0.5, 0.0005, 0.01];
   
   // Auto-restart system
   double crashTimer = 0.0;
@@ -310,7 +310,7 @@ class RaceRiderGame extends FlameGame with TapCallbacks {
     )..layout()..paint(canvas, Offset(width * 0.4, height * 0.02));
     
     TextPainter(
-      text: TextSpan(text: currentValue.toStringAsFixed(2), style: valueStyle),
+      text: TextSpan(text: currentValue.toStringAsFixed(3), style: valueStyle),
       textDirection: TextDirection.ltr,
     )..layout()..paint(canvas, Offset(width * 0.42, height * 0.08));
     
@@ -393,7 +393,7 @@ class Bike {
   static const _headRadius = 2.4;
   static const _magnetRange = 0.04;
   static double _magnetStrength = 0.04; // TUNE IN-GAME: Micro-magnet strength
-  static double _frontGroundedTorqueScale = 0.3; // TUNE IN-GAME: Forward pitch torque when front wheel grounded (0.0-1.0)
+  static double _frontGroundedTorqueScale = 0.04; // TUNE IN-GAME: Forward pitch torque when front wheel grounded (0.0-1.0)
   static const _impactCrashSpeed = 280.0;
   static const _wheelSpinDamp = 0.985;
   static const _frameStiffness = 1.0;
