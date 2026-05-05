@@ -396,7 +396,7 @@ class Bike {
   static double _frontGroundedTorqueScale = 0.04; // TUNE IN-GAME: Forward pitch torque when front wheel grounded (0.0-1.0)
   static const _impactCrashSpeed = 280.0;
   static const _wheelSpinDamp = 0.985;
-  static const _frameStiffness = 1.0;
+  static const _frameStiffness = 0.5;
   static const _suspensionTravel = 0.22;
   
   // === TORQUE PHYSICS PARAMETERS ===
@@ -562,7 +562,7 @@ class Bike {
     cogPos = (rearPos * rearWeight + frontPos * frontWeight + headPos * headWeight) / totalWeight;
 
     // 7. Solve Hard Constraints
-    for (int i = 0; i < 5; i++) {
+    for (int i = 0; i < 10; i++) {
       _solveBoundedDistance(rearPos, frontPos, _wheelbase, _wheelbase, 1.0, 1.35, 1.0);
       _solveBoundedDistance(rearPos, headPos, _distRH, _distRH, 1.0, 1.35, 0.5);
       _solveBoundedDistance(frontPos, headPos, _distFH, _distFH, 1.0, 1.0, 0.5);
