@@ -19,7 +19,7 @@ void main() async {
 Offset _off(Vector2 v) => Offset(v.x, v.y);
 
 class RaceRiderGame extends FlameGame with TapCallbacks {
-  static const buildLabel = 'physics v.57 - controllable front wheel';
+  static const buildLabel = 'physics v.58 - controllable front wheel';
   late Bike player;
   late List<TrackSegment> trackSegments;
   double rawTilt = 0.0;
@@ -672,29 +672,21 @@ class Bike {
   }
 
   void _applyTiltImpulse(double tilt) {
-    const maxOmega = 1.5; 
-    double omega = -tilt * maxOmega;
+    const maxOmega = 4.0; 
     
-    omega *= 0.8; // Base damping
+    // Scale tilt input when front-grounded and trying to pitch forward
+    // This weakens torque (can't lift rear wheel) without killing rotation speed
+    double effectiveTilt = tilt;
+    if (tilt > 0 && frontOnGround) {
+      effectiveTilt = tilt * 0.3;  // Weaken forward pitch torque when front grounded
+    }
+    
+    double omega = -effectiveTilt * maxOmega;
+    omega *= 0.95; // Light damping only
 
     // Add natural gravity torque with damping to prevent oscillations
     final gravityTorque = _calculateGravityTorque() * 0.1; // Reduce by 90%
     omega += gravityTorque;
-
-    // --- POSITIVE OMEGA (Pitching Forward / Clockwise) ---
-    if (omega > 0) {
-      if (frontOnGround) {
-        // ONLY penalize if the front wheel is planted (trying to lift the rear).
-        // This stops the violent forward snap.
-        omega *= _frontWheelPenalty; 
-      }
-      // If airborne or in a wheelie, you get 100% power to slam the nose down.
-    } 
-    
-    // --- NEGATIVE OMEGA (Pitching Backward / Counter-Clockwise) ---
-    // No code needed here. 
-    // Whether on a flat, an uphill, or in the air, pulling back on the controls 
-    // provides 100% of the rotational torque. All angles are strictly equal.
 
     _applyRotationToPoints(omega);
   }
