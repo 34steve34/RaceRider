@@ -19,7 +19,7 @@ void main() async {
 Offset _off(Vector2 v) => Offset(v.x, v.y);
 
 class RaceRiderGame extends FlameGame with TapCallbacks {
-  static const buildLabel = 'physics v.59 - controllable front wheel';
+  static const buildLabel = 'physics v.59 - no inertial forces';
   late Bike player;
   late List<TrackSegment> trackSegments;
   double rawTilt = 0.0;
@@ -401,7 +401,7 @@ class Bike {
   
   // === TORQUE PHYSICS PARAMETERS ===
   static double _wheelbase = 18.0; // L = 1.8m * 10 scale
-  static double _cogDistanceFromRear = 7.0; // b = 0.7m * 10 scale (forward of rear wheel)
+  static double _cogDistanceFromRear = 9.0; // Centered between wheels (wheelbase/2 = 9.0)
   static double _cogHeight = 5.0; // h = 0.5m * 10 scale
   static double _bikeMass = 10.0; // Bike mass for moment of inertia
   
@@ -652,21 +652,16 @@ class Bike {
     if (rearOnGround && _rearSurface != null) {
       // Rear is pivot, COG forward = front down
       double momentArm = cogPos.x - rearPos.x;
-      totalTorque += _gravity * _bikeMass * momentArm / 1000.0;
+      totalTorque += _gravity * momentArm / 1000.0;
     }
     
     if (frontOnGround && _frontSurface != null) {
       // Front is pivot, COG behind = rear down
       double momentArm = frontPos.x - cogPos.x;
-      totalTorque += _gravity * _bikeMass * momentArm / 1000.0;
+      totalTorque += _gravity * momentArm / 1000.0;
     }
     
-    final momentOfInertia = _bikeMass * (
-      pow(cogPos.distanceTo(rearPos), 2) + 
-      pow(cogPos.distanceTo(frontPos), 2) + 
-      pow(cogPos.distanceTo(headPos), 2)
-    ) / 3.0;
-    return momentOfInertia > 0 ? totalTorque / momentOfInertia : 0.0;
+    return totalTorque;
   }
 
   void _applyTiltImpulse(double tilt) {
