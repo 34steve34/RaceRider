@@ -571,11 +571,6 @@ class Bike {
     // Update COG position after constraints - use dynamic COG
     final currentAngle2 = angle;
     // Calculate COG as weighted average of bike parts based on tuning parameters
-    final rearWeight = 1.0;
-    final frontWeight = 1.0;
-    final headWeight = 0.5;
-    final totalWeight = rearWeight + frontWeight + headWeight;
-    
     cogPos = (rearPos * rearWeight + frontPos * frontWeight + headPos * headWeight) / totalWeight;
     // Update collision head position
     final frameCenter = (rearPos + frontPos) / 2.0;
