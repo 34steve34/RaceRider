@@ -19,7 +19,7 @@ void main() async {
 Offset _off(Vector2 v) => Offset(v.x, v.y);
 
 class RaceRiderGame extends FlameGame with TapCallbacks {
-  static const buildLabel = 'physics v.55 - controllable COG';
+  static const buildLabel = 'physics v.56 - controllable COG';
   late Bike player;
   late List<TrackSegment> trackSegments;
   double rawTilt = 0.0;
