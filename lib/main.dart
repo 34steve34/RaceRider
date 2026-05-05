@@ -19,7 +19,7 @@ void main() async {
 Offset _off(Vector2 v) => Offset(v.x, v.y);
 
 class RaceRiderGame extends FlameGame with TapCallbacks {
-  static const buildLabel = 'physics v.53 - COG midpoint';
+  static const buildLabel = 'physics v.54 - controllable COG';
   late Bike player;
   late List<TrackSegment> trackSegments;
   double rawTilt = 0.0;
@@ -33,8 +33,8 @@ class RaceRiderGame extends FlameGame with TapCallbacks {
   // Real-time tuning controls
   bool isTuningMode = false;
   int currentTuningParam = 0;
-  final List<String> tuningParamNames = ['Torque', 'Jump', 'Mass', 'CogDist', 'CogHeight'];
-  final List<double> tuningParamSteps = [10.0, 0.05, 1.0, 0.5, 0.5];
+  final List<String> tuningParamNames = ['Torque', 'Jump', 'Mass', 'CogDist', 'CogHeight', 'MagStr'];
+  final List<double> tuningParamSteps = [10.0, 0.05, 1.0, 0.5, 0.5, 0.0005];
   
   // Auto-restart system
   double crashTimer = 0.0;
@@ -197,11 +197,12 @@ class RaceRiderGame extends FlameGame with TapCallbacks {
     final step = tuningParamSteps[currentTuningParam] * direction;
     
     switch (currentTuningParam) {
-      case 0: Bike._playerTorqueStrength = (Bike._playerTorqueStrength + step).clamp(50.0, 500.0); break;
-      case 1: Bike._airborneGravityFactor = (Bike._airborneGravityFactor + step).clamp(0.3, 1.0); break;
-      case 2: Bike._bikeMass = (Bike._bikeMass + step).clamp(5.0, 20.0); break;
-      case 3: Bike._cogDistanceFromRear = (Bike._cogDistanceFromRear + step).clamp(3.0, 12.0); break;
-      case 4: Bike._cogHeight = (Bike._cogHeight + step).clamp(2.0, 10.0); break;
+      case 0: Bike._playerTorqueStrength += step; break;
+      case 1: Bike._airborneGravityFactor += step; break;
+      case 2: Bike._bikeMass += step; break;
+      case 3: Bike._cogDistanceFromRear += step; break;
+      case 4: Bike._cogHeight += step; break;
+      case 5: Bike._magnetStrength += step; break;
     }
   }
   
@@ -298,6 +299,7 @@ class RaceRiderGame extends FlameGame with TapCallbacks {
       case 2: currentValue = Bike._bikeMass; break;
       case 3: currentValue = Bike._cogDistanceFromRear; break;
       case 4: currentValue = Bike._cogHeight; break;
+      case 5: currentValue = Bike._magnetStrength; break;
     }
     
     TextPainter(
@@ -388,8 +390,7 @@ class Bike {
   static const _wheelRadius = 4.7;
   static const _headRadius = 2.4;
   static const _magnetRange = 0.04;
-  static const _magnetStrength = 0.002;
-  static const _groundStick = 0.002;
+  static double _magnetStrength = 0.002; // TUNE IN-GAME: Micro-magnet strength
   static const _impactCrashSpeed = 280.0;
   static const _wheelSpinDamp = 0.985;
   static const _frameStiffness = 1.0;
@@ -409,7 +410,7 @@ class Bike {
   static final _frontLocal = Vector2(8.5, 6.5);
   static final _headLocal = Vector2(-5.0, -6.25); // Physics head for COG tuning
   static final _collisionHeadLocal = Vector2(-3.5, -12.5); // Collision head for crash detection
-  static Vector2 get _cogLocal => (_rearLocal + _frontLocal) / 2.0; // COG at center of wheelbase
+  static Vector2 get _cogLocal => Vector2(-9.5 + _cogDistanceFromRear, 6.5 - _cogHeight); // Dynamic COG position
   static double get spawnBodyYOffset => _rearLocal.y + _wheelRadius;
 
   late Vector2 rearPos;
@@ -547,10 +548,10 @@ class Bike {
     rearPos.add(rearVel * dt);
     frontPos.add(frontVel * dt);
     headPos.add(headVel * dt);
-    // Update COG position for rendering - use actual center point
+    // Update COG position for rendering - use dynamic COG
     final currentAngle = angle;
     final frameCenter = (rearPos + frontPos) / 2.0;
-    cogPos = frameCenter; // True center, no offset
+    cogPos = frameCenter + (_cogLocal - (_rearLocal + _frontLocal) / 2.0)..rotate(currentAngle);
 
     // 7. Solve Hard Constraints
     for (int i = 0; i < 5; i++) {
@@ -559,10 +560,10 @@ class Bike {
       _solveBoundedDistance(frontPos, headPos, _distFH, _distFH, 1.0, 1.0, 0.5);
     }
     
-    // Update COG position after constraints - use actual center point
+    // Update COG position after constraints - use dynamic COG
     final currentAngle2 = angle;
     final frameCenter2 = (rearPos + frontPos) / 2.0;
-    cogPos = frameCenter2; // True center, no offset
+    cogPos = frameCenter2 + (_cogLocal - (_rearLocal + _frontLocal) / 2.0)..rotate(currentAngle2);
     // Update collision head position
     collisionHeadPos = frameCenter2 + (Vector2(-3.5, -12.5)..rotate(currentAngle2));
 
@@ -731,8 +732,6 @@ class Bike {
     } else if (allowAssist && hit.distance < magnetDistance && vel.dot(hit.normal) < 4.0) {
       final pull = (magnetDistance - hit.distance) / _magnetRange;
       pos.add(hit.normal * (targetDistance - hit.distance) * (_magnetStrength * pull));
-      final normalSpeed = vel.dot(hit.normal);
-      vel.sub(hit.normal * (normalSpeed * _groundStick * pull));
     } else {
       return null;
     }
