@@ -19,7 +19,7 @@ void main() async {
 Offset _off(Vector2 v) => Offset(v.x, v.y);
 
 class RaceRiderGame extends FlameGame with TapCallbacks {
-  static const buildLabel = 'physics v.72 - Drop Test & UI Fix';
+  static const buildLabel = 'physics v.73 - Rigid Frame Fix';
   late Bike player;
   late List<TrackSegment> trackSegments;
   
@@ -34,7 +34,6 @@ class RaceRiderGame extends FlameGame with TapCallbacks {
   bool isTuningMode = false;
   int currentTuningParam = 0;
   
-  // Added the 3 new suspension variables to the tuning system
   final List<String> tuningParamNames = [
     'Torque', 'Jump', 'Mass', 'CogDist', 'CogHeight', 'MagStr', 'FrontTorque', 
     'SuspStr', 'SuspDmp', 'SuspTrv'
@@ -53,7 +52,6 @@ class RaceRiderGame extends FlameGame with TapCallbacks {
     player = Bike(_spawnPoint());
     player.trackSegments = trackSegments;
     
-    // Bike is NO LONGER added as a component. It is manually rendered below.
     add(Background());
     add(DebugOverlay());
     
@@ -128,7 +126,6 @@ class RaceRiderGame extends FlameGame with TapCallbacks {
     player.isGas = isGas;
     player.isBrake = isBrake;
     
-    // Manually updating the Bike
     player.update(dt);
     
     if (player.state == BikeState.crashed) {
@@ -155,7 +152,6 @@ class RaceRiderGame extends FlameGame with TapCallbacks {
     final width = size.x;
     final height = size.y;
     
-    // Top 25% of screen reserved for UI toggles
     if (y < height * 0.25) {
       if (x < width * 0.3) {
         isTuningMode = !isTuningMode;
@@ -165,7 +161,6 @@ class RaceRiderGame extends FlameGame with TapCallbacks {
       return; 
     }
     
-    // Bottom 75% handles gameplay/tuning adjustments based on Left/Right
     if (isTuningMode) {
       _adjustTuningParam(x < width * 0.5 ? -1 : 1);
     } else {
@@ -200,7 +195,6 @@ class RaceRiderGame extends FlameGame with TapCallbacks {
   void render(Canvas canvas) {
     super.render(canvas);
     
-    // Draw Camera/World Space
     canvas.save();
     canvas.translate(size.x / 2, size.y / 2);
     canvas.scale(camera.viewfinder.zoom);
@@ -215,11 +209,9 @@ class RaceRiderGame extends FlameGame with TapCallbacks {
       canvas.drawLine(_off(s.a), _off(s.b), trackPaint);
     }
     
-    // Render the bike manually within the translated canvas
     player.render(canvas);
     canvas.restore();
     
-    // Draw UI Overlay (Screen Space)
     _renderUIOverlay(canvas);
   }
   
@@ -227,14 +219,12 @@ class RaceRiderGame extends FlameGame with TapCallbacks {
     final width = size.x;
     final height = size.y;
     
-    // Draw Top Bar Background if Tuning
     if (isTuningMode) {
       canvas.drawRect(Rect.fromLTWH(0, 0, width, height * 0.25), Paint()..color = Colors.black.withOpacity(0.8));
     } else {
       canvas.drawRect(Rect.fromLTWH(0, 0, width * 0.25, height * 0.25), Paint()..color = Colors.black.withOpacity(0.5));
     }
 
-    // Helper function for drawing overlay text
     void drawDebugText(String text, Offset pos, [Color color = Colors.white54]) {
       TextPainter(
         text: TextSpan(text: text, style: TextStyle(color: color, fontSize: 20, fontWeight: FontWeight.bold)),
@@ -252,7 +242,6 @@ class RaceRiderGame extends FlameGame with TapCallbacks {
       drawDebugText('< DOWN (-)', Offset(width * 0.05, height * 0.5));
       drawDebugText('UP (+) >', Offset(width * 0.85, height * 0.5));
       
-      // Draw Current Value
       double val = 0.0;
       switch (currentTuningParam) {
         case 0: val = Bike._playerTorqueStrength; break;
@@ -279,7 +268,6 @@ class RaceRiderGame extends FlameGame with TapCallbacks {
 
   Vector2 _spawnPoint() {
     const trackY = 38.0;
-    // 100 units drop is roughly 5.5 bike lengths given an 18-unit wheelbase
     return Vector2(-540.0, trackY - 100.0);
   }
 }
@@ -302,7 +290,6 @@ class SurfaceHit {
 
 enum BikeState { riding, crashed }
 
-// Reverted from `extends Component` to a standard class to fix camera clipping
 class Bike {
   static const _gravity = 250.0;
   static const _rearDrive = 380.0;
@@ -313,7 +300,6 @@ class Bike {
   static const _headRadius = 2.5;
   static const _impactCrashLimit = 320.0;
   
-  // Tunable Suspension Constants (Converted to Static vars)
   static double suspensionTravel = 4.5; 
   static double suspensionStrength = 1200.0; 
   static double suspensionDamping = 65.0; 
@@ -331,30 +317,24 @@ class Bike {
   static final _frontLocal = Vector2(8.5, 6.5);
   static final _headLocal = Vector2(-4.0, -7.0);
   static final _collisionHeadLocal = Vector2(-3.5, -13.0);
-  static double get spawnBodyYOffset => _rearLocal.y + _wheelRadius;
 
-  // Fixed Timestep Architecture
   double _timeAccumulator = 0.0;
   static const double _fixedDt = 1.0 / 120.0; 
 
-  // Object Pooling for Constraint Math
   final Vector2 _diff = Vector2.zero();
   final Vector2 _center = Vector2.zero();
   final Vector2 _fwd = Vector2.zero();
   final Vector2 _up = Vector2.zero();
   final Vector2 _rotCache = Vector2.zero();
 
-  // Component State
   late List<TrackSegment> trackSegments;
   double tilt = 0.0;
   bool isGas = false;
   bool isBrake = false;
 
-  // Sprung Mass (Frame)
   late Vector2 rearPos, frontPos, headPos, collisionHeadPos;
-  late Vector2 rearVel, frontVel, headVel;
+  late Vector2 rearVel, frontVel;
 
-  // Unsprung Mass (Wheels - Render Only)
   final Vector2 rearWheelPos = Vector2.zero();
   final Vector2 frontWheelPos = Vector2.zero();
 
@@ -366,7 +346,6 @@ class Bike {
   SurfaceHit? _rearSurface;
   SurfaceHit? _frontSurface;
 
-  late final double _distRH, _distFH;
   late final Vector2 _headFromWheelCenter;
 
   Bike(Vector2 startPos) {
@@ -377,17 +356,14 @@ class Bike {
     
     rearVel = Vector2.zero();
     frontVel = Vector2.zero();
-    headVel = Vector2.zero();
 
-    _distRH = (_headLocal - _rearLocal).length;
-    _distFH = (_headLocal - _frontLocal).length;
     _headFromWheelCenter = _headLocal - (_rearLocal + _frontLocal) / 2.0;
   }
 
-  Vector2 get position => (rearPos + frontPos + headPos) / 3.0;
+  Vector2 get position => (rearPos + frontPos) / 2.0;
   double get angle => atan2(frontPos.y - rearPos.y, frontPos.x - rearPos.x);
-  double get speed => ((rearVel + frontVel + headVel) / 3.0).length;
-  bool get hasFiniteState => rearPos.x.isFinite && frontPos.x.isFinite && headPos.x.isFinite;
+  double get speed => ((rearVel + frontVel) / 2.0).length;
+  bool get hasFiniteState => rearPos.x.isFinite && frontPos.x.isFinite;
 
   void update(double dt) {
     _timeAccumulator += dt;
@@ -406,7 +382,6 @@ class Bike {
     final gVal = (rearOnGround || frontOnGround) ? _gravity : _gravity * _airborneGravityFactor;
     rearVel.y += gVal * dt;
     frontVel.y += gVal * dt;
-    headVel.y += gVal * dt;
 
     _applySuspension(dt);
 
@@ -422,12 +397,9 @@ class Bike {
 
     rearPos.addScaled(rearVel, dt);
     frontPos.addScaled(frontVel, dt);
-    headPos.addScaled(headVel, dt);
 
     for (int i = 0; i < 8; i++) {
       _solveDist(rearPos, frontPos, _wheelbase, 1.0, 1.0);
-      _solveDist(rearPos, headPos, _distRH, 1.0, 0.5);
-      _solveDist(frontPos, headPos, _distFH, 1.0, 0.5);
     }
 
     _checkGroundAndCrash();
@@ -594,7 +566,7 @@ class Bike {
     final currentSpeed = speed;
     if (currentSpeed > _maxSpeed) {
       double s = _maxSpeed / currentSpeed;
-      rearVel.scale(s); frontVel.scale(s); headVel.scale(s);
+      rearVel.scale(s); frontVel.scale(s);
     }
   }
 
