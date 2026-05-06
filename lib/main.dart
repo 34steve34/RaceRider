@@ -19,9 +19,10 @@ void main() async {
 Offset _off(Vector2 v) => Offset(v.x, v.y);
 
 class RaceRiderGame extends FlameGame with TapCallbacks {
-  static const buildLabel = 'physics v.61 - 2nd stop bouncing';
+  static const buildLabel = 'physics v.70 - PRO Architecture';
   late Bike player;
   late List<TrackSegment> trackSegments;
+  
   double rawTilt = 0.0;
   double smoothedTilt = 0.0;
   double tiltZero = 0.0;
@@ -30,26 +31,29 @@ class RaceRiderGame extends FlameGame with TapCallbacks {
   bool isBrake = false;
   late StreamSubscription _accelSub;
   
-  // Real-time tuning controls
   bool isTuningMode = false;
   int currentTuningParam = 0;
   final List<String> tuningParamNames = ['Torque', 'Jump', 'Mass', 'CogDist', 'CogHeight', 'MagStr', 'FrontTorque'];
   final List<double> tuningParamSteps = [10.0, 0.05, 1.0, 0.5, 0.5, 0.0005, 0.01];
   
-  // Auto-restart system
   double crashTimer = 0.0;
-  static const double _crashRestartDelay = 1.0; // 1 second delay
+  static const double _crashRestartDelay = 1.0;
 
   @override
   Future<void> onLoad() async {
     trackSegments = _buildTrack();
     player = Bike(_spawnPoint());
-    player.settleOnTrack(trackSegments);
+    player.trackSegments = trackSegments;
+    player.settleOnTrack();
+    
     add(Background());
+    add(player);
     add(DebugOverlay());
+    
     camera.viewfinder
       ..zoom = 2.1
       ..anchor = Anchor.center;
+      
     _accelSub = accelerometerEvents.listen((e) => rawTilt = e.y);
   }
 
@@ -61,18 +65,10 @@ class RaceRiderGame extends FlameGame with TapCallbacks {
 
   List<TrackSegment> _buildTrack() {
     final points = <Vector2>[
-      Vector2(-700.0, 38.0),
-      Vector2(-250.0, 38.0),
-      Vector2(-120.0, 26.0),
-      Vector2(20.0, 18.0),
-      Vector2(170.0, 34.0),
-      Vector2(310.0, 30.0),
-      Vector2(430.0, 40.0),
-      Vector2(510.0, 40.0),
-      Vector2(560.0, 40.0),
-      Vector2(604.0, 36.0),
-      Vector2(642.0, 18.0),
-      Vector2(672.0, 8.0),
+      Vector2(-700.0, 38.0), Vector2(-250.0, 38.0), Vector2(-120.0, 26.0),
+      Vector2(20.0, 18.0), Vector2(170.0, 34.0), Vector2(310.0, 30.0),
+      Vector2(430.0, 40.0), Vector2(510.0, 40.0), Vector2(560.0, 40.0),
+      Vector2(604.0, 36.0), Vector2(642.0, 18.0), Vector2(672.0, 8.0),
     ];
 
     final segs = <TrackSegment>[];
@@ -81,15 +77,9 @@ class RaceRiderGame extends FlameGame with TapCallbacks {
     }
 
     final landingRamp = <Vector2>[
-      Vector2(928.0, 26.0),
-      Vector2(1018.0, 112.0),
-      Vector2(1090.0, 138.0),
-      Vector2(1100.0, 130.0),
-      Vector2(1240.0, 98.0),
-      Vector2(1390.0, 114.0),
-      Vector2(1540.0, 76.0),
-      Vector2(1710.0, 124.0),
-      Vector2(1910.0, 112.0),
+      Vector2(928.0, 26.0), Vector2(1018.0, 112.0), Vector2(1090.0, 138.0),
+      Vector2(1100.0, 130.0), Vector2(1240.0, 98.0), Vector2(1390.0, 114.0),
+      Vector2(1540.0, 76.0), Vector2(1710.0, 124.0), Vector2(1910.0, 112.0),
       Vector2(2120.0, 112.0),
     ];
     for (int i = 0; i < landingRamp.length - 1; i++) {
@@ -109,12 +99,9 @@ class RaceRiderGame extends FlameGame with TapCallbacks {
         loopCenter.x + cos(a) * loopRadius,
         loopCenter.y + sin(a) * loopRadius,
       );
-      if (prev != null) {
-        segs.add(TrackSegment(prev, p));
-      }
+      if (prev != null) segs.add(TrackSegment(prev, p));
       prev = p;
     }
-
     return segs;
   }
 
@@ -128,31 +115,29 @@ class RaceRiderGame extends FlameGame with TapCallbacks {
     
     final normalized = ((rawTilt - tiltZero) / 5.5).clamp(-1.0, 1.0);
     smoothedTilt = smoothedTilt * 0.2 + normalized * 0.8;
-    if (smoothedTilt.abs() < 0.05) {
-      smoothedTilt = 0.0;
-    }
+    if (smoothedTilt.abs() < 0.05) smoothedTilt = 0.0;
     
-    // Handle auto-restart after crash
+    player.tilt = smoothedTilt;
+    player.isGas = isGas;
+    player.isBrake = isBrake;
+    
     if (player.state == BikeState.crashed) {
       crashTimer += dt;
-      if (crashTimer >= _crashRestartDelay) {
-        _restartBike();
-      }
+      if (crashTimer >= _crashRestartDelay) _restartBike();
     } else {
       crashTimer = 0.0;
     }
     
-    player.updateBike(dt, smoothedTilt, isGas, isBrake, trackSegments);
-    if (!player.hasFiniteState) {
-      _restartBike();
-    }
+    if (!player.hasFiniteState) _restartBike();
     camera.viewfinder.position = player.position;
   }
   
   void _restartBike() {
-    // Keep tuning parameters by not resetting them
+    remove(player);
     player = Bike(_spawnPoint());
-    player.settleOnTrack(trackSegments);
+    player.trackSegments = trackSegments;
+    player.settleOnTrack();
+    add(player);
     crashTimer = 0.0;
   }
 
@@ -163,26 +148,17 @@ class RaceRiderGame extends FlameGame with TapCallbacks {
     final width = size.x;
     final height = size.y;
     
-    // Tuning mode controls (top 25% of screen - larger area)
     if (y < height * 0.25) {
       if (x < width * 0.3) {
-        // Left 30%: Toggle tuning mode
         isTuningMode = !isTuningMode;
       } else if (x > width * 0.7 && isTuningMode) {
-        // Right 30%: Next parameter
         currentTuningParam = (currentTuningParam + 1) % tuningParamNames.length;
       } else if (isTuningMode) {
-        // Middle 40%: Adjust parameter up/down based on left/right
-        if (x < width * 0.5) {
-          _adjustTuningParam(-1);
-        } else {
-          _adjustTuningParam(1);
-        }
+        _adjustTuningParam(x < width * 0.5 ? -1 : 1);
       }
       return;
     }
     
-    // Normal game controls (below 25%)
     isBrake = x < width / 2;
     isGas = !isBrake;
   }
@@ -195,7 +171,6 @@ class RaceRiderGame extends FlameGame with TapCallbacks {
 
   void _adjustTuningParam(double direction) {
     final step = tuningParamSteps[currentTuningParam] * direction;
-    
     switch (currentTuningParam) {
       case 0: Bike._playerTorqueStrength += step; break;
       case 1: Bike._airborneGravityFactor += step; break;
@@ -223,34 +198,7 @@ class RaceRiderGame extends FlameGame with TapCallbacks {
     for (final s in trackSegments) {
       canvas.drawLine(_off(s.a), _off(s.b), trackPaint);
     }
-
-    final markerPaint = Paint()
-      ..color = const Color(0xFFFFFF44)
-      ..strokeWidth = 1.5;
-    final markerTextStyle = const TextStyle(
-      color: Color(0xFFFFFF44),
-      fontSize: 9,
-    );
-    for (int mx = -700; mx < 2600; mx += 300) {
-      canvas.drawLine(
-        Offset(mx.toDouble(), -120.0),
-        Offset(mx.toDouble(), 50.0),
-        markerPaint,
-      );
-      TextPainter(
-        text: TextSpan(
-          text: '${((mx + 700) ~/ 300)}s',
-          style: markerTextStyle,
-        ),
-        textDirection: TextDirection.ltr,
-      )..layout()
-       ..paint(canvas, Offset(mx.toDouble() + 2.0, -130.0));
-    }
-
-    player.renderBike(canvas);
     canvas.restore();
-    
-    // Render tuning UI
     _renderTuningUI(canvas);
   }
   
@@ -259,96 +207,41 @@ class RaceRiderGame extends FlameGame with TapCallbacks {
     final height = size.y;
     
     if (!isTuningMode) {
-      // Show tuning mode hint - larger text and button area
-      final hintPaint = Paint()..color = Colors.black.withOpacity(0.5);
       final hintRect = Rect.fromLTWH(0, 0, width * 0.3, height * 0.25);
-      canvas.drawRect(hintRect, hintPaint);
-      
-      final hintStyle = TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.bold);
+      canvas.drawRect(hintRect, Paint()..color = Colors.black.withOpacity(0.5));
       TextPainter(
-        text: TextSpan(text: 'TUNE', style: hintStyle),
+        text: const TextSpan(text: 'TUNE', style: TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.bold)),
         textDirection: TextDirection.ltr,
       )..layout()..paint(canvas, Offset(width * 0.1, height * 0.1));
       return;
     }
     
-    // Tuning mode UI - larger background
-    final bgPaint = Paint()..color = Colors.black.withOpacity(0.8);
-    canvas.drawRect(Rect.fromLTWH(0, 0, width, height * 0.25), bgPaint);
+    canvas.drawRect(Rect.fromLTWH(0, 0, width, height * 0.25), Paint()..color = Colors.black.withOpacity(0.8));
     
-    // Draw touch zone indicators
-    final zonePaint = Paint()..color = Colors.white.withOpacity(0.2);
-    // Left zone (toggle)
-    canvas.drawRect(Rect.fromLTWH(0, 0, width * 0.3, height * 0.25), zonePaint);
-    // Middle-left zone (decrease)
-    canvas.drawRect(Rect.fromLTWH(width * 0.3, 0, width * 0.2, height * 0.25), zonePaint);
-    // Middle-right zone (increase)
-    canvas.drawRect(Rect.fromLTWH(width * 0.5, 0, width * 0.2, height * 0.25), zonePaint);
-    // Right zone (next param)
-    canvas.drawRect(Rect.fromLTWH(width * 0.7, 0, width * 0.3, height * 0.25), zonePaint);
-    
-    final paramStyle = const TextStyle(color: Colors.yellow, fontSize: 18, fontWeight: FontWeight.bold);
-    final valueStyle = const TextStyle(color: Colors.white, fontSize: 16);
-    final labelStyle = const TextStyle(color: Colors.cyan, fontSize: 14);
-    final zoneStyle = TextStyle(color: Colors.white.withOpacity(0.7), fontSize: 12);
-    
-    // Current parameter name and value - centered
-    double currentValue = 0.0;
+    double val = 0.0;
     switch (currentTuningParam) {
-      case 0: currentValue = Bike._playerTorqueStrength; break;
-      case 1: currentValue = Bike._airborneGravityFactor; break;
-      case 2: currentValue = Bike._bikeMass; break;
-      case 3: currentValue = Bike._cogDistanceFromRear; break;
-      case 4: currentValue = Bike._cogHeight; break;
-      case 5: currentValue = Bike._magnetStrength; break;
-      case 6: currentValue = Bike._frontGroundedTorqueScale; break;
+      case 0: val = Bike._playerTorqueStrength; break;
+      case 1: val = Bike._airborneGravityFactor; break;
+      case 2: val = Bike._bikeMass; break;
+      case 3: val = Bike._cogDistanceFromRear; break;
+      case 4: val = Bike._cogHeight; break;
+      case 5: val = Bike._magnetStrength; break;
+      case 6: val = Bike._frontGroundedTorqueScale; break;
     }
     
     TextPainter(
-      text: TextSpan(text: tuningParamNames[currentTuningParam], style: paramStyle),
+      text: TextSpan(text: '${tuningParamNames[currentTuningParam]}: ${val.toStringAsFixed(3)}', style: const TextStyle(color: Colors.yellow, fontSize: 18, fontWeight: FontWeight.bold)),
       textDirection: TextDirection.ltr,
-    )..layout()..paint(canvas, Offset(width * 0.4, height * 0.02));
-    
-    TextPainter(
-      text: TextSpan(text: currentValue.toStringAsFixed(3), style: valueStyle),
-      textDirection: TextDirection.ltr,
-    )..layout()..paint(canvas, Offset(width * 0.42, height * 0.08));
-    
-    // Zone labels
-    TextPainter(
-      text: TextSpan(text: 'EXIT', style: zoneStyle),
-      textDirection: TextDirection.ltr,
-    )..layout()..paint(canvas, Offset(width * 0.12, height * 0.18));
-    
-    TextPainter(
-      text: TextSpan(text: 'DOWN', style: zoneStyle),
-      textDirection: TextDirection.ltr,
-    )..layout()..paint(canvas, Offset(width * 0.35, height * 0.18));
-    
-    TextPainter(
-      text: TextSpan(text: 'UP', style: zoneStyle),
-      textDirection: TextDirection.ltr,
-    )..layout()..paint(canvas, Offset(width * 0.57, height * 0.18));
-    
-    TextPainter(
-      text: TextSpan(text: 'NEXT', style: zoneStyle),
-      textDirection: TextDirection.ltr,
-    )..layout()..paint(canvas, Offset(width * 0.82, height * 0.18));
+    )..layout()..paint(canvas, Offset(width * 0.35, height * 0.05));
   }
 
-  Vector2 _spawnPoint() {
-    const x = -540.0;
-    const trackY = 38.0;
-    return Vector2(x, trackY - Bike.spawnBodyYOffset);
-  }
+  Vector2 _spawnPoint() => Vector2(-540.0, 38.0 - Bike.spawnBodyYOffset);
 }
 
 class TrackSegment {
   final Vector2 a;
   final Vector2 b;
-
   TrackSegment(this.a, this.b);
-
   Vector2 get delta => b - a;
   Vector2 get tangent => delta.normalized();
 }
@@ -358,535 +251,353 @@ class SurfaceHit {
   final Vector2 normal;
   final Vector2 tangent;
   final double distance;
-
-  const SurfaceHit({
-    required this.point,
-    required this.normal,
-    required this.tangent,
-    required this.distance,
-  });
-}
-
-class WheelContact {
-  final SurfaceHit hit;
-  final double distance;
-  final double compression;
-
-  const WheelContact({
-    required this.hit,
-    required this.distance,
-    required this.compression,
-  });
+  const SurfaceHit({required this.point, required this.normal, required this.tangent, required this.distance});
 }
 
 enum BikeState { riding, crashed }
 
-class Bike {
-  // === PRINCIPLED TORQUE PHYSICS PARAMETERS ===
-  static const _gravity = 200.0;
-  static const _rearDrive = 350.0; // Reduced from 420 for better feel
-  static const _brakePerWheel = 430.0;
-  static const _coastDrag = 0.9;
-  static const _airDrag = 0.08;
-  static const _maxSpeed = 250.0;
-  static const _wheelRadius = 4.7;
-  static const _headRadius = 2.4;
-  static const _magnetRange = 0.04;
-  static double _magnetStrength = 0.04; // TUNE IN-GAME: Micro-magnet strength
-  static double _frontGroundedTorqueScale = 0.04; // TUNE IN-GAME: Forward pitch torque when front wheel grounded (0.0-1.0)
-  static const _impactCrashSpeed = 280.0;
-  static const _wheelSpinDamp = 0.985;
-  static const _frameStiffness = 0.5;
-  static const _suspensionTravel = 0.22;
-  static const _groundedHysteresis = 0.3; // Stay grounded until this far from surface
+class Bike extends Component {
+  // --- Physics Tuning Constants ---
+  static const _gravity = 250.0;
+  static const _rearDrive = 380.0;
+  static const _brakePerWheel = 500.0;
+  static const _airDrag = 0.05;
+  static const _maxSpeed = 300.0;
+  static const _wheelRadius = 5.0;
+  static const _headRadius = 2.5;
   
-  // === TORQUE PHYSICS PARAMETERS ===
-  static double _wheelbase = 18.0; // L = 1.8m * 10 scale
-  static double _cogDistanceFromRear = 9.0; // Centered between wheels (wheelbase/2 = 9.0)
-  static double _cogHeight = 5.0; // h = 0.5m * 10 scale
-  static double _bikeMass = 10.0; // Bike mass for moment of inertia
-  
-  // === REAL-TIME TUNING PARAMETERS ===
-  static double _playerTorqueStrength = 500.0; // TUNE IN-GAME: Player input torque strength (increased)
-  static double _airborneGravityFactor = 0.7; // TUNE IN-GAME: Gravity strength when airborne
+  static const _suspensionTravel = 4.5; 
+  static const _suspensionStrength = 1200.0; 
+  static const _suspensionDamping = 65.0; 
+  static const _impactCrashLimit = 320.0;
+
+  static double _magnetStrength = 0.04;
+  static double _frontGroundedTorqueScale = 0.05;
+  static double _wheelbase = 18.0;
+  static double _cogDistanceFromRear = 9.0;
+  static double _cogHeight = 6.0;
+  static double _bikeMass = 10.0;
+  static double _playerTorqueStrength = 550.0;
+  static double _airborneGravityFactor = 0.75;
 
   static final _rearLocal = Vector2(-9.5, 6.5);
   static final _frontLocal = Vector2(8.5, 6.5);
-  static final _headLocal = Vector2(-5.0, -6.25); // Physics head for COG tuning
-  static final _collisionHeadLocal = Vector2(-3.5, -12.5); // Collision head for crash detection
-  static Vector2 get _cogLocal => Vector2(-9.5 + _cogDistanceFromRear, 6.5 - _cogHeight); // Dynamic COG position
+  static final _headLocal = Vector2(-4.0, -7.0);
+  static final _collisionHeadLocal = Vector2(-3.5, -13.0);
   static double get spawnBodyYOffset => _rearLocal.y + _wheelRadius;
 
-  late Vector2 rearPos;
-  late Vector2 frontPos;
-  late Vector2 headPos; // Physics head
-  late Vector2 collisionHeadPos; // Collision head for crash detection
-  late Vector2 cogPos;
-  late Vector2 rearVel;
-  late Vector2 frontVel;
-  late Vector2 headVel;
-  late Vector2 collisionHeadVel; // Velocity for collision head
-  late Vector2 cogVel;
+  // --- Fixed Timestep Architecture ---
+  double _timeAccumulator = 0.0;
+  static const double _fixedDt = 1.0 / 120.0; // 120Hz Physics Loop
+
+  // Object Pooling for Constraint Math (Zero Allocation)
+  final Vector2 _diff = Vector2.zero();
+  final Vector2 _center = Vector2.zero();
+  final Vector2 _fwd = Vector2.zero();
+  final Vector2 _up = Vector2.zero();
+
+  // Component State
+  late List<TrackSegment> trackSegments;
+  double tilt = 0.0;
+  bool isGas = false;
+  bool isBrake = false;
+
+  // Sprung Mass (Frame)
+  late Vector2 rearPos, frontPos, headPos, collisionHeadPos;
+  late Vector2 rearVel, frontVel, headVel;
+
+  // Unsprung Mass (Wheels - Render Only)
+  final Vector2 rearWheelPos = Vector2.zero();
+  final Vector2 frontWheelPos = Vector2.zero();
 
   BikeState state = BikeState.riding;
   bool rearOnGround = false;
   bool frontOnGround = false;
-  bool rearGroundedSticky = false; // Hysteresis for rear wheel
-  bool frontGroundedSticky = false; // Hysteresis for front wheel
   double rearCompression = 0.0;
   double frontCompression = 0.0;
-  double rearWheelAngle = 0.0;
-  double frontWheelAngle = 0.0;
-  double rearWheelAngVel = 0.0;
-  double frontWheelAngVel = 0.0;
-  double freePitchBlend = 0.0;
   SurfaceHit? _rearSurface;
   SurfaceHit? _frontSurface;
 
-  late final double _distRH;
-  late final double _distFH;
+  late final double _distRH, _distFH;
   late final Vector2 _headFromWheelCenter;
 
   Bike(Vector2 startPos) {
-    // Initialize positions
     rearPos = startPos + _rearLocal;
     frontPos = startPos + _frontLocal;
-    headPos = startPos + _headLocal; // Physics head
-    collisionHeadPos = startPos + _collisionHeadLocal; // Collision head
-    cogPos = startPos + _cogLocal;
+    headPos = startPos + _headLocal;
+    collisionHeadPos = startPos + _collisionHeadLocal;
+    
     rearVel = Vector2.zero();
     frontVel = Vector2.zero();
     headVel = Vector2.zero();
-    collisionHeadVel = Vector2.zero(); // Initialize collision head velocity
-    cogVel = Vector2.zero();
-    
-    // Initialize dynamic parameters
-    _wheelbase = Bike._wheelbase;
+
     _distRH = (_headLocal - _rearLocal).length;
     _distFH = (_headLocal - _frontLocal).length;
     _headFromWheelCenter = _headLocal - (_rearLocal + _frontLocal) / 2.0;
   }
 
-  Vector2 get position => (rearPos * 1.8 + frontPos * 1.2 + headPos * 0.5) / 3.5; // Uses physics head
-
-  double get angle {
-    final axis = frontPos - rearPos;
-    return atan2(axis.y, axis.x);
-  }
-
+  Vector2 get position => (rearPos + frontPos + headPos) / 3.0;
+  double get angle => atan2(frontPos.y - rearPos.y, frontPos.x - rearPos.x);
   double get speed => ((rearVel + frontVel + headVel) / 3.0).length;
+  bool get hasFiniteState => rearPos.x.isFinite && frontPos.x.isFinite && headPos.x.isFinite;
 
-  bool get hasFiniteState {
-    final vectors = [rearPos, frontPos, headPos, collisionHeadPos, cogPos, rearVel, frontVel, headVel, cogVel];
-    for (final v in vectors) {
-      if (!v.x.isFinite || !v.y.isFinite) return false;
-    }
-    return true;
+  void settleOnTrack() {
+    final rHit = _nearestSurface(rearPos, trackSegments);
+    final fHit = _nearestSurface(frontPos, trackSegments);
+    if (rHit == null || fHit == null) return;
+    
+    rearPos.setFrom(rHit.point);
+    rearPos.addScaled(rHit.normal, _wheelRadius + 1.0);
+    
+    frontPos.setFrom(fHit.point);
+    frontPos.addScaled(fHit.normal, _wheelRadius + 1.0);
+    
+    _syncFrameAndCollision(angle);
   }
 
-  void settleOnTrack(List<TrackSegment> segs) {
-    final rearHit = _nearestSurface(rearPos, segs);
-    final frontHit = _nearestSurface(frontPos, segs);
-    if (rearHit == null || frontHit == null) return;
-
-    rearPos = rearHit.point + rearHit.normal * _wheelRadius;
-    frontPos = frontHit.point + frontHit.normal * _wheelRadius;
-    _alignHeadToFrame();
-    cogPos = (rearPos + frontPos + headPos) / 3.0;
-
-    rearVel.setZero();
-    frontVel.setZero();
-    headVel.setZero();
-    cogVel.setZero();
-    // Initialize collision head velocity
-    collisionHeadPos = (rearPos + frontPos) / 2.0 + Vector2(-3.5, -12.5)..rotate(angle);
-    rearOnGround = true;
-    frontOnGround = true;
-    _rearSurface = rearHit;
-    _frontSurface = frontHit;
-  }
-
-  void updateBike(double dt, double tilt, bool gas, bool brake, List<TrackSegment> segs) {
-    const substeps = 10;
-    final stepDt = dt / substeps;
-    for (int i = 0; i < substeps; i++) {
-      _step(stepDt, tilt, gas, brake, segs);
+  @override
+  void update(double dt) {
+    _timeAccumulator += dt;
+    // Run physics exactly at 120Hz. If framerate drops, this catches up mechanically.
+    while (_timeAccumulator >= _fixedDt) {
+      _stepPhysics(_fixedDt);
+      _timeAccumulator -= _fixedDt;
     }
   }
 
-  void _step(double dt, double tilt, bool gas, bool brake, List<TrackSegment> segs) {
+  void _stepPhysics(double dt) {
     if (state == BikeState.crashed) {
-      rearVel *= 0.99;
-      frontVel *= 0.99;
-      headVel *= 0.99;
-      collisionHeadVel *= 0.99; // Dampen collision head velocity
-      rearPos += rearVel * dt;
-      frontPos += frontVel * dt;
-      collisionHeadPos += collisionHeadVel * dt;
-      _updateWheelRotation(dt, brake);
+      _applyCrashedPhysics(dt);
       return;
     }
 
-    // 1. Apply Gravity at sCOG (reduced when airborne for better jump feel)
-    final gravityMultiplier = (rearOnGround || frontOnGround) ? 1.0 : _airborneGravityFactor;
-    final grav = Vector2(0, _gravity * dt * gravityMultiplier);
-    // Apply gravity to sCOG velocity and distribute to points
-    final sCOGVel = (rearVel + frontVel + headVel) / 3.0;
-    sCOGVel.add(grav);
-    // Distribute sCOG velocity back to individual points
-    rearVel.setFrom(sCOGVel.clone());
-    frontVel.setFrom(sCOGVel.clone());
-    headVel.setFrom(sCOGVel.clone());
+    // 1. Gravity (In-Place Mutation)
+    final gVal = (rearOnGround || frontOnGround) ? _gravity : _gravity * _airborneGravityFactor;
+    rearVel.y += gVal * dt;
+    frontVel.y += gVal * dt;
+    headVel.y += gVal * dt;
 
-    // 2. Ground Detection & Interaction
-    _updateGroundedStatus(segs);
+    // 2. Suspension Physics
+    _applySuspension(dt);
 
-    // 3. Drive Forces (Gas/Brake)
-    _applyDriveAndBrake(dt, gas, brake);
-
-    // 4. THE DECOUPLER: Capture Master Linear Velocity
-    cogVel = (rearVel + frontVel + headVel) / 3.0;
-
-    // 5. Apply Rotation (Slave points pivot around the Master)
-    _applyTiltImpulse(tilt);
-
-    // 6. Integrate Positions
-    rearPos.add(rearVel * dt);
-    frontPos.add(frontVel * dt);
-    headPos.add(headVel * dt);
-    // Update COG position for rendering - use dynamic COG
-    final currentAngle = angle;
-    // Calculate COG as weighted average of bike parts based on tuning parameters
-    final rearWeight = 1.0;
-    final frontWeight = 1.0;
-    final headWeight = 0.5;
-    final totalWeight = rearWeight + frontWeight + headWeight;
-    
-    cogPos = (rearPos * rearWeight + frontPos * frontWeight + headPos * headWeight) / totalWeight;
-
-    // 7. Solve Hard Constraints
-    for (int i = 0; i < 10; i++) {
-      _solveBoundedDistance(rearPos, frontPos, _wheelbase, _wheelbase, 1.0, 1.35, 1.0);
-      _solveBoundedDistance(rearPos, headPos, _distRH, _distRH, 1.0, 1.35, 0.5);
-      _solveBoundedDistance(frontPos, headPos, _distFH, _distFH, 1.0, 1.0, 0.5);
+    // 3. Drive & Brake
+    if (rearOnGround && _rearSurface != null && isGas) {
+      rearVel.addScaled(_forwardTangent(_rearSurface!.tangent), _rearDrive * dt);
     }
-    
-    // Update COG position after constraints - use dynamic COG
-    final currentAngle2 = angle;
-    // Calculate COG as weighted average of bike parts based on tuning parameters
-    cogPos = (rearPos * rearWeight + frontPos * frontWeight + headPos * headWeight) / totalWeight;
-    // Update collision head position
-    final frameCenter = (rearPos + frontPos) / 2.0;
-    collisionHeadPos = frameCenter + (Vector2(-3.5, -12.5)..rotate(currentAngle2));
+    if (isBrake) {
+      if (rearOnGround) _applyBrake(rearVel, _rearSurface!.tangent, dt);
+      if (frontOnGround) _applyBrake(frontVel, _frontSurface!.tangent, dt);
+    }
 
-    // 8. Friction and Speed Cap
-    final damp = max(0.0, 1.0 - _airDrag * dt);
-    rearVel *= damp;
-    frontVel *= damp;
-    headVel *= damp;
+    // 4. Input Torque
+    _applyTilt(dt);
+
+    // 5. Integrate Velocities (In-Place)
+    rearPos.addScaled(rearVel, dt);
+    frontPos.addScaled(frontVel, dt);
+    headPos.addScaled(headVel, dt);
+
+    // 6. Kinematic Distance Constraints (Iterative Solver)
+    for (int i = 0; i < 8; i++) {
+      _solveDist(rearPos, frontPos, _wheelbase, 1.0, 1.0);
+      _solveDist(rearPos, headPos, _distRH, 1.0, 0.5);
+      _solveDist(frontPos, headPos, _distFH, 1.0, 0.5);
+    }
+
+    // 7. Ground/Crash Verification
+    _checkGroundAndCrash();
+    _syncFrameAndCollision(angle);
+
+    // Air Drag and Speed Cap
+    final dragFactor = 1.0 - (_airDrag * dt);
+    rearVel.scale(dragFactor);
+    frontVel.scale(dragFactor);
     _capSpeed();
-
-    // 9. Settle check - if both wheels grounded and very slow, dampen further
-    if (rearOnGround && frontOnGround && cogVel.length < 0.5) {
-      rearVel *= 0.9;
-      frontVel *= 0.9;
-      headVel *= 0.9;
-    }
-
-    // 9. Visuals
-    _updateWheelRotation(dt, brake);
   }
 
-  void _updateGroundedStatus(List<TrackSegment> segs) {
-    final wasAirborne = !(rearOnGround || frontOnGround);
-    
-    // Check actual wheel contact
-    bool rearContactFound = false;
-    bool frontContactFound = false;
-    
-    final rearHit = _nearestSurface(rearPos, segs);
-    if (rearHit != null && rearHit.distance <= _wheelRadius) {
-      rearContactFound = true;
-      _rearSurface = rearHit;
-      rearCompression = (_wheelRadius + _magnetRange - rearHit.distance).clamp(0.0, _suspensionTravel);
-      // Soft position correction (0.5 instead of 1.0 to reduce bounce)
-      final correction = (_wheelRadius - rearHit.distance) * 0.5;
-      rearPos.add(rearHit.normal * correction);
-      // Strong velocity damping when grounded - kill bounce velocity
-      final normalSpeed = rearVel.dot(rearHit.normal);
-      if (normalSpeed < 0.0) rearVel.sub(rearHit.normal * normalSpeed * 0.98);
-    }
-    
-    final frontHit = _nearestSurface(frontPos, segs);
-    if (frontHit != null && frontHit.distance <= _wheelRadius) {
-      frontContactFound = true;
-      _frontSurface = frontHit;
-      frontCompression = (_wheelRadius + _magnetRange - frontHit.distance).clamp(0.0, _suspensionTravel);
-      // Soft position correction (0.5 instead of 1.0 to reduce bounce)
-      final correction = (_wheelRadius - frontHit.distance) * 0.5;
-      frontPos.add(frontHit.normal * correction);
-      // Strong velocity damping when grounded - kill bounce velocity
-      final normalSpeed = frontVel.dot(frontHit.normal);
-      if (normalSpeed < 0.0) frontVel.sub(frontHit.normal * normalSpeed * 0.98);
-    }
-    
-    // Apply hysteresis - once grounded, stay grounded until far away
-    if (rearContactFound) {
-      rearOnGround = true;
-      rearGroundedSticky = true;
-    } else if (rearGroundedSticky && rearHit != null && rearHit.distance < _wheelRadius + _groundedHysteresis) {
-      rearOnGround = true; // Keep grounded while within hysteresis zone
-    } else {
-      rearOnGround = false;
-      rearGroundedSticky = false;
-    }
-    
-    if (frontContactFound) {
-      frontOnGround = true;
-      frontGroundedSticky = true;
-    } else if (frontGroundedSticky && frontHit != null && frontHit.distance < _wheelRadius + _groundedHysteresis) {
-      frontOnGround = true; // Keep grounded while within hysteresis zone
-    } else {
-      frontOnGround = false;
-      frontGroundedSticky = false;
-    }
+  void _applySuspension(double dt) {
+    final rHit = _nearestSurface(rearPos, trackSegments);
+    final fHit = _nearestSurface(frontPos, trackSegments);
 
-    if (_headHitsTrack(segs)) _crash();
-  }
+    rearCompression = _processWheelSuspension(rearPos, rearVel, rHit, dt);
+    frontCompression = _processWheelSuspension(frontPos, frontVel, fHit, dt);
 
-  void _applyDriveAndBrake(double dt, bool gas, bool brake) {
-    if (rearOnGround && _rearSurface != null && gas) {
-      rearVel += _forwardTangent(_rearSurface!.tangent) * (_rearDrive * dt);
-    }
-    if (brake) {
-      if (rearOnGround && _rearSurface != null) _applyBrakeAtWheel(rearVel, _rearSurface!.tangent, dt);
-      if (frontOnGround && _frontSurface != null) _applyBrakeAtWheel(frontVel, _frontSurface!.tangent, dt);
-    } else if (rearOnGround && _rearSurface != null) {
-      _applyCoastDrag(rearVel, _rearSurface!.tangent, dt);
-    }
-  }
-
-  void _applyBrakeAtWheel(Vector2 velocity, Vector2 tangent, double dt) {
-    final forward = _forwardTangent(tangent);
-    final speedAlong = velocity.dot(forward);
-    if (speedAlong.abs() < 0.001) return;
-    final delta = _brakePerWheel * dt;
-    final next = speedAlong > 0 ? max(0.0, speedAlong - delta) : min(0.0, speedAlong + delta);
-    velocity.add(forward * (next - speedAlong));
-  }
-
-  void _applyCoastDrag(Vector2 velocity, Vector2 tangent, double dt) {
-    final forward = _forwardTangent(tangent);
-    final speedAlong = velocity.dot(forward);
-    if (speedAlong.abs() < 0.001) return;
-    final next = speedAlong > 0 ? max(0.0, speedAlong - _coastDrag * dt) : min(0.0, speedAlong + _coastDrag * dt);
-    velocity.add(forward * (next - speedAlong));
-  }
-
-  double _calculateGravityTorque() {
-    // Only when airborne is gravity torque not applied
-    if (!rearOnGround && !frontOnGround) return 0.0;
-    
-    double totalTorque = 0.0;
-    
-    // Weight acts at COG, pivot is at wheel contact point
-    // Torque = weight × horizontal moment arm
-    // COG forward of pivot = front down (clockwise)
-    // COG behind pivot = rear down (counter-clockwise)
-    
-    if (rearOnGround && _rearSurface != null) {
-      // Rear is pivot, COG forward = front down
-      double momentArm = cogPos.x - rearPos.x;
-      totalTorque += _gravity * momentArm / 1000.0;
-    }
-    
-    if (frontOnGround && _frontSurface != null) {
-      // Front is pivot, COG behind = rear down
-      double momentArm = frontPos.x - cogPos.x;
-      totalTorque += _gravity * momentArm / 1000.0;
-    }
-    
-    return totalTorque;
-  }
-
-  void _applyTiltImpulse(double tilt) {
-    const maxOmega = 4.0; 
-    
-    // Scale tilt input when front-grounded and trying to pitch forward
-    // This weakens torque (can't lift rear wheel) without killing rotation speed
-    double effectiveTilt = tilt;
-    if (tilt > 0 && frontOnGround) {
-      effectiveTilt = tilt * _frontGroundedTorqueScale;
-    }
-    
-    double omega = -effectiveTilt * maxOmega;
-    omega *= 0.95; // Light damping only
-
-    // Add natural gravity torque - stronger restoring force for level bike
-    final gravityTorque = _calculateGravityTorque() * 0.5;
-    omega += gravityTorque;
-
-    _applyRotationToPoints(omega);
-  }
-  
-  void _applyRotationToPoints(double omega) {
-    final masterVel = cogVel.clone();
-    final trueCenterLocal = (_rearLocal + _frontLocal + _headLocal) / 3.0;
-
-    void updatePoint(Vector2 localOffset, Vector2 currentVel, bool isGrounded, SurfaceHit? surface) {
-      final currentAngle = angle;
-      final worldRadius = (localOffset - trueCenterLocal)..rotate(currentAngle);
-      final rotVel = Vector2(worldRadius.y, -worldRadius.x) * omega;
-
-      if (isGrounded && surface != null) {
-        double intoGround = rotVel.dot(surface.normal);
-        if (intoGround < 0) rotVel.sub(surface.normal * intoGround);
+    // Calculate Rear Unsprung Mass Visual Position
+    if (rHit != null) {
+      rearWheelPos.setFrom(rearPos);
+      rearWheelPos.addScaled(rHit.normal, -(_suspensionTravel - rearCompression));
+      if (rHit.distance < _wheelRadius) { // Hard limit clamp
+        rearWheelPos.setFrom(rHit.point);
+        rearWheelPos.addScaled(rHit.normal, _wheelRadius);
       }
-
-      currentVel.setFrom(masterVel + rotVel);
-    }
-
-    updatePoint(_rearLocal, rearVel, rearOnGround, _rearSurface);
-    updatePoint(_frontLocal, frontVel, frontOnGround, _frontSurface);
-    updatePoint(_headLocal, headVel, false, null);
-  }
-
-  WheelContact? _solveWheelContact(Vector2 pos, Vector2 vel, List<TrackSegment> segs, {required bool allowAssist}) {
-    final hit = _nearestSurface(pos, segs);
-    if (hit == null) return null;
-
-    final targetDistance = _wheelRadius;
-    final magnetDistance = targetDistance + _magnetRange;
-    final incoming = -vel.dot(hit.normal);
-
-    if (hit.distance < targetDistance && incoming > _impactCrashSpeed) {
-      _crash();
-      return null;
-    }
-
-    if (hit.distance < targetDistance) {
-      pos.add(hit.normal * (targetDistance - hit.distance));
-      final normalSpeed = vel.dot(hit.normal);
-      if (normalSpeed < 0.0) vel.sub(hit.normal * normalSpeed * 0.82);
-    } else if (allowAssist && hit.distance < magnetDistance && vel.dot(hit.normal) < 4.0) {
-      final pull = (magnetDistance - hit.distance) / _magnetRange;
-      pos.add(hit.normal * (targetDistance - hit.distance) * (_magnetStrength * pull));
     } else {
-      return null;
+      rearWheelPos.setValues(rearPos.x, rearPos.y + _suspensionTravel);
     }
 
-    return WheelContact(
-      hit: hit,
-      distance: hit.distance,
-      compression: (magnetDistance - hit.distance).clamp(0.0, _suspensionTravel),
-    );
+    // Calculate Front Unsprung Mass Visual Position (Bug Fixed)
+    if (fHit != null) {
+      frontWheelPos.setFrom(frontPos);
+      frontWheelPos.addScaled(fHit.normal, -(_suspensionTravel - frontCompression));
+      if (fHit.distance < _wheelRadius) { // Hard limit clamp on fHit
+        frontWheelPos.setFrom(fHit.point);
+        frontWheelPos.addScaled(fHit.normal, _wheelRadius);
+      }
+    } else {
+      frontWheelPos.setValues(frontPos.x, frontPos.y + _suspensionTravel);
+    }
   }
 
-  bool _headHitsTrack(List<TrackSegment> segs) {
-    final hit = _nearestSurface(collisionHeadPos, segs); // Use collision head for crash detection
-    return hit != null && hit.distance < _headRadius;
+  double _processWheelSuspension(Vector2 pos, Vector2 vel, SurfaceHit? hit, double dt) {
+    if (hit == null) return 0.0;
+    
+    double distToGround = hit.distance;
+    double restingDist = _wheelRadius + _suspensionTravel;
+    
+    if (distToGround < restingDist) {
+      double compression = (restingDist - distToGround).clamp(0.0, _suspensionTravel);
+      
+      // Spring force based on compression ratio
+      double springF = compression * _suspensionStrength;
+      
+      // Damper force counteracting velocity along normal
+      double dampF = -vel.dot(hit.normal) * _suspensionDamping;
+      
+      double totalF = (springF + dampF).clamp(0.0, 5000.0);
+      vel.addScaled(hit.normal, totalF * dt);
+
+      if (-vel.dot(hit.normal) > _impactCrashLimit) _crash();
+      return compression;
+    }
+    return 0.0;
   }
 
-  SurfaceHit? _nearestSurface(Vector2 point, List<TrackSegment> segs) {
-    SurfaceHit? best;
-    var bestDist = double.infinity;
-    for (final seg in segs) {
-      final delta = seg.delta;
-      final len2 = delta.length2;
-      if (len2 == 0.0) continue;
-      final t = ((point - seg.a).dot(delta) / len2).clamp(0.0, 1.0);
-      final closest = seg.a + delta * t;
-      final diff = point - closest;
+  void _checkGroundAndCrash() {
+    final rHit = _nearestSurface(rearPos, trackSegments);
+    final fHit = _nearestSurface(frontPos, trackSegments);
+    
+    rearOnGround = rHit != null && rHit.distance <= (_wheelRadius + _suspensionTravel + 0.5);
+    frontOnGround = fHit != null && fHit.distance <= (_wheelRadius + _suspensionTravel + 0.5);
+    _rearSurface = rHit; 
+    _frontSurface = fHit;
+
+    final headHit = _nearestSurface(collisionHeadPos, trackSegments);
+    if (headHit != null && headHit.distance < _headRadius) _crash();
+  }
+
+  void _applyTilt(double dt) {
+    double torque = -tilt * _playerTorqueStrength;
+    if (tilt > 0 && frontOnGround) torque *= _frontGroundedTorqueScale;
+
+    _center.setFrom(rearPos);
+    _center.add(frontPos);
+    _center.scale(0.5);
+
+    // Rotate frame nodes around center of mass
+    final rotRear = (rearPos - _center)..rotate(torque * 0.0001);
+    final rotFront = (frontPos - _center)..rotate(torque * 0.0001);
+    
+    rearPos.setFrom(_center); rearPos.add(rotRear);
+    frontPos.setFrom(_center); frontPos.add(rotFront);
+  }
+
+  void _applyBrake(Vector2 vel, Vector2 tangent, double dt) {
+    final fwd = _forwardTangent(tangent);
+    double currentSpeed = vel.dot(fwd);
+    double decel = _brakePerWheel * dt;
+    double newSpeed = currentSpeed > 0 ? max(0, currentSpeed - decel) : min(0, currentSpeed + decel);
+    vel.addScaled(fwd, newSpeed - currentSpeed);
+  }
+
+  // Zero-Allocation Constraint Solver
+  void _solveDist(Vector2 a, Vector2 b, double target, double massA, double massB) {
+    _diff.setFrom(b);
+    _diff.sub(a);
+    final dist = _diff.length;
+    if (dist < 0.001) return;
+    
+    final err = (dist - target) / dist;
+    final totalM = massA + massB;
+    
+    a.addScaled(_diff, err * (massB / totalM));
+    b.addScaled(_diff, -err * (massA / totalM));
+  }
+
+  void _syncFrameAndCollision(double currAngle) {
+    _center.setFrom(rearPos);
+    _center.add(frontPos);
+    _center.scale(0.5);
+    
+    collisionHeadPos.setFrom(_center);
+    collisionHeadPos.add(Vector2(-3.5, -13.0)..rotate(currAngle));
+    
+    _fwd.setFrom(frontPos);
+    _fwd.sub(rearPos);
+    _fwd.normalize();
+    
+    _up.setValues(-_fwd.y, _fwd.x);
+    
+    headPos.setFrom(_center);
+    headPos.addScaled(_fwd, _headFromWheelCenter.x);
+    headPos.addScaled(_up, _headFromWheelCenter.y);
+  }
+
+  void _applyCrashedPhysics(double dt) {
+    rearVel.scale(0.98); 
+    frontVel.scale(0.98);
+    rearPos.addScaled(rearVel, dt); 
+    frontPos.addScaled(frontVel, dt);
+    collisionHeadPos.addScaled(rearVel, dt);
+  }
+
+  SurfaceHit? _nearestSurface(Vector2 pt, List<TrackSegment> segs) {
+    SurfaceHit? best; 
+    double bDist = double.infinity;
+    for (final s in segs) {
+      final d = s.delta; final l2 = d.length2; if (l2 == 0) continue;
+      final t = ((pt - s.a).dot(d) / l2).clamp(0.0, 1.0);
+      final close = s.a + d * t;
+      final diff = pt - close; 
       final dist = diff.length;
-      if (dist >= bestDist) continue;
-      final tangent = delta.normalized();
-      bestDist = dist;
-      best = SurfaceHit(
-        point: closest,
-        normal: dist > 0.0001 ? diff / dist : Vector2(-tangent.y, tangent.x),
-        tangent: tangent,
-        distance: dist,
-      );
+      if (dist < bDist) {
+        bDist = dist;
+        best = SurfaceHit(point: close, normal: dist > 0.1 ? diff / dist : Vector2(-s.tangent.y, s.tangent.x), tangent: s.tangent, distance: dist);
+      }
     }
     return best;
   }
 
-  void _solveBoundedDistance(Vector2 a, Vector2 b, double minDist, double maxDist, double stiffness, double massA, double massB) {
-    final delta = b - a;
-    final dist = delta.length;
-    if (dist < 0.0001) return;
-    double error = 0.0;
-    if (dist < minDist) error = dist - minDist;
-    else if (dist > maxDist) error = dist - maxDist;
-    else return;
-    final correction = delta / dist * (error * stiffness);
-    final sum = (1.0 / massA) + (1.0 / massB);
-    a.add(correction * ((1.0 / massA) / sum));
-    b.sub(correction * ((1.0 / massB) / sum));
-  }
-
-  Vector2 _forwardTangent(Vector2 tangent) {
-    var dir = tangent.normalized();
-    if (dir.x < 0.0) dir = -dir;
-    return dir;
-  }
-
-  void _updateWheelRotation(double dt, bool brake) {
-    if (rearOnGround && _rearSurface != null) {
-      rearWheelAngVel = rearVel.dot(_forwardTangent(_rearSurface!.tangent)) / _wheelRadius;
-    } else {
-      rearWheelAngVel = brake ? 0.0 : rearWheelAngVel * _wheelSpinDamp;
-    }
-    rearWheelAngle += rearWheelAngVel * dt;
-
-    if (frontOnGround && _frontSurface != null) {
-      frontWheelAngVel = frontVel.dot(_forwardTangent(_frontSurface!.tangent)) / _wheelRadius;
-    } else {
-      frontWheelAngVel = brake ? 0.0 : frontWheelAngVel * _wheelSpinDamp;
-    }
-    frontWheelAngle += frontWheelAngVel * dt;
-  }
+  Vector2 _forwardTangent(Vector2 t) => t.x < 0 ? -t : t;
 
   void _capSpeed() {
-    final speed = cogVel.length;
-    if (speed <= _maxSpeed) return;
-    final scale = _maxSpeed / speed;
-    rearVel.scale(scale);
-    frontVel.scale(scale);
-    headVel.scale(scale);
-    cogVel.scale(scale);
-  }
-
-  void _alignHeadToFrame() {
-    final axis = frontPos - rearPos;
-    if (axis.length2 <= 0.0001) return;
-    final frameDir = axis.normalized();
-    final down = Vector2(-frameDir.y, frameDir.x);
-    final frameCenter = (rearPos + frontPos) / 2.0;
-    headPos = frameCenter + frameDir * _headFromWheelCenter.x + down * _headFromWheelCenter.y;
+    final currentSpeed = speed;
+    if (currentSpeed > _maxSpeed) {
+      double s = _maxSpeed / currentSpeed;
+      rearVel.scale(s); frontVel.scale(s); headVel.scale(s);
+    }
   }
 
   void _crash() => state = BikeState.crashed;
 
-  void renderBike(Canvas canvas) {
-    final frame = Paint()..color = const Color(0xFF333333)..strokeWidth = 3.0..style = PaintingStyle.stroke;
-    final rider = Paint()..color = const Color(0xFF2255BB);
-    final wheelRim = Paint()..color = Colors.black87..style = PaintingStyle.stroke..strokeWidth = 3.0;
-    final cogDot = Paint()..color = const Color(0xFFFF00FF)..style = PaintingStyle.fill;
+  @override
+  void render(Canvas canvas) {
+    final frameP = Paint()..color = Colors.grey[800]!..strokeWidth = 3..style = PaintingStyle.stroke;
+    final wheelP = Paint()..color = Colors.black87..strokeWidth = 3..style = PaintingStyle.stroke;
+    final riderP = Paint()..color = const Color(0xFF2255BB);
 
-    canvas.drawCircle(_off(rearPos), _wheelRadius, wheelRim);
-    canvas.drawCircle(_off(frontPos), _wheelRadius, wheelRim);
-    canvas.drawLine(_off(rearPos), _off(frontPos), frame);
-    canvas.drawLine(_off(rearPos), _off(headPos), frame); // Draw physics head (lighter)
-    canvas.drawLine(_off(frontPos), _off(headPos), frame);
-    canvas.drawCircle(_off(headPos), _headRadius, rider); // Draw physics head
-    final collisionPaint = Paint()..color = const Color(0xFF2255BB)..style = PaintingStyle.fill;
-    collisionPaint.color = collisionPaint.color.withOpacity(0.3);
-    canvas.drawCircle(_off(collisionHeadPos), _headRadius, collisionPaint); // Draw collision head (semi-transparent)
-    canvas.drawCircle(_off(cogPos), 1.5, cogDot);
+    canvas.drawCircle(_off(rearWheelPos), _wheelRadius, wheelP);
+    canvas.drawCircle(_off(frontWheelPos), _wheelRadius, wheelP);
+
+    canvas.drawLine(_off(rearPos), _off(frontPos), frameP);
+    canvas.drawLine(_off(rearPos), _off(headPos), frameP);
+    canvas.drawLine(_off(frontPos), _off(headPos), frameP);
+    canvas.drawCircle(_off(headPos), _headRadius, riderP);
+
+    final shockP = Paint()..color = Colors.grey[400]!..strokeWidth = 2;
+    canvas.drawLine(_off(rearPos), _off(rearWheelPos), shockP);
+    canvas.drawLine(_off(frontPos), _off(frontWheelPos), shockP);
 
     if (state == BikeState.crashed) {
-      TextPainter(textDirection: TextDirection.ltr, text: const TextSpan(text: 'CRASHED', style: TextStyle(color: Colors.redAccent, fontSize: 10, fontWeight: FontWeight.bold)))..layout()..paint(canvas, _off(collisionHeadPos + Vector2(-14, -16)));
+      TextPainter(textDirection: TextDirection.ltr, text: const TextSpan(text: 'CRASHED', style: TextStyle(color: Colors.red, fontSize: 12, fontWeight: FontWeight.bold)))..layout()..paint(canvas, _off(collisionHeadPos + Vector2(-15, -20)));
     }
   }
 }
@@ -899,7 +610,7 @@ class Background extends Component {
 class DebugOverlay extends Component with HasGameRef<RaceRiderGame> {
   @override
   void render(Canvas canvas) {
-    final bike = gameRef.player;
-    TextPainter(textDirection: TextDirection.ltr, text: TextSpan(text: 'RaceRider Prototype\n${RaceRiderGame.buildLabel}\nState: ${bike.state.name}\nSpeed: ${bike.speed.toStringAsFixed(1)}\nAngle: ${bike.angle.toStringAsFixed(2)} rad', style: const TextStyle(color: Colors.yellow, fontSize: 14, fontWeight: FontWeight.bold)))..layout()..paint(canvas, const Offset(16, 16));
+    final b = gameRef.player;
+    TextPainter(textDirection: TextDirection.ltr, text: TextSpan(text: 'RaceRider\n${RaceRiderGame.buildLabel}\nSpeed: ${b.speed.toStringAsFixed(1)}', style: const TextStyle(color: Colors.yellow, fontSize: 14)))..layout()..paint(canvas, const Offset(16, 16));
   }
 }
