@@ -31349,18 +31349,18 @@ i=a.c
 i.Z(a.as)
 i.n(0,a.at)
 i.aY(0.5)
-h=a.f
-h.Z(a.as)
-h.aO(i)
-g=j*0.0005
-A.DU(h,g)
+h=j*a0*0.01
+g=a.f
+g.Z(a.as)
+g.aO(i)
+A.DU(g,h)
 a.as.Z(i)
-a.as.n(0,h)
-h.Z(a.at)
-h.aO(i)
-A.DU(h,g)
+a.as.n(0,g)
+g.Z(a.at)
+g.aO(i)
+A.DU(g,h)
 a.at.Z(i)
-a.at.n(0,h)
+a.at.n(0,g)
 for(f=0;f<8;++f){a.D8(a.as,a.at,18,1,1)
 a.rH(a.as)
 a.rH(a.at)}a.ch.Z(a.as)
@@ -31382,8 +31382,8 @@ e=a.iN(p,a.x)
 if(e!=null&&e.d<2.5)a.db=B.an
 p=a.at.a
 o=p[1]
-h=a.as.a
-h=Math.atan2(o-h[1],p[0]-h[0])
+g=a.as.a
+g=Math.atan2(o-g[1],p[0]-g[0])
 i.Z(a.as)
 i.n(0,a.at)
 i.aY(0.5)
@@ -31391,7 +31391,7 @@ a.ay.Z(i)
 p=a.ay
 o=new A.x(new Float64Array(2))
 o.X(-3.5,-13)
-A.DU(o,h)
+A.DU(o,g)
 p.n(0,o)
 q.Z(a.at)
 q.aO(a.as)
@@ -31579,7 +31579,7 @@ if(q==null){s=r.cu()
 s.toString
 q=r.nb$=A.q(r).h("hV.T").a(s)}q=q.aA
 q===$&&A.c()
-q=A.DF(A.IU(B.vB,"RaceRider\nphysics v.78 - Fork & Tilt Fix\nSpeed: "+B.d.J(q.goY(),1)),B.v)
+q=A.DF(A.IU(B.vB,"RaceRider\nphysics v.79 - Fork & Tilt Fix\nSpeed: "+B.d.J(q.goY(),1)),B.v)
 q.jU()
 q.bl(a,B.tZ)}}
 A.qD.prototype={
