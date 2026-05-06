@@ -19,7 +19,7 @@ void main() async {
 Offset _off(Vector2 v) => Offset(v.x, v.y);
 
 class RaceRiderGame extends FlameGame with TapCallbacks {
-  static const buildLabel = 'physics v.60 - ground hysteresis';
+  static const buildLabel = 'physics v.61 - stop bouncing';
   late Bike player;
   late List<TrackSegment> trackSegments;
   double rawTilt = 0.0;
@@ -602,10 +602,12 @@ class Bike {
       rearContactFound = true;
       _rearSurface = rearHit;
       rearCompression = (_wheelRadius + _magnetRange - rearHit.distance).clamp(0.0, _suspensionTravel);
-      // Position correction
-      rearPos.add(rearHit.normal * (_wheelRadius - rearHit.distance));
+      // Soft position correction (0.7 instead of 1.0 to reduce bounce)
+      final correction = (_wheelRadius - rearHit.distance) * 0.7;
+      rearPos.add(rearHit.normal * correction);
+      // Strong velocity damping when grounded - kill bounce velocity
       final normalSpeed = rearVel.dot(rearHit.normal);
-      if (normalSpeed < 0.0) rearVel.sub(rearHit.normal * normalSpeed * 0.82);
+      if (normalSpeed < 0.0) rearVel.sub(rearHit.normal * normalSpeed * 0.95);
     }
     
     final frontHit = _nearestSurface(frontPos, segs);
@@ -613,10 +615,12 @@ class Bike {
       frontContactFound = true;
       _frontSurface = frontHit;
       frontCompression = (_wheelRadius + _magnetRange - frontHit.distance).clamp(0.0, _suspensionTravel);
-      // Position correction
-      frontPos.add(frontHit.normal * (_wheelRadius - frontHit.distance));
+      // Soft position correction (0.7 instead of 1.0 to reduce bounce)
+      final correction = (_wheelRadius - frontHit.distance) * 0.7;
+      frontPos.add(frontHit.normal * correction);
+      // Strong velocity damping when grounded - kill bounce velocity
       final normalSpeed = frontVel.dot(frontHit.normal);
-      if (normalSpeed < 0.0) frontVel.sub(frontHit.normal * normalSpeed * 0.82);
+      if (normalSpeed < 0.0) frontVel.sub(frontHit.normal * normalSpeed * 0.95);
     }
     
     // Apply hysteresis - once grounded, stay grounded until far away
