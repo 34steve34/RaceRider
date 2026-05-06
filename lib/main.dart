@@ -19,7 +19,7 @@ void main() async {
 Offset _off(Vector2 v) => Offset(v.x, v.y);
 
 class RaceRiderGame extends FlameGame with TapCallbacks {
-  static const buildLabel = 'physics v.77 - Tilt Cache Fix';
+  static const buildLabel = 'physics v.78 - Fork & Tilt Fix';
   late Bike player;
   late List<TrackSegment> trackSegments;
   
@@ -118,7 +118,8 @@ class RaceRiderGame extends FlameGame with TapCallbacks {
       tiltCalibrated = true;
     }
     
-    final normalized = ((rawTilt - tiltZero) / 5.5).clamp(-1.0, 1.0);
+    // Increased sensitivity: dividing by 3.0 instead of 5.5 means reaching max tilt sooner
+    final normalized = ((rawTilt - tiltZero) / 3.0).clamp(-1.0, 1.0);
     smoothedTilt = smoothedTilt * 0.2 + normalized * 0.8;
     if (smoothedTilt.abs() < 0.05) smoothedTilt = 0.0;
     
@@ -333,8 +334,6 @@ class Bike {
   final Vector2 _center = Vector2.zero();
   final Vector2 _fwd = Vector2.zero();
   final Vector2 _up = Vector2.zero();
-  
-  // ADDED BACK: The rotation cache required for kinematic tilt
   final Vector2 _rotCache = Vector2.zero(); 
   
   final Vector2 _oldRear = Vector2.zero();
@@ -406,13 +405,14 @@ class Bike {
       if (frontOnGround) _applyBrake(frontVel, _frontSurface!.tangent, dt);
     }
 
-    _applyTilt(dt);
-
     _oldRear.setFrom(rearPos);
     _oldFront.setFrom(frontPos);
 
     rearPos.addScaled(rearVel, dt);
     frontPos.addScaled(frontVel, dt);
+
+    // Apply tilt positionally after integration, but before constraints
+    _applyTilt(dt);
 
     for (int i = 0; i < 8; i++) {
       _solveDist(rearPos, frontPos, _wheelbase, 1.0, 1.0);
@@ -467,8 +467,9 @@ class Bike {
     _fwd.sub(rearPos);
     _fwd.normalize();
     
-    final rearForkDir = Vector2(_fwd.y, -_fwd.x); 
-    final frontForkDir = Vector2(_fwd.y, -_fwd.x)..rotate(-0.25); 
+    // FIX 1: The Y axis goes DOWN on screens. This math points the fork strictly downwards towards the track.
+    final rearForkDir = Vector2(-_fwd.y, _fwd.x); 
+    final frontForkDir = Vector2(-_fwd.y, _fwd.x)..rotate(-0.25); 
     
     final rHit = _raycast(rearPos, rearForkDir, trackSegments);
     final fHit = _raycast(frontPos, frontForkDir, trackSegments);
@@ -493,12 +494,14 @@ class Bike {
       double compression = (restingDist - distToGround).clamp(0.0, suspensionTravel);
       double springF = compression * suspensionStrength;
       
-      double dampF = -vel.dot(forkDir) * suspensionDamping; 
+      // FIX 2: Polarity corrected. Damping now properly resists compression instead of forcing it.
+      double dampF = vel.dot(forkDir) * suspensionDamping; 
       double totalF = (springF + dampF).clamp(0.0, 5000.0);
       
       vel.addScaled(forkDir, -totalF * dt);
 
-      if (-vel.dot(forkDir) > _impactCrashLimit) _crash();
+      // FIX 3: Crash check polarity corrected to match downward forks
+      if (vel.dot(forkDir) > _impactCrashLimit) _crash();
       return compression;
     }
     return 0.0;
@@ -518,23 +521,26 @@ class Bike {
   }
 
   void _applyTilt(double dt) {
-    double torque = tilt * _playerTorqueStrength; 
+    // FIX 4: Negative tilt applied. Left side down = Pitch Up
+    double torque = -tilt * _playerTorqueStrength; 
     
-    if (torque < 0 && frontOnGround) torque *= _frontGroundedTorqueScale;
+    // Torque > 0 means the bike is trying to pitch DOWN (clockwise).
+    if (torque > 0 && frontOnGround) torque *= _frontGroundedTorqueScale;
 
     _center.setFrom(rearPos);
     _center.add(frontPos);
     _center.scale(0.5);
 
+    // FIX 5: Boosted multiplier to compensate for the 120hz frame rate difference
     _rotCache.setFrom(rearPos);
     _rotCache.sub(_center);
-    _rotCache.rotate(torque * 0.0001);
+    _rotCache.rotate(torque * 0.0005);
     rearPos.setFrom(_center);
     rearPos.add(_rotCache);
     
     _rotCache.setFrom(frontPos);
     _rotCache.sub(_center);
-    _rotCache.rotate(torque * 0.0001);
+    _rotCache.rotate(torque * 0.0005);
     frontPos.setFrom(_center);
     frontPos.add(_rotCache);
   }
