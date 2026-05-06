@@ -19,7 +19,7 @@ void main() async {
 Offset _off(Vector2 v) => Offset(v.x, v.y);
 
 class RaceRiderGame extends FlameGame with TapCallbacks {
-  static const buildLabel = 'physics v.75 - Tilt Orientation Fix';
+  static const buildLabel = 'physics v.77 - Tilt Cache Fix';
   late Bike player;
   late List<TrackSegment> trackSegments;
   
@@ -288,6 +288,14 @@ class SurfaceHit {
   const SurfaceHit({required this.point, required this.normal, required this.tangent, required this.distance});
 }
 
+class RaycastHit {
+  final Vector2 point;
+  final Vector2 normal;
+  final Vector2 tangent;
+  final double distance;
+  const RaycastHit({required this.point, required this.normal, required this.tangent, required this.distance});
+}
+
 enum BikeState { riding, crashed }
 
 class Bike {
@@ -325,6 +333,9 @@ class Bike {
   final Vector2 _center = Vector2.zero();
   final Vector2 _fwd = Vector2.zero();
   final Vector2 _up = Vector2.zero();
+  
+  // ADDED BACK: The rotation cache required for kinematic tilt
+  final Vector2 _rotCache = Vector2.zero(); 
   
   final Vector2 _oldRear = Vector2.zero();
   final Vector2 _oldFront = Vector2.zero();
@@ -426,44 +437,53 @@ class Bike {
     _capSpeed();
   }
 
+  double _cross(Vector2 v, Vector2 w) => v.x * w.y - v.y * w.x;
+
+  RaycastHit? _raycast(Vector2 origin, Vector2 dir, List<TrackSegment> segs) {
+    RaycastHit? best;
+    double minDist = double.infinity;
+    for (final s in segs) {
+      final e = s.b - s.a;
+      final rhs = s.a - origin;
+      final det = _cross(dir, e);
+      if (det.abs() < 1e-6) continue; 
+      
+      final t = _cross(rhs, e) / det;
+      final u = _cross(rhs, dir) / det;
+      
+      if (t >= 0 && u >= 0 && u <= 1) {
+        if (t < minDist) {
+          minDist = t;
+          final geomNormal = Vector2(s.tangent.y, -s.tangent.x);
+          best = RaycastHit(point: origin + dir * t, normal: geomNormal, tangent: s.tangent, distance: t);
+        }
+      }
+    }
+    return best;
+  }
+
   void _applySuspension(double dt) {
-    final rHit = _nearestSurface(rearPos, trackSegments);
-    final fHit = _nearestSurface(frontPos, trackSegments);
-
-    rearCompression = _processWheelSuspension(rearPos, rearVel, rHit, dt);
-    frontCompression = _processWheelSuspension(frontPos, frontVel, fHit, dt);
-
     _fwd.setFrom(frontPos);
     _fwd.sub(rearPos);
     _fwd.normalize();
-    final bikeDown = Vector2(-_fwd.y, _fwd.x); 
+    
+    final rearForkDir = Vector2(_fwd.y, -_fwd.x); 
+    final frontForkDir = Vector2(_fwd.y, -_fwd.x)..rotate(-0.25); 
+    
+    final rHit = _raycast(rearPos, rearForkDir, trackSegments);
+    final fHit = _raycast(frontPos, frontForkDir, trackSegments);
 
-    if (rHit != null && rHit.distance < _wheelRadius + suspensionTravel + 5.0) {
-      rearWheelPos.setFrom(rearPos);
-      rearWheelPos.addScaled(rHit.normal, -(suspensionTravel - rearCompression));
-      if (rHit.distance < _wheelRadius) {
-        rearWheelPos.setFrom(rHit.point);
-        rearWheelPos.addScaled(rHit.normal, _wheelRadius);
-      }
-    } else {
-      rearWheelPos.setFrom(rearPos);
-      rearWheelPos.addScaled(bikeDown, suspensionTravel);
-    }
+    rearCompression = _processWheelSuspension(rearPos, rearVel, rHit, rearForkDir, dt);
+    frontCompression = _processWheelSuspension(frontPos, frontVel, fHit, frontForkDir, dt);
 
-    if (fHit != null && fHit.distance < _wheelRadius + suspensionTravel + 5.0) {
-      frontWheelPos.setFrom(frontPos);
-      frontWheelPos.addScaled(fHit.normal, -(suspensionTravel - frontCompression));
-      if (fHit.distance < _wheelRadius) {
-        frontWheelPos.setFrom(fHit.point);
-        frontWheelPos.addScaled(fHit.normal, _wheelRadius);
-      }
-    } else {
-      frontWheelPos.setFrom(frontPos);
-      frontWheelPos.addScaled(bikeDown, suspensionTravel);
-    }
+    rearWheelPos.setFrom(rearPos);
+    rearWheelPos.addScaled(rearForkDir, suspensionTravel - rearCompression);
+
+    frontWheelPos.setFrom(frontPos);
+    frontWheelPos.addScaled(frontForkDir, suspensionTravel - frontCompression);
   }
 
-  double _processWheelSuspension(Vector2 pos, Vector2 vel, SurfaceHit? hit, double dt) {
+  double _processWheelSuspension(Vector2 pos, Vector2 vel, RaycastHit? hit, Vector2 forkDir, double dt) {
     if (hit == null) return 0.0;
     
     double distToGround = hit.distance;
@@ -472,12 +492,13 @@ class Bike {
     if (distToGround < restingDist) {
       double compression = (restingDist - distToGround).clamp(0.0, suspensionTravel);
       double springF = compression * suspensionStrength;
-      double dampF = -vel.dot(hit.normal) * suspensionDamping;
+      
+      double dampF = -vel.dot(forkDir) * suspensionDamping; 
       double totalF = (springF + dampF).clamp(0.0, 5000.0);
       
-      vel.addScaled(hit.normal, totalF * dt);
+      vel.addScaled(forkDir, -totalF * dt);
 
-      if (-vel.dot(hit.normal) > _impactCrashLimit) _crash();
+      if (-vel.dot(forkDir) > _impactCrashLimit) _crash();
       return compression;
     }
     return 0.0;
@@ -497,8 +518,6 @@ class Bike {
   }
 
   void _applyTilt(double dt) {
-    // Reverted to the original kinematic position math.
-    // This strictly caps the max rotation speed and prevents infinite acceleration.
     double torque = tilt * _playerTorqueStrength; 
     
     if (torque < 0 && frontOnGround) torque *= _frontGroundedTorqueScale;
