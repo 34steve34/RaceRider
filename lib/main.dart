@@ -19,7 +19,7 @@ void main() async {
 Offset _off(Vector2 v) => Offset(v.x, v.y);
 
 class RaceRiderGame extends FlameGame with TapCallbacks {
-  static const buildLabel = 'physics v.74 - Rigid Frame Fix';
+  static const buildLabel = 'physics v.75 - Rigid Frame Fix';
   late Bike player;
   late List<TrackSegment> trackSegments;
   
@@ -298,7 +298,7 @@ class Bike {
   static const _maxSpeed = 300.0;
   static const _wheelRadius = 5.0;
   static const _headRadius = 2.5;
-  static const _impactCrashLimit = 320.0;
+  static const _impactCrashLimit = 400.0; 
   
   static double suspensionTravel = 4.5; 
   static double suspensionStrength = 1200.0; 
@@ -310,7 +310,7 @@ class Bike {
   static double _cogDistanceFromRear = 9.0;
   static double _cogHeight = 6.0;
   static double _bikeMass = 10.0;
-  static double _playerTorqueStrength = 550.0;
+  static double _playerTorqueStrength = 350.0; 
   static double _airborneGravityFactor = 0.75;
 
   static final _rearLocal = Vector2(-9.5, 6.5);
@@ -325,7 +325,7 @@ class Bike {
   final Vector2 _center = Vector2.zero();
   final Vector2 _fwd = Vector2.zero();
   final Vector2 _up = Vector2.zero();
-  final Vector2 _rotCache = Vector2.zero();
+  
   final Vector2 _oldRear = Vector2.zero();
   final Vector2 _oldFront = Vector2.zero();
 
@@ -381,7 +381,6 @@ class Bike {
       return;
     }
 
-    // 1. Apply Forces
     final gVal = (rearOnGround || frontOnGround) ? _gravity : _gravity * _airborneGravityFactor;
     rearVel.y += gVal * dt;
     frontVel.y += gVal * dt;
@@ -396,21 +395,20 @@ class Bike {
       if (frontOnGround) _applyBrake(frontVel, _frontSurface!.tangent, dt);
     }
 
-    // 2. Save Positions BEFORE Constraints
+    _applyTilt(dt);
+
     _oldRear.setFrom(rearPos);
     _oldFront.setFrom(frontPos);
 
-    // 3. Integrate Velocities
     rearPos.addScaled(rearVel, dt);
     frontPos.addScaled(frontVel, dt);
 
-    // 4. Apply Kinematic Constraints
-    _applyTilt(dt);
     for (int i = 0; i < 8; i++) {
       _solveDist(rearPos, frontPos, _wheelbase, 1.0, 1.0);
+      _solveGround(rearPos);
+      _solveGround(frontPos);
     }
 
-    // 5. Derive True Velocities! (This fixes the explosion)
     rearVel.setFrom(rearPos);
     rearVel.sub(_oldRear);
     rearVel.scale(1.0 / dt);
@@ -419,7 +417,6 @@ class Bike {
     frontVel.sub(_oldFront);
     frontVel.scale(1.0 / dt);
 
-    // 6. Wrap Up
     _checkGroundAndCrash();
     _syncFrameAndCollision(angle);
 
@@ -436,7 +433,12 @@ class Bike {
     rearCompression = _processWheelSuspension(rearPos, rearVel, rHit, dt);
     frontCompression = _processWheelSuspension(frontPos, frontVel, fHit, dt);
 
-    if (rHit != null) {
+    _fwd.setFrom(frontPos);
+    _fwd.sub(rearPos);
+    _fwd.normalize();
+    final bikeDown = Vector2(-_fwd.y, _fwd.x); 
+
+    if (rHit != null && rHit.distance < _wheelRadius + suspensionTravel + 5.0) {
       rearWheelPos.setFrom(rearPos);
       rearWheelPos.addScaled(rHit.normal, -(suspensionTravel - rearCompression));
       if (rHit.distance < _wheelRadius) {
@@ -444,10 +446,11 @@ class Bike {
         rearWheelPos.addScaled(rHit.normal, _wheelRadius);
       }
     } else {
-      rearWheelPos.setValues(rearPos.x, rearPos.y + suspensionTravel);
+      rearWheelPos.setFrom(rearPos);
+      rearWheelPos.addScaled(bikeDown, suspensionTravel);
     }
 
-    if (fHit != null) {
+    if (fHit != null && fHit.distance < _wheelRadius + suspensionTravel + 5.0) {
       frontWheelPos.setFrom(frontPos);
       frontWheelPos.addScaled(fHit.normal, -(suspensionTravel - frontCompression));
       if (fHit.distance < _wheelRadius) {
@@ -455,9 +458,174 @@ class Bike {
         frontWheelPos.addScaled(fHit.normal, _wheelRadius);
       }
     } else {
-      frontWheelPos.setValues(frontPos.x, frontPos.y + suspensionTravel);
+      frontWheelPos.setFrom(frontPos);
+      frontWheelPos.addScaled(bikeDown, suspensionTravel);
     }
   }
+
+  double _processWheelSuspension(Vector2 pos, Vector2 vel, SurfaceHit? hit, double dt) {
+    if (hit == null) return 0.0;
+    
+    double distToGround = hit.distance;
+    double restingDist = _wheelRadius + suspensionTravel;
+    
+    if (distToGround < restingDist) {
+      double compression = (restingDist - distToGround).clamp(0.0, suspensionTravel);
+      double springF = compression * suspensionStrength;
+      double dampF = -vel.dot(hit.normal) * suspensionDamping;
+      double totalF = (springF + dampF).clamp(0.0, 5000.0);
+      
+      vel.addScaled(hit.normal, totalF * dt);
+
+      if (-vel.dot(hit.normal) > _impactCrashLimit) _crash();
+      return compression;
+    }
+    return 0.0;
+  }
+
+  void _checkGroundAndCrash() {
+    final rHit = _nearestSurface(rearPos, trackSegments);
+    final fHit = _nearestSurface(frontPos, trackSegments);
+    
+    rearOnGround = rHit != null && rHit.distance <= (_wheelRadius + suspensionTravel + 0.5);
+    frontOnGround = fHit != null && fHit.distance <= (_wheelRadius + suspensionTravel + 0.5);
+    _rearSurface = rHit; 
+    _frontSurface = fHit;
+
+    final headHit = _nearestSurface(collisionHeadPos, trackSegments);
+    if (headHit != null && headHit.distance < _headRadius) _crash();
+  }
+
+  void _applyTilt(double dt) {
+    // FIX: Removed the negative sign to invert the tilt controls
+    double torque = tilt * _playerTorqueStrength;
+    
+    // Flipped the grounding check to match the new tilt mapping
+    if (tilt < 0 && frontOnGround) torque *= _frontGroundedTorqueScale;
+
+    _fwd.setFrom(frontPos);
+    _fwd.sub(rearPos);
+    _fwd.normalize();
+    
+    _up.setValues(_fwd.y, -_fwd.x); 
+    
+    rearVel.addScaled(_up, -torque * dt);
+    frontVel.addScaled(_up, torque * dt);
+  }
+
+  void _applyBrake(Vector2 vel, Vector2 tangent, double dt) {
+    final fwd = _forwardTangent(tangent);
+    double currentSpeed = vel.dot(fwd);
+    double decel = _brakePerWheel * dt;
+    double newSpeed = currentSpeed > 0 ? max(0, currentSpeed - decel) : min(0, currentSpeed + decel);
+    vel.addScaled(fwd, newSpeed - currentSpeed);
+  }
+
+  void _solveDist(Vector2 a, Vector2 b, double target, double massA, double massB) {
+    _diff.setFrom(b);
+    _diff.sub(a);
+    final dist = _diff.length;
+    if (dist < 0.001) return;
+    
+    final err = (dist - target) / dist;
+    final totalM = massA + massB;
+    
+    a.addScaled(_diff, err * (massB / totalM));
+    b.addScaled(_diff, -err * (massA / totalM));
+  }
+
+  void _solveGround(Vector2 pos) {
+    final hit = _nearestSurface(pos, trackSegments);
+    if (hit != null && hit.distance < _wheelRadius) {
+      pos.setFrom(hit.point);
+      pos.addScaled(hit.normal, _wheelRadius);
+    }
+  }
+
+  void _syncFrameAndCollision(double currAngle) {
+    _center.setFrom(rearPos);
+    _center.add(frontPos);
+    _center.scale(0.5);
+    
+    collisionHeadPos.setFrom(_center);
+    collisionHeadPos.add(Vector2(-3.5, -13.0)..rotate(currAngle));
+    
+    _fwd.setFrom(frontPos);
+    _fwd.sub(rearPos);
+    _fwd.normalize();
+    
+    _up.setValues(-_fwd.y, _fwd.x);
+    
+    headPos.setFrom(_center);
+    headPos.addScaled(_fwd, _headFromWheelCenter.x);
+    headPos.addScaled(_up, _headFromWheelCenter.y);
+  }
+
+  void _applyCrashedPhysics(double dt) {
+    rearVel.scale(0.98); 
+    frontVel.scale(0.98);
+    rearPos.addScaled(rearVel, dt); 
+    frontPos.addScaled(frontVel, dt);
+    collisionHeadPos.addScaled(rearVel, dt);
+  }
+
+  SurfaceHit? _nearestSurface(Vector2 pt, List<TrackSegment> segs) {
+    SurfaceHit? best; 
+    double bDist = double.infinity;
+    for (final s in segs) {
+      final d = s.delta; final l2 = d.length2; if (l2 == 0) continue;
+      final t = ((pt - s.a).dot(d) / l2).clamp(0.0, 1.0);
+      final close = s.a + d * t;
+      final diff = pt - close; 
+      final dist = diff.length;
+      if (dist < bDist) {
+        bDist = dist;
+        final geomNormal = Vector2(s.tangent.y, -s.tangent.x);
+        best = SurfaceHit(
+          point: close, 
+          normal: geomNormal, 
+          tangent: s.tangent, 
+          distance: dist
+        );
+      }
+    }
+    return best;
+  }
+
+  Vector2 _forwardTangent(Vector2 t) => t.x < 0 ? -t : t;
+
+  void _capSpeed() {
+    final currentSpeed = speed;
+    if (currentSpeed > _maxSpeed) {
+      double s = _maxSpeed / currentSpeed;
+      rearVel.scale(s); frontVel.scale(s);
+    }
+  }
+
+  void _crash() => state = BikeState.crashed;
+
+  void render(Canvas canvas) {
+    final frameP = Paint()..color = Colors.grey[800]!..strokeWidth = 3..style = PaintingStyle.stroke;
+    final wheelP = Paint()..color = Colors.black87..strokeWidth = 3..style = PaintingStyle.stroke;
+    final riderP = Paint()..color = const Color(0xFF2255BB);
+
+    canvas.drawCircle(_off(rearWheelPos), _wheelRadius, wheelP);
+    canvas.drawCircle(_off(frontWheelPos), _wheelRadius, wheelP);
+
+    canvas.drawLine(_off(rearPos), _off(frontPos), frameP);
+    canvas.drawLine(_off(rearPos), _off(headPos), frameP);
+    canvas.drawLine(_off(frontPos), _off(headPos), frameP);
+    canvas.drawCircle(_off(headPos), _headRadius, riderP);
+
+    final shockP = Paint()..color = Colors.grey[400]!..strokeWidth = 2;
+    canvas.drawLine(_off(rearPos), _off(rearWheelPos), shockP);
+    canvas.drawLine(_off(frontPos), _off(frontWheelPos), shockP);
+
+    if (state == BikeState.crashed) {
+      TextPainter(textDirection: TextDirection.ltr, text: const TextSpan(text: 'CRASHED', style: TextStyle(color: Colors.red, fontSize: 12, fontWeight: FontWeight.bold)))..layout()..paint(canvas, _off(collisionHeadPos + Vector2(-15, -20)));
+    }
+  }
+}
 
   double _processWheelSuspension(Vector2 pos, Vector2 vel, SurfaceHit? hit, double dt) {
     if (hit == null) return 0.0;
