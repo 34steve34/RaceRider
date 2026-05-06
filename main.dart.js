@@ -31338,9 +31338,8 @@ m.aJ(l,$.cL)}if(b.db&&b.fx!=null&&b.y){n=b.ay
 m=b.fx.c
 if(m.a[0]<0)m=m.ib(0)
 n.aJ(m,380*a)}if(b.z){if(b.db)b.pw(b.ay,b.fx.c,a)
-if(b.dx)b.pw(b.ch,b.fy.c,a)}n=b.x
-j=n*$.vc
-if(n<0&&b.dx)j*=$.vb
+if(b.dx)b.pw(b.ch,b.fy.c,a)}j=-b.x*$.vc
+if(j<0&&b.dx)j*=$.vb
 s.Z(b.as)
 s.bx(b.Q)
 s.fg()
@@ -31512,7 +31511,7 @@ if(q==null){s=r.cu()
 s.toString
 q=r.nb$=A.q(r).h("hV.T").a(s)}q=q.aA
 q===$&&A.c()
-q=A.DE(A.IS(B.vB,"RaceRider\nphysics v.74 - Clean Slate\nSpeed: "+B.d.J(q.goY(),1)),B.v)
+q=A.DE(A.IS(B.vB,"RaceRider\nphysics v.75 - Tilt Orientation Fix\nSpeed: "+B.d.J(q.goY(),1)),B.v)
 q.jU()
 q.bk(a,B.tZ)}}
 A.qD.prototype={
