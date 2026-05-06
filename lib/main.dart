@@ -497,19 +497,27 @@ class Bike {
   }
 
   void _applyTilt(double dt) {
-    // FIX: Flipped the torque calculation so left-side down equals pitch up
-    double torque = -tilt * _playerTorqueStrength; 
+    // Reverted to the original kinematic position math.
+    // This strictly caps the max rotation speed and prevents infinite acceleration.
+    double torque = tilt * _playerTorqueStrength; 
     
     if (torque < 0 && frontOnGround) torque *= _frontGroundedTorqueScale;
 
-    _fwd.setFrom(frontPos);
-    _fwd.sub(rearPos);
-    _fwd.normalize();
+    _center.setFrom(rearPos);
+    _center.add(frontPos);
+    _center.scale(0.5);
+
+    _rotCache.setFrom(rearPos);
+    _rotCache.sub(_center);
+    _rotCache.rotate(torque * 0.0001);
+    rearPos.setFrom(_center);
+    rearPos.add(_rotCache);
     
-    _up.setValues(_fwd.y, -_fwd.x); 
-    
-    rearVel.addScaled(_up, -torque * dt);
-    frontVel.addScaled(_up, torque * dt);
+    _rotCache.setFrom(frontPos);
+    _rotCache.sub(_center);
+    _rotCache.rotate(torque * 0.0001);
+    frontPos.setFrom(_center);
+    frontPos.add(_rotCache);
   }
 
   void _applyBrake(Vector2 vel, Vector2 tangent, double dt) {
