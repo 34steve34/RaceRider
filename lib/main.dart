@@ -19,7 +19,7 @@ void main() async {
 Offset _off(Vector2 v) => Offset(v.x, v.y);
 
 class RaceRiderGame extends FlameGame with TapCallbacks {
-  static const buildLabel = 'physics v.74 - Clean Slate';
+  static const buildLabel = 'physics v.75 - Tilt Orientation Fix';
   late Bike player;
   late List<TrackSegment> trackSegments;
   
@@ -497,9 +497,10 @@ class Bike {
   }
 
   void _applyTilt(double dt) {
-    double torque = tilt * _playerTorqueStrength;
+    // FIX: Flipped the torque calculation so left-side down equals pitch up
+    double torque = -tilt * _playerTorqueStrength; 
     
-    if (tilt < 0 && frontOnGround) torque *= _frontGroundedTorqueScale;
+    if (torque < 0 && frontOnGround) torque *= _frontGroundedTorqueScale;
 
     _fwd.setFrom(frontPos);
     _fwd.sub(rearPos);
