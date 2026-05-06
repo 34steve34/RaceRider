@@ -19,7 +19,7 @@ void main() async {
 Offset _off(Vector2 v) => Offset(v.x, v.y);
 
 class RaceRiderGame extends FlameGame with TapCallbacks {
-  static const buildLabel = 'physics v.61 - stop bouncing';
+  static const buildLabel = 'physics v.61 - 2nd stop bouncing';
   late Bike player;
   late List<TrackSegment> trackSegments;
   double rawTilt = 0.0;
@@ -586,6 +586,13 @@ class Bike {
     headVel *= damp;
     _capSpeed();
 
+    // 9. Settle check - if both wheels grounded and very slow, dampen further
+    if (rearOnGround && frontOnGround && cogVel.length < 0.5) {
+      rearVel *= 0.9;
+      frontVel *= 0.9;
+      headVel *= 0.9;
+    }
+
     // 9. Visuals
     _updateWheelRotation(dt, brake);
   }
@@ -602,12 +609,12 @@ class Bike {
       rearContactFound = true;
       _rearSurface = rearHit;
       rearCompression = (_wheelRadius + _magnetRange - rearHit.distance).clamp(0.0, _suspensionTravel);
-      // Soft position correction (0.7 instead of 1.0 to reduce bounce)
-      final correction = (_wheelRadius - rearHit.distance) * 0.7;
+      // Soft position correction (0.5 instead of 1.0 to reduce bounce)
+      final correction = (_wheelRadius - rearHit.distance) * 0.5;
       rearPos.add(rearHit.normal * correction);
       // Strong velocity damping when grounded - kill bounce velocity
       final normalSpeed = rearVel.dot(rearHit.normal);
-      if (normalSpeed < 0.0) rearVel.sub(rearHit.normal * normalSpeed * 0.95);
+      if (normalSpeed < 0.0) rearVel.sub(rearHit.normal * normalSpeed * 0.98);
     }
     
     final frontHit = _nearestSurface(frontPos, segs);
@@ -615,12 +622,12 @@ class Bike {
       frontContactFound = true;
       _frontSurface = frontHit;
       frontCompression = (_wheelRadius + _magnetRange - frontHit.distance).clamp(0.0, _suspensionTravel);
-      // Soft position correction (0.7 instead of 1.0 to reduce bounce)
-      final correction = (_wheelRadius - frontHit.distance) * 0.7;
+      // Soft position correction (0.5 instead of 1.0 to reduce bounce)
+      final correction = (_wheelRadius - frontHit.distance) * 0.5;
       frontPos.add(frontHit.normal * correction);
       // Strong velocity damping when grounded - kill bounce velocity
       final normalSpeed = frontVel.dot(frontHit.normal);
-      if (normalSpeed < 0.0) frontVel.sub(frontHit.normal * normalSpeed * 0.95);
+      if (normalSpeed < 0.0) frontVel.sub(frontHit.normal * normalSpeed * 0.98);
     }
     
     // Apply hysteresis - once grounded, stay grounded until far away
