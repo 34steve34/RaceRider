@@ -19,7 +19,7 @@ void main() async {
 Offset _off(Vector2 v) => Offset(v.x, v.y);
 
 class RaceRiderGame extends FlameGame with TapCallbacks {
-  static const buildLabel = 'physics v.73 - Rigid Frame Fix';
+  static const buildLabel = 'physics v.74 - Rigid Frame Fix';
   late Bike player;
   late List<TrackSegment> trackSegments;
   
@@ -326,6 +326,8 @@ class Bike {
   final Vector2 _fwd = Vector2.zero();
   final Vector2 _up = Vector2.zero();
   final Vector2 _rotCache = Vector2.zero();
+  final Vector2 _oldRear = Vector2.zero();
+  final Vector2 _oldFront = Vector2.zero();
 
   late List<TrackSegment> trackSegments;
   double tilt = 0.0;
@@ -379,6 +381,7 @@ class Bike {
       return;
     }
 
+    // 1. Apply Forces
     final gVal = (rearOnGround || frontOnGround) ? _gravity : _gravity * _airborneGravityFactor;
     rearVel.y += gVal * dt;
     frontVel.y += gVal * dt;
@@ -393,15 +396,30 @@ class Bike {
       if (frontOnGround) _applyBrake(frontVel, _frontSurface!.tangent, dt);
     }
 
-    _applyTilt(dt);
+    // 2. Save Positions BEFORE Constraints
+    _oldRear.setFrom(rearPos);
+    _oldFront.setFrom(frontPos);
 
+    // 3. Integrate Velocities
     rearPos.addScaled(rearVel, dt);
     frontPos.addScaled(frontVel, dt);
 
+    // 4. Apply Kinematic Constraints
+    _applyTilt(dt);
     for (int i = 0; i < 8; i++) {
       _solveDist(rearPos, frontPos, _wheelbase, 1.0, 1.0);
     }
 
+    // 5. Derive True Velocities! (This fixes the explosion)
+    rearVel.setFrom(rearPos);
+    rearVel.sub(_oldRear);
+    rearVel.scale(1.0 / dt);
+
+    frontVel.setFrom(frontPos);
+    frontVel.sub(_oldFront);
+    frontVel.scale(1.0 / dt);
+
+    // 6. Wrap Up
     _checkGroundAndCrash();
     _syncFrameAndCollision(angle);
 
@@ -554,7 +572,14 @@ class Bike {
       final dist = diff.length;
       if (dist < bDist) {
         bDist = dist;
-        best = SurfaceHit(point: close, normal: dist > 0.1 ? diff / dist : Vector2(-s.tangent.y, s.tangent.x), tangent: s.tangent, distance: dist);
+        // FIX: Always use the strict 90-degree geometric normal
+        final geomNormal = Vector2(-s.tangent.y, s.tangent.x);
+        best = SurfaceHit(
+          point: close, 
+          normal: geomNormal, 
+          tangent: s.tangent, 
+          distance: dist
+        );
       }
     }
     return best;
