@@ -31411,9 +31411,9 @@ p=n.d
 B.d.hj(4.74-p,0,0.22)
 l=a0.a
 k=n.b
-l.n(0,k.R(0,4.7-p))
+l.n(0,k.R(0,(4.7-p)*0.7))
 j=a0.f.c8(k)
-if(j<0)a0.f.di(k.R(0,j).R(0,0.82))}p=a0.b
+if(j<0)a0.f.di(k.R(0,j).R(0,0.95))}p=a0.b
 p===$&&A.c()
 i=a0.h1(p,a5)
 p=i!=null
@@ -31423,9 +31423,9 @@ l=i.d
 B.d.hj(4.74-l,0,0.22)
 k=a0.b
 g=i.b
-k.n(0,g.R(0,4.7-l))
+k.n(0,g.R(0,(4.7-l)*0.7))
 j=a0.r.c8(g)
-if(j<0)a0.r.di(g.R(0,j).R(0,0.82))}if(m)a0.at=a0.Q=!0
+if(j<0)a0.r.di(g.R(0,j).R(0,0.95))}if(m)a0.at=a0.Q=!0
 else if(a0.at&&s&&n.d<5)a0.Q=!0
 else a0.at=a0.Q=!1
 if(h)a0.ax=a0.as=!0
@@ -31653,7 +31653,7 @@ p===$&&A.c()
 p=q.N(0,p)
 q=n.w
 q===$&&A.c()
-n=A.e0(A.eH(B.vo,"RaceRider Prototype\nphysics v.60 - ground hysteresis\nState: "+r.b+"\nSpeed: "+B.d.J(Math.sqrt(p.N(0,q).aC(0,3).gcB()),1)+"\nAngle: "+B.d.J(n.ghc(),2)+" rad"),B.n)
+n=A.e0(A.eH(B.vo,"RaceRider Prototype\nphysics v.61 - stop bouncing\nState: "+r.b+"\nSpeed: "+B.d.J(Math.sqrt(p.N(0,q).aC(0,3).gcB()),1)+"\nAngle: "+B.d.J(n.ghc(),2)+" rad"),B.n)
 n.cA()
 n.aN(a,B.tH)}}
 A.qH.prototype={
