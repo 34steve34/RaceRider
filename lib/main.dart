@@ -19,7 +19,7 @@ void main() async {
 Offset _off(Vector2 v) => Offset(v.x, v.y);
 
 class RaceRiderGame extends FlameGame with TapCallbacks {
-  static const buildLabel = 'physics v.78 - Fork & Tilt Fix';
+  static const buildLabel = 'physics v.79 - Fork & Tilt Fix';
   late Bike player;
   late List<TrackSegment> trackSegments;
   
@@ -521,7 +521,7 @@ class Bike {
   }
 
   void _applyTilt(double dt) {
-    // FIX 4: Negative tilt applied. Left side down = Pitch Up
+    // Negative tilt applied. Left side down = Pitch Up
     double torque = -tilt * _playerTorqueStrength; 
     
     // Torque > 0 means the bike is trying to pitch DOWN (clockwise).
@@ -531,16 +531,19 @@ class Bike {
     _center.add(frontPos);
     _center.scale(0.5);
 
-    // FIX 5: Boosted multiplier to compensate for the 120hz frame rate difference
+    // FIX: Multiplied by dt (delta time) to strictly lock the rotation speed
+    // to the physics clock, rather than spinning out of control.
+    double rotationAmount = torque * dt * 0.01;
+
     _rotCache.setFrom(rearPos);
     _rotCache.sub(_center);
-    _rotCache.rotate(torque * 0.0005);
+    _rotCache.rotate(rotationAmount);
     rearPos.setFrom(_center);
     rearPos.add(_rotCache);
     
     _rotCache.setFrom(frontPos);
     _rotCache.sub(_center);
-    _rotCache.rotate(torque * 0.0005);
+    _rotCache.rotate(rotationAmount);
     frontPos.setFrom(_center);
     frontPos.add(_rotCache);
   }
