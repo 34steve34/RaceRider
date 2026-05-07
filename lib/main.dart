@@ -19,7 +19,7 @@ void main() async {
 Offset _off(Vector2 v) => Offset(v.x, v.y);
 
 class RaceRiderGame extends FlameGame with TapCallbacks {
-  static const buildLabel = 'physics v.81 - Anti-Bounce & Spin Fix';
+  static const buildLabel = 'physics v.82 - COG Gravity Torque';
   late Bike player;
   late List<TrackSegment> trackSegments;
   
@@ -118,7 +118,6 @@ class RaceRiderGame extends FlameGame with TapCallbacks {
       tiltCalibrated = true;
     }
     
-    // Increased sensitivity: dividing by 3.0 instead of 5.5 means reaching max tilt sooner
     final normalized = ((rawTilt - tiltZero) / 3.0).clamp(-1.0, 1.0);
     smoothedTilt = smoothedTilt * 0.2 + normalized * 0.8;
     if (smoothedTilt.abs() < 0.05) smoothedTilt = 0.0;
@@ -319,7 +318,7 @@ class Bike {
   static double _cogDistanceFromRear = 9.0;
   static double _cogHeight = 6.0;
   static double _bikeMass = 10.0;
-  static double _playerTorqueStrength = 350.0; 
+  static double _playerTorqueStrength = 95.0; 
   static double _airborneGravityFactor = 0.75;
 
   static final _rearLocal = Vector2(-9.5, 6.5);
@@ -494,7 +493,6 @@ class Bike {
       
       double compressionVelocity = -vel.dot(hit.normal); 
       
-      // Dampen both compression AND rebound to prevent the pogo-stick effect
       double dampF = compressionVelocity * suspensionDamping;
       
       double totalF = (springF + dampF).clamp(-2000.0, 10000.0);
@@ -522,29 +520,47 @@ class Bike {
   }
 
   void _applyTilt(double dt) {
-    // Removed the negative multiplier to correctly sync the tilt direction
-    double torque = tilt * _playerTorqueStrength; 
-    
-    if (torque > 0 && frontOnGround) torque *= _frontGroundedTorqueScale;
-
     _fwd.setFrom(frontPos);
     _fwd.sub(rearPos);
     _fwd.normalize();
     final tangent = Vector2(-_fwd.y, _fwd.x);
 
-    // Calculate the rotational velocity to prevent the "Death Spin"
-    Vector2 relVel = frontVel - rearVel;
-    double currentRotVel = relVel.dot(tangent) / _wheelbase;
-    
-    double angAccel = torque;
-    
-    // Apply rotational air friction if airborne to cap the spin speed safely
-    if (!rearOnGround && !frontOnGround) {
-        double rotDrag = 2.5; 
-        angAccel -= currentRotVel * rotDrag;
+    // === 1. Natural Gravity Torque from COG ===
+    // Approximate COG position (local to rear)
+    final cogLocalX = _cogDistanceFromRear - _wheelbase / 2;
+    final cogLocalY = _cogHeight;
+
+    // Rotate local COG offset to world space
+    final cosA = cos(angle);
+    final sinA = sin(angle);
+    final cogWorldX = rearPos.x + cogLocalX * cosA - cogLocalY * sinA;
+    final cogWorldY = rearPos.y + cogLocalX * sinA + cogLocalY * cosA;
+
+    Vector2 pivot = rearPos;
+    if (frontOnGround && !rearOnGround) pivot = frontPos;
+
+    final cogOffsetX = cogWorldX - pivot.x;  // horizontal lever arm
+
+    double gravityTorque = -cogOffsetX * _gravity * _bikeMass * 0.85;  // tuned factor
+
+    // === 2. Player Input Torque ===
+    double playerTorque = tilt * _playerTorqueStrength;
+
+    if (playerTorque > 0 && frontOnGround) {
+      playerTorque *= _frontGroundedTorqueScale;
     }
 
-    double linearAccel = angAccel * (_wheelbase / 2.0);
+    double totalTorque = gravityTorque + playerTorque;
+
+    // === 3. Rotational Damping ===
+    Vector2 relVel = frontVel - rearVel;
+    double currentRotVel = relVel.dot(tangent) / _wheelbase;
+
+    double damping = (rearOnGround || frontOnGround) ? 18.0 : 8.5;
+    totalTorque -= currentRotVel * damping;
+
+    // === 4. Apply as couple force on wheels ===
+    double linearAccel = totalTorque / _bikeMass * (_wheelbase / 2.0);
 
     rearVel.addScaled(tangent, -linearAccel * dt);
     frontVel.addScaled(tangent, linearAccel * dt);
@@ -571,7 +587,6 @@ class Bike {
     b.addScaled(_diff, -err * (massA / totalM));
   }
 
-  // Passing oldPos kills the springboard bounce caused by positional snapping
   void _solveGround(Vector2 pos, Vector2 oldPos) {
     final hit = _nearestSurface(pos, trackSegments);
     if (hit != null && hit.distance < _wheelRadius) {
