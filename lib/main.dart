@@ -19,7 +19,7 @@ void main() async {
 Offset _off(Vector2 v) => Offset(v.x, v.y);
 
 class RaceRiderGame extends FlameGame with TapCallbacks {
-  static const buildLabel = 'physics v.79 - Fork & Tilt Fix';
+  static const buildLabel = 'physics v.80 - Velocity Tilt & Normal Damping Fix';
   late Bike player;
   late List<TrackSegment> trackSegments;
   
@@ -391,6 +391,9 @@ class Bike {
       return;
     }
 
+    // Apply tilt BEFORE velocity integration
+    _applyTilt(dt);
+
     final gVal = (rearOnGround || frontOnGround) ? _gravity : _gravity * _airborneGravityFactor;
     rearVel.y += gVal * dt;
     frontVel.y += gVal * dt;
@@ -410,9 +413,6 @@ class Bike {
 
     rearPos.addScaled(rearVel, dt);
     frontPos.addScaled(frontVel, dt);
-
-    // Apply tilt positionally after integration, but before constraints
-    _applyTilt(dt);
 
     for (int i = 0; i < 8; i++) {
       _solveDist(rearPos, frontPos, _wheelbase, 1.0, 1.0);
@@ -467,7 +467,7 @@ class Bike {
     _fwd.sub(rearPos);
     _fwd.normalize();
     
-    // FIX 1: The Y axis goes DOWN on screens. This math points the fork strictly downwards towards the track.
+    // The Y axis goes DOWN on screens. This math points the fork strictly downwards towards the track.
     final rearForkDir = Vector2(-_fwd.y, _fwd.x); 
     final frontForkDir = Vector2(-_fwd.y, _fwd.x)..rotate(-0.25); 
     
@@ -494,14 +494,22 @@ class Bike {
       double compression = (restingDist - distToGround).clamp(0.0, suspensionTravel);
       double springF = compression * suspensionStrength;
       
-      // FIX 2: Polarity corrected. Damping now properly resists compression instead of forcing it.
-      double dampF = vel.dot(forkDir) * suspensionDamping; 
+      // Isolate the velocity pushing INTO the track surface
+      // hit.normal points out of the track. A negative dot product means the wheel is compressing.
+      double compressionVelocity = -vel.dot(hit.normal); 
+      
+      // Only apply damping if the shock is actively compressing
+      double dampF = compressionVelocity > 0 ? compressionVelocity * suspensionDamping : 0.0;
+      
       double totalF = (springF + dampF).clamp(0.0, 5000.0);
       
-      vel.addScaled(forkDir, -totalF * dt);
+      // Apply the restorative force along the track normal.
+      // Applying it along the angled fork would scrub forward speed, fighting the acceleration.
+      vel.addScaled(hit.normal, totalF * dt);
 
-      // FIX 3: Crash check polarity corrected to match downward forks
-      if (vel.dot(forkDir) > _impactCrashLimit) _crash();
+      // Crash limit should also check against the normal impact velocity
+      if (compressionVelocity > Bike._impactCrashLimit) _crash();
+      
       return compression;
     }
     return 0.0;
@@ -524,28 +532,21 @@ class Bike {
     // Negative tilt applied. Left side down = Pitch Up
     double torque = -tilt * _playerTorqueStrength; 
     
-    // Torque > 0 means the bike is trying to pitch DOWN (clockwise).
     if (torque > 0 && frontOnGround) torque *= _frontGroundedTorqueScale;
 
-    _center.setFrom(rearPos);
-    _center.add(frontPos);
-    _center.scale(0.5);
+    // Calculate the tangential 'up' vector relative to the bike frame
+    _fwd.setFrom(frontPos);
+    _fwd.sub(rearPos);
+    _fwd.normalize();
+    final tangent = Vector2(-_fwd.y, _fwd.x);
 
-    // FIX: Multiplied by dt (delta time) to strictly lock the rotation speed
-    // to the physics clock, rather than spinning out of control.
-    double rotationAmount = torque * dt * 0.01;
+    // Convert torque (angular acceleration) to linear acceleration at the wheels
+    double linearAccel = torque * (_wheelbase / 2.0);
 
-    _rotCache.setFrom(rearPos);
-    _rotCache.sub(_center);
-    _rotCache.rotate(rotationAmount);
-    rearPos.setFrom(_center);
-    rearPos.add(_rotCache);
-    
-    _rotCache.setFrom(frontPos);
-    _rotCache.sub(_center);
-    _rotCache.rotate(rotationAmount);
-    frontPos.setFrom(_center);
-    frontPos.add(_rotCache);
+    // Apply directly to the velocities. 
+    // Rear wheel goes one way along the tangent, front goes the opposite.
+    rearVel.addScaled(tangent, -linearAccel * dt);
+    frontVel.addScaled(tangent, linearAccel * dt);
   }
 
   void _applyBrake(Vector2 vel, Vector2 tangent, double dt) {
