@@ -314,12 +314,12 @@ class Bike {
   static double suspensionDamping = 65.0; 
 
   static double _magnetStrength = 0.04;
-  static double _frontGroundedTorqueScale = 0.08;     // slightly higher than before
+  static double _frontGroundedTorqueScale = 0.08;
   static double _wheelbase = 18.0;
   static double _cogDistanceFromRear = 9.5;
-  static double _cogHeight = 5.8;
+  static double _cogHeight = 5.5;
   static double _bikeMass = 10.0;
-  static double _playerTorqueStrength = 110.0;        // much lower
+  static double _playerTorqueStrength = 95.0;           // much lower base
   static double _airborneGravityFactor = 0.85;
 
   static final _rearLocal = Vector2(-9.5, 6.5);
@@ -521,43 +521,40 @@ class Bike {
     if (headHit != null && headHit.distance < _headRadius) _crash();
   }
 
-    void _applyTilt(double dt) {
-    if (tilt.abs() < 0.02) return;   // dead zone
+      void _applyTilt(double dt) {
+    if (tilt.abs() < 0.03) return;   // deadzone
 
     _fwd.setFrom(frontPos);
     _fwd.sub(rearPos);
     _fwd.normalize();
+    final tangent = Vector2(-_fwd.y, _fwd.x);
 
-    final tangent = Vector2(-_fwd.y, _fwd.x);   // perpendicular vector
+    // === 1. Natural Gravity Torque from COG (gentle) ===
+    final pivot = rearOnGround ? rearPos : (frontOnGround ? frontPos : (rearPos + frontPos) * 0.5);
+    
+    final cogLocalX = _cogDistanceFromRear - _wheelbase / 2;
+    double cogOffsetX = cogLocalX * _fwd.x + _cogHeight * _fwd.y * (rearOnGround ? -1.0 : 1.0);
+    
+    double gravityTorque = -cogOffsetX * _gravity * _bikeMass * 0.28;   // gentle value
 
-    // === Natural Gravity Torque from COG ===
-    final pivot = rearOnGround ? rearPos : frontPos;
-
-    // COG position relative to pivot
-    final cogOffsetX = (_cogDistanceFromRear - _wheelbase / 2) * _fwd.x 
-                     + _cogHeight * _fwd.y * (rearOnGround ? -1 : 1);
-
-    double gravityTorque = -cogOffsetX * _gravity * _bikeMass * 0.35;   // gentle
-
-    // === Player Tilt Torque ===
+    // === 2. Player Input ===
     double playerTorque = tilt * _playerTorqueStrength;
 
-    // Reduce forward (nose down) torque when front is on ground
     if (playerTorque > 0 && frontOnGround) {
       playerTorque *= _frontGroundedTorqueScale;
     }
 
     double totalTorque = gravityTorque + playerTorque;
 
-    // === Rotational Damping ===
-    final relVel = frontVel - rearVel;
-    final currentRotVel = relVel.dot(tangent) / _wheelbase;
+    // === 3. Strong Damping ===
+    Vector2 relVel = frontVel - rearVel;
+    double currentRotVel = relVel.dot(tangent) / _wheelbase;
 
-    double damping = (rearOnGround || frontOnGround) ? 24.0 : 9.5;
+    double damping = (rearOnGround || frontOnGround) ? 28.0 : 12.0;
     totalTorque -= currentRotVel * damping;
 
-    // === Apply as couple force on wheels ===
-    final force = totalTorque * (_wheelbase / 2.0) / _bikeMass;
+    // === 4. Apply ===
+    double force = totalTorque * (_wheelbase / 2.0) / _bikeMass;
 
     rearVel.addScaled(tangent, -force * dt);
     frontVel.addScaled(tangent, force * dt);
