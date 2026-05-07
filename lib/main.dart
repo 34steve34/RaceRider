@@ -19,7 +19,7 @@ void main() async {
 Offset _off(Vector2 v) => Offset(v.x, v.y);
 
 class RaceRiderGame extends FlameGame with TapCallbacks {
-  static const buildLabel = 'physics v.80 - Velocity Tilt & Normal Damping Fix';
+  static const buildLabel = 'physics v.81 - Anti-Bounce & Spin Fix';
   late Bike player;
   late List<TrackSegment> trackSegments;
   
@@ -391,7 +391,6 @@ class Bike {
       return;
     }
 
-    // Apply tilt BEFORE velocity integration
     _applyTilt(dt);
 
     final gVal = (rearOnGround || frontOnGround) ? _gravity : _gravity * _airborneGravityFactor;
@@ -416,8 +415,8 @@ class Bike {
 
     for (int i = 0; i < 8; i++) {
       _solveDist(rearPos, frontPos, _wheelbase, 1.0, 1.0);
-      _solveGround(rearPos);
-      _solveGround(frontPos);
+      _solveGround(rearPos, _oldRear);
+      _solveGround(frontPos, _oldFront);
     }
 
     rearVel.setFrom(rearPos);
@@ -467,7 +466,6 @@ class Bike {
     _fwd.sub(rearPos);
     _fwd.normalize();
     
-    // The Y axis goes DOWN on screens. This math points the fork strictly downwards towards the track.
     final rearForkDir = Vector2(-_fwd.y, _fwd.x); 
     final frontForkDir = Vector2(-_fwd.y, _fwd.x)..rotate(-0.25); 
     
@@ -494,20 +492,15 @@ class Bike {
       double compression = (restingDist - distToGround).clamp(0.0, suspensionTravel);
       double springF = compression * suspensionStrength;
       
-      // Isolate the velocity pushing INTO the track surface
-      // hit.normal points out of the track. A negative dot product means the wheel is compressing.
       double compressionVelocity = -vel.dot(hit.normal); 
       
-      // Only apply damping if the shock is actively compressing
-      double dampF = compressionVelocity > 0 ? compressionVelocity * suspensionDamping : 0.0;
+      // Dampen both compression AND rebound to prevent the pogo-stick effect
+      double dampF = compressionVelocity * suspensionDamping;
       
-      double totalF = (springF + dampF).clamp(0.0, 5000.0);
+      double totalF = (springF + dampF).clamp(-2000.0, 10000.0);
       
-      // Apply the restorative force along the track normal.
-      // Applying it along the angled fork would scrub forward speed, fighting the acceleration.
       vel.addScaled(hit.normal, totalF * dt);
 
-      // Crash limit should also check against the normal impact velocity
       if (compressionVelocity > Bike._impactCrashLimit) _crash();
       
       return compression;
@@ -529,22 +522,30 @@ class Bike {
   }
 
   void _applyTilt(double dt) {
-    // Negative tilt applied. Left side down = Pitch Up
-    double torque = -tilt * _playerTorqueStrength; 
+    // Removed the negative multiplier to correctly sync the tilt direction
+    double torque = tilt * _playerTorqueStrength; 
     
     if (torque > 0 && frontOnGround) torque *= _frontGroundedTorqueScale;
 
-    // Calculate the tangential 'up' vector relative to the bike frame
     _fwd.setFrom(frontPos);
     _fwd.sub(rearPos);
     _fwd.normalize();
     final tangent = Vector2(-_fwd.y, _fwd.x);
 
-    // Convert torque (angular acceleration) to linear acceleration at the wheels
-    double linearAccel = torque * (_wheelbase / 2.0);
+    // Calculate the rotational velocity to prevent the "Death Spin"
+    Vector2 relVel = frontVel - rearVel;
+    double currentRotVel = relVel.dot(tangent) / _wheelbase;
+    
+    double angAccel = torque;
+    
+    // Apply rotational air friction if airborne to cap the spin speed safely
+    if (!rearOnGround && !frontOnGround) {
+        double rotDrag = 2.5; 
+        angAccel -= currentRotVel * rotDrag;
+    }
 
-    // Apply directly to the velocities. 
-    // Rear wheel goes one way along the tangent, front goes the opposite.
+    double linearAccel = angAccel * (_wheelbase / 2.0);
+
     rearVel.addScaled(tangent, -linearAccel * dt);
     frontVel.addScaled(tangent, linearAccel * dt);
   }
@@ -570,11 +571,13 @@ class Bike {
     b.addScaled(_diff, -err * (massA / totalM));
   }
 
-  void _solveGround(Vector2 pos) {
+  // Passing oldPos kills the springboard bounce caused by positional snapping
+  void _solveGround(Vector2 pos, Vector2 oldPos) {
     final hit = _nearestSurface(pos, trackSegments);
     if (hit != null && hit.distance < _wheelRadius) {
-      pos.setFrom(hit.point);
-      pos.addScaled(hit.normal, _wheelRadius);
+      Vector2 correction = hit.normal * (_wheelRadius - hit.distance);
+      pos.add(correction);
+      oldPos.add(correction); 
     }
   }
 
