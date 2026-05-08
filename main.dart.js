@@ -31003,16 +31003,16 @@ s=new A.E(new Float64Array(2))
 s.a5(-200,38)
 b.push(new A.eG(a,s))
 a=new Float64Array(2)
-new A.E(a).a5(-200,38)
-for(r=null,q=0;q<=16;++q,r=k){p=0+q/16*-1.57
+new A.E(a).a5(-200,110)
+for(r=null,q=0;q<=24;++q,r=k){p=-1.57+q/24*1.57
 s=a[0]
 o=Math.cos(p)
 n=a[1]
 m=Math.sin(p)
 l=new Float64Array(2)
 k=new A.E(l)
-l[1]=n+m*18
-l[0]=s+o*18
+l[1]=n+m*72
+l[0]=s+o*72
 if(r!=null)b.push(new A.eG(r,k))}a=r.a
 s=a[0]
 a=a[1]
@@ -31602,7 +31602,7 @@ if(q==null){s=r.cu()
 s.toString
 q=r.nb$=A.q(r).h("hW.T").a(s)}q=q.aA
 q===$&&A.c()
-q=A.DH(A.IT(B.vB,"RaceRider\nphysics v.94 - Drop\nSpeed: "+B.d.J(q.goZ(),1)),B.v)
+q=A.DH(A.IT(B.vB,"RaceRider\nphysics v.95 - lolipop\nSpeed: "+B.d.J(q.goZ(),1)),B.v)
 q.jU()
 q.bl(a,B.tZ)}}
 A.qE.prototype={
