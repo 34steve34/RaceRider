@@ -19,7 +19,7 @@ void main() async {
 Offset _off(Vector2 v) => Offset(v.x, v.y);
 
 class RaceRiderGame extends FlameGame with TapCallbacks {
-  static const buildLabel = 'physics v.86 - Safe COG Tilt';
+  static const buildLabel = 'physics v.87 - Safe COG Tilt';
   late Bike player;
   late List<TrackSegment> trackSegments;
   
@@ -313,11 +313,11 @@ class Bike {
   static double suspensionStrength = 1200.0; 
   static double suspensionDamping = 65.0; 
 
-  static double _playerTorqueStrength = 85.0;
+  static double _playerTorqueStrength = 305.0;
   static double _cogDistanceFromRear = 9.0;
   static double _cogHeight = 5.0;
   static double _frontGroundedTorqueScale = 0.12;
-  static double _magnetStrength = 0.04;
+  static double _magnetStrength = 0.012;
   static double _wheelbase = 18.0;
   static double _bikeMass = 10.0;
   static double _airborneGravityFactor = 0.85;
