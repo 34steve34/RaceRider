@@ -19,7 +19,7 @@ void main() async {
 Offset _off(Vector2 v) => Offset(v.x, v.y);
 
 class RaceRiderGame extends FlameGame with TapCallbacks {
-  static const buildLabel = 'physics v.88 - max rotation velocity';
+  static const buildLabel = 'physics v.89 - FULL max rotation velocity';
   late Bike player;
   late List<TrackSegment> trackSegments;
   
@@ -144,6 +144,8 @@ class RaceRiderGame extends FlameGame with TapCallbacks {
     player = Bike(_spawnPoint());
     player.trackSegments = trackSegments;
     crashTimer = 0.0;
+    isGas = false;
+    isBrake = false;
   }
 
   @override
@@ -311,7 +313,7 @@ class Bike {
   
   static double suspensionTravel = 4.5; 
   static double suspensionStrength = 1200.0; 
-  static double suspensionDamping = 65.0; 
+  static double suspensionDamping = 25.0; 
 
   static double _playerTorqueStrength = 305.0;
   static double _cogDistanceFromRear = 9.0;
@@ -547,25 +549,20 @@ class Bike {
     // === Very Strong Damping ===
     Vector2 relVel = frontVel - rearVel;
     double currentRotVel = relVel.dot(tangent) / _wheelbase;
-    
-    // Clamp rotation velocity to maximum
-    double maxRotVel = _maxRotationVelocity;
-    if (currentRotVel.abs() > maxRotVel) {
-      currentRotVel = currentRotVel.sign * maxRotVel;
-      // Adjust velocities to match clamped rotation
-      double targetRelVel = currentRotVel * _wheelbase;
-      Vector2 targetRelVelVector = tangent.scaled(targetRelVel);
-      Vector2 currentRelVelVector = frontVel - rearVel;
-      Vector2 correction = targetRelVelVector - currentRelVelVector;
-      rearVel.sub(correction.scaled(0.5));
-      frontVel.add(correction.scaled(0.5));
-    }
 
     double damping = 26.0; // Equal damping for grounded and airborne to match BIKE RACE
     totalTorque -= currentRotVel * damping * 1.8;   // extra multiplier
 
     // === Apply ===
     double force = totalTorque * (_wheelbase / 2.0) / _bikeMass;
+    
+    // Calculate potential new rotation velocity and clamp if needed
+    double potentialRotVel = currentRotVel + (force * 2.0 / _wheelbase) * dt;
+    if (potentialRotVel.abs() > _maxRotationVelocity) {
+      // Limit force to stay within max rotation velocity
+      double maxRotVelChange = (_maxRotationVelocity - currentRotVel.abs()) * currentRotVel.sign;
+      force = maxRotVelChange * _wheelbase / (2.0 * dt);
+    }
 
     rearVel.addScaled(tangent, -force * dt);
     frontVel.addScaled(tangent, force * dt);
