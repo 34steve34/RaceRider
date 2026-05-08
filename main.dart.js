@@ -31508,7 +31508,7 @@ m===$&&A.c()
 l=i.ch
 l===$&&A.c()
 k=m.by(0,l).ej(p)/18
-j=(r*(s-9)*250*q*0.45+n-k*26*1.8)*9/$.mS
+j=(r*(s-9)*250*q*0.3+n-k*15*1.8)*9/$.mS
 if(Math.abs(k+j*2/18*a)>9.42477796076938)j=(9.42477796076938-Math.abs(k))*J.PB(k)*18/(2*a)
 i.ch.b6(p,-j*a)
 i.CW.b6(p,j*a)},
@@ -31607,7 +31607,7 @@ if(q==null){s=r.cu()
 s.toString
 q=r.nb$=A.q(r).h("hV.T").a(s)}q=q.aA
 q===$&&A.c()
-q=A.DH(A.IT(B.vB,"RaceRider\nphysics v.89 - FULL max rotation velocity\nSpeed: "+B.d.J(q.goZ(),1)),B.v)
+q=A.DH(A.IT(B.vB,"RaceRider\nphysics v.90 - easy balancing\nSpeed: "+B.d.J(q.goZ(),1)),B.v)
 q.jU()
 q.bl(a,B.tZ)}}
 A.qE.prototype={
