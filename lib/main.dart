@@ -19,7 +19,7 @@ void main() async {
 Offset _off(Vector2 v) => Offset(v.x, v.y);
 
 class RaceRiderGame extends FlameGame with TapCallbacks {
-  static const buildLabel = 'physics v.89 - FULL max rotation velocity';
+  static const buildLabel = 'physics v.90 - easy balancing';
   late Bike player;
   late List<TrackSegment> trackSegments;
   
@@ -535,7 +535,7 @@ class Bike {
     // === Natural Gravity Torque (much simpler and more stable) ===
     double angle = atan2(_fwd.y, _fwd.x);                    // bike angle
     double cogOffset = (_cogDistanceFromRear - _wheelbase / 2); 
-    double gravityTorque = sin(angle) * cogOffset * _gravity * _bikeMass * 0.45;
+    double gravityTorque = sin(angle) * cogOffset * _gravity * _bikeMass * 0.30;
 
     // === Player Input ===
     double playerTorque = tilt * _playerTorqueStrength;
@@ -550,7 +550,7 @@ class Bike {
     Vector2 relVel = frontVel - rearVel;
     double currentRotVel = relVel.dot(tangent) / _wheelbase;
 
-    double damping = 26.0; // Equal damping for grounded and airborne to match BIKE RACE
+    double damping = 15.0; // Equal damping for grounded and airborne to match BIKE RACE
     totalTorque -= currentRotVel * damping * 1.8;   // extra multiplier
 
     // === Apply ===
