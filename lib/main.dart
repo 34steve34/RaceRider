@@ -19,7 +19,7 @@ void main() async {
 Offset _off(Vector2 v) => Offset(v.x, v.y);
 
 class RaceRiderGame extends FlameGame with TapCallbacks {
-  static const buildLabel = 'physics v.96 - lolipopSickle';
+  static const buildLabel = 'physics v.97 - Sickle';
   late Bike player;
   late List<TrackSegment> trackSegments;
   
@@ -75,11 +75,11 @@ class RaceRiderGame extends FlameGame with TapCallbacks {
     segs.add(TrackSegment(Vector2(-400.0, 38.0), Vector2(-200.0, 38.0)));
     
     // 90-degree curve up (radius = 4x bike length = 72)
-    final curveCenter = Vector2(-200.0, 38.0 - 72.0);
+    final curveCenter = Vector2(-200.0 - 72.0, 38.0);
     const curveRadius = 72.0;
     const curveSteps = 24;
-    const curveStartAngle = 0.0;  // Start from right of circle
-    const curveEndAngle = 1.57;   // End at bottom of circle
+    const curveStartAngle = 3.14;  // Start from left of circle
+    const curveEndAngle = 4.71;   // End at bottom of circle
     Vector2? curvePrev;
     for (int i = 0; i <= curveSteps; i++) {
       final t = i / curveSteps;
@@ -327,7 +327,7 @@ class Bike {
   static const _maxSpeed = 300.0;
   static const _wheelRadius = 5.0;
   static const _headRadius = 2.5;
-  static const _impactCrashLimit = 400.0; 
+  static const _impactCrashLimit = 550.0; 
   
   static double suspensionTravel = 4.5; 
   static double suspensionStrength = 1200.0; 
