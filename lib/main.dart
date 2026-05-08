@@ -69,18 +69,17 @@ class RaceRiderGame extends FlameGame with TapCallbacks {
   }
 
   List<TrackSegment> _buildTrack() {
-    // Simple track: flat section, 90-degree curve up, vertical wall
     final segs = <TrackSegment>[];
     
     // Flat section
     segs.add(TrackSegment(Vector2(-400.0, 38.0), Vector2(-200.0, 38.0));
     
-    // 90-degree curve up (quarter circle, radius = bike length)
+    // 90-degree curve up
     final curveCenter = Vector2(-200.0, 38.0);
-    const curveRadius = 18.0; // bike length
+    const curveRadius = 18.0;
     const curveSteps = 16;
     const curveStartAngle = 0.0;
-    const curveEndAngle = -1.57; // -90 degrees
+    const curveEndAngle = -1.57;
     Vector2? curvePrev;
     for (int i = 0; i <= curveSteps; i++) {
       final t = i / curveSteps;
@@ -89,7 +88,9 @@ class RaceRiderGame extends FlameGame with TapCallbacks {
         curveCenter.x + cos(a) * curveRadius,
         curveCenter.y + sin(a) * curveRadius,
       );
-      if (curvePrev != null) segs.add(TrackSegment(curvePrev, p));
+      if (curvePrev != null) {
+        segs.add(TrackSegment(curvePrev, p));
+      }
       curvePrev = p;
     }
     
