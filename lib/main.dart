@@ -557,8 +557,8 @@ class Bike {
       Vector2 targetRelVelVector = tangent.scaled(targetRelVel);
       Vector2 currentRelVelVector = frontVel - rearVel;
       Vector2 correction = targetRelVelVector - currentRelVelVector;
-      rearVel.subScaled(correction, 0.5);
-      frontVel.addScaled(correction, 0.5);
+      rearVel.sub(correction.scaled(0.5));
+      frontVel.add(correction.scaled(0.5));
     }
 
     double damping = 26.0; // Equal damping for grounded and airborne to match BIKE RACE
