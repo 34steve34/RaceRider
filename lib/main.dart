@@ -19,7 +19,7 @@ void main() async {
 Offset _off(Vector2 v) => Offset(v.x, v.y);
 
 class RaceRiderGame extends FlameGame with TapCallbacks {
-  static const buildLabel = 'physics v.92 - correct vertical wall';
+  static const buildLabel = 'physics v.93 - vertical wall AND Drop';
   late Bike player;
   late List<TrackSegment> trackSegments;
   
@@ -289,7 +289,7 @@ class RaceRiderGame extends FlameGame with TapCallbacks {
 
   Vector2 _spawnPoint() {
     const trackY = 38.0;
-    return Vector2(-540.0, trackY - 100.0);
+    return Vector2(-450.0, trackY - 100.0);
   }
 }
 
