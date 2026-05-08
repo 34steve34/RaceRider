@@ -19,7 +19,7 @@ void main() async {
 Offset _off(Vector2 v) => Offset(v.x, v.y);
 
 class RaceRiderGame extends FlameGame with TapCallbacks {
-  static const buildLabel = 'physics v.90 - easy balancing';
+  static const buildLabel = 'physics v.91 - more track';
   late Bike player;
   late List<TrackSegment> trackSegments;
   
@@ -70,16 +70,42 @@ class RaceRiderGame extends FlameGame with TapCallbacks {
 
   List<TrackSegment> _buildTrack() {
     final points = <Vector2>[
-      Vector2(-700.0, 38.0), Vector2(-250.0, 38.0), Vector2(-120.0, 26.0),
-      Vector2(20.0, 18.0), Vector2(170.0, 34.0), Vector2(310.0, 30.0),
-      Vector2(430.0, 40.0), Vector2(510.0, 40.0), Vector2(560.0, 40.0),
-      Vector2(604.0, 36.0), Vector2(642.0, 18.0), Vector2(672.0, 8.0),
+      Vector2(-700.0, 38.0), Vector2(-550.0, 38.0), Vector2(-450.0, 45.0),
+      Vector2(-350.0, 55.0), Vector2(-250.0, 38.0), Vector2(-180.0, 25.0),
+      Vector2(-120.0, 26.0), Vector2(-60.0, 15.0), Vector2(20.0, 18.0),
+      Vector2(80.0, 35.0), Vector2(140.0, 50.0), Vector2(200.0, 45.0),
+      Vector2(260.0, 30.0), Vector2(320.0, 25.0), Vector2(380.0, 35.0),
+      Vector2(440.0, 48.0), Vector2(500.0, 55.0), Vector2(560.0, 52.0),
+      Vector2(620.0, 40.0), Vector2(672.0, 8.0),
     ];
 
     final segs = <TrackSegment>[];
     for (int i = 0; i < points.length - 1; i++) {
       segs.add(TrackSegment(points[i], points[i + 1]));
     }
+
+    // Add arc to vertical wall (radius ~4x bike length = 72)
+    final arcCenter = Vector2(744.0, 8.0);
+    const arcRadius = 72.0;
+    const arcSteps = 24;
+    const arcStartAngle = 0.0;
+    const arcEndAngle = -1.57; // -90 degrees to go vertical
+    Vector2? arcPrev;
+    for (int i = 0; i <= arcSteps; i++) {
+      final t = i / arcSteps;
+      final a = arcStartAngle + t * (arcEndAngle - arcStartAngle);
+      final p = Vector2(
+        arcCenter.x + cos(a) * arcRadius,
+        arcCenter.y + sin(a) * arcRadius,
+      );
+      if (arcPrev != null) segs.add(TrackSegment(arcPrev, p));
+      arcPrev = p;
+    }
+
+    // Add vertical wall section
+    final wallTop = arcPrev!;
+    final wallBottom = Vector2(wallTop.x, wallTop.y - 150.0);
+    segs.add(TrackSegment(wallTop, wallBottom));
 
     final landingRamp = <Vector2>[
       Vector2(928.0, 26.0), Vector2(1018.0, 112.0), Vector2(1090.0, 138.0),
@@ -323,7 +349,7 @@ class Bike {
   static double _wheelbase = 18.0;
   static double _bikeMass = 10.0;
   static double _airborneGravityFactor = 0.85;
-  static double _maxRotationVelocity = 3.0 * pi; // 3 complete rotations in 2 seconds
+  static double _maxRotationVelocity = 2.0 * pi; // 1 revolution per second
 
   static final _rearLocal = Vector2(-9.5, 6.5);
   static final _frontLocal = Vector2(8.5, 6.5);
