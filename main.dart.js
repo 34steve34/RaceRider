@@ -30976,7 +30976,7 @@ dL(){var s=0,r=A.B(t.H),q=this,p,o,n
 var $async$dL=A.C(function(a,b){if(a===1)return A.y(b,r)
 for(;;)switch(s){case 0:q.b1=q.yQ()
 p=new A.E(new Float64Array(2))
-p.a5(-450,-62)
+p.a5(-350,-62)
 p=A.Ki(p)
 q.aA=p
 p.x=q.b1
@@ -31082,7 +31082,7 @@ p=o.k4.ax.at.f
 p.pk(q.av(0,r).bc(0,2).ia(0))
 p.b2()},
 rv(){var s,r=this,q=new A.E(new Float64Array(2))
-q.a5(-450,-62)
+q.a5(-350,-62)
 q=A.Ki(q)
 r.aA=q
 s=r.b1
@@ -31602,7 +31602,7 @@ if(q==null){s=r.cu()
 s.toString
 q=r.nb$=A.q(r).h("hW.T").a(s)}q=q.aA
 q===$&&A.c()
-q=A.DH(A.IT(B.vB,"RaceRider\nphysics v.93 - vertical wall AND Drop\nSpeed: "+B.d.J(q.goZ(),1)),B.v)
+q=A.DH(A.IT(B.vB,"RaceRider\nphysics v.94 - Drop\nSpeed: "+B.d.J(q.goZ(),1)),B.v)
 q.jU()
 q.bl(a,B.tZ)}}
 A.qE.prototype={
