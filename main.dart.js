@@ -31596,7 +31596,7 @@ if(q==null){s=r.cu()
 s.toString
 q=r.nb$=A.q(r).h("hV.T").a(s)}q=q.aA
 q===$&&A.c()
-q=A.DH(A.IT(B.vB,"RaceRider\nphysics v.86 - Safe COG Tilt\nSpeed: "+B.d.J(q.goY(),1)),B.v)
+q=A.DH(A.IT(B.vB,"RaceRider\nphysics v.87 - Safe COG Tilt\nSpeed: "+B.d.J(q.goY(),1)),B.v)
 q.jU()
 q.bl(a,B.tZ)}}
 A.qE.prototype={
@@ -34350,11 +34350,11 @@ $.R2=A.u(t.N,t.qB)
 $.f_=4.5
 $.vg=1200
 $.vf=65
-$.ve=85
+$.ve=305
 $.vc=9
 $.Id=5
 $.vd=0.12
-$.Ie=0.04
+$.Ie=0.012
 $.mS=10
 $.vb=0.85
 $.LV=null})();(function lazyInitializers(){var s=hunkHelpers.lazyFinal,r=hunkHelpers.lazy
