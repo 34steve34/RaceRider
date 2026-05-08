@@ -19,7 +19,7 @@ void main() async {
 Offset _off(Vector2 v) => Offset(v.x, v.y);
 
 class RaceRiderGame extends FlameGame with TapCallbacks {
-  static const buildLabel = 'physics v.87 - Safe COG Tilt';
+  static const buildLabel = 'physics v.88 - max rotation velocity';
   late Bike player;
   late List<TrackSegment> trackSegments;
   
@@ -321,6 +321,7 @@ class Bike {
   static double _wheelbase = 18.0;
   static double _bikeMass = 10.0;
   static double _airborneGravityFactor = 0.85;
+  static double _maxRotationVelocity = 3.0 * pi; // 3 complete rotations in 2 seconds
 
   static final _rearLocal = Vector2(-9.5, 6.5);
   static final _frontLocal = Vector2(8.5, 6.5);
@@ -546,8 +547,21 @@ class Bike {
     // === Very Strong Damping ===
     Vector2 relVel = frontVel - rearVel;
     double currentRotVel = relVel.dot(tangent) / _wheelbase;
+    
+    // Clamp rotation velocity to maximum
+    double maxRotVel = _maxRotationVelocity;
+    if (currentRotVel.abs() > maxRotVel) {
+      currentRotVel = currentRotVel.sign * maxRotVel;
+      // Adjust velocities to match clamped rotation
+      double targetRelVel = currentRotVel * _wheelbase;
+      Vector2 targetRelVelVector = tangent.scaled(targetRelVel);
+      Vector2 currentRelVelVector = frontVel - rearVel;
+      Vector2 correction = targetRelVelVector - currentRelVelVector;
+      rearVel.subScaled(correction, 0.5);
+      frontVel.addScaled(correction, 0.5);
+    }
 
-    double damping = (rearOnGround || frontOnGround) ? 35.0 : 18.0;
+    double damping = 26.0; // Equal damping for grounded and airborne to match BIKE RACE
     totalTorque -= currentRotVel * damping * 1.8;   // extra multiplier
 
     // === Apply ===
