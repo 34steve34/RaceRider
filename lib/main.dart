@@ -19,7 +19,7 @@ void main() async {
 Offset _off(Vector2 v) => Offset(v.x, v.y);
 
 class RaceRiderGame extends FlameGame with TapCallbacks {
-  static const buildLabel = 'physics v.95 - lolipop';
+  static const buildLabel = 'physics v.96 - lolipopSickle';
   late Bike player;
   late List<TrackSegment> trackSegments;
   
@@ -75,11 +75,11 @@ class RaceRiderGame extends FlameGame with TapCallbacks {
     segs.add(TrackSegment(Vector2(-400.0, 38.0), Vector2(-200.0, 38.0)));
     
     // 90-degree curve up (radius = 4x bike length = 72)
-    final curveCenter = Vector2(-200.0, 38.0 + 72.0);
+    final curveCenter = Vector2(-200.0, 38.0 - 72.0);
     const curveRadius = 72.0;
     const curveSteps = 24;
-    const curveStartAngle = -1.57; // Start from top of circle
-    const curveEndAngle = 0.0;   // End at right of circle
+    const curveStartAngle = 0.0;  // Start from right of circle
+    const curveEndAngle = 1.57;   // End at bottom of circle
     Vector2? curvePrev;
     for (int i = 0; i <= curveSteps; i++) {
       final t = i / curveSteps;
@@ -94,9 +94,9 @@ class RaceRiderGame extends FlameGame with TapCallbacks {
       curvePrev = p;
     }
     
-    // Vertical wall
+    // Vertical wall - extend down from arc endpoint
     final wallTop = curvePrev!;
-    final wallBottom = Vector2(wallTop.x, wallTop.y - 200.0);
+    final wallBottom = Vector2(wallTop.x, wallTop.y - 150.0);
     segs.add(TrackSegment(wallTop, wallBottom));
 
     final landingRamp = <Vector2>[
