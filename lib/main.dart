@@ -19,7 +19,7 @@ void main() async {
 Offset _off(Vector2 v) => Offset(v.x, v.y);
 
 class RaceRiderGame extends FlameGame with TapCallbacks {
-  static const buildLabel = 'physics v.91 - more track';
+  static const buildLabel = 'physics v.92 - correct vertical wall';
   late Bike player;
   late List<TrackSegment> trackSegments;
   
@@ -69,42 +69,33 @@ class RaceRiderGame extends FlameGame with TapCallbacks {
   }
 
   List<TrackSegment> _buildTrack() {
-    final points = <Vector2>[
-      Vector2(-700.0, 38.0), Vector2(-550.0, 38.0), Vector2(-450.0, 45.0),
-      Vector2(-350.0, 55.0), Vector2(-250.0, 38.0), Vector2(-180.0, 25.0),
-      Vector2(-120.0, 26.0), Vector2(-60.0, 15.0), Vector2(20.0, 18.0),
-      Vector2(80.0, 35.0), Vector2(140.0, 50.0), Vector2(200.0, 45.0),
-      Vector2(260.0, 30.0), Vector2(320.0, 25.0), Vector2(380.0, 35.0),
-      Vector2(440.0, 48.0), Vector2(500.0, 55.0), Vector2(560.0, 52.0),
-      Vector2(620.0, 40.0), Vector2(672.0, 8.0),
-    ];
-
+    // Simple track: flat section, 90-degree curve up, vertical wall
     final segs = <TrackSegment>[];
-    for (int i = 0; i < points.length - 1; i++) {
-      segs.add(TrackSegment(points[i], points[i + 1]));
-    }
-
-    // Add arc to vertical wall (radius ~4x bike length = 72)
-    final arcCenter = Vector2(744.0, 8.0);
-    const arcRadius = 72.0;
-    const arcSteps = 24;
-    const arcStartAngle = 0.0;
-    const arcEndAngle = -1.57; // -90 degrees to go vertical
-    Vector2? arcPrev;
-    for (int i = 0; i <= arcSteps; i++) {
-      final t = i / arcSteps;
-      final a = arcStartAngle + t * (arcEndAngle - arcStartAngle);
+    
+    // Flat section
+    segs.add(TrackSegment(Vector2(-400.0, 38.0), Vector2(-200.0, 38.0));
+    
+    // 90-degree curve up (quarter circle, radius = bike length)
+    final curveCenter = Vector2(-200.0, 38.0);
+    const curveRadius = 18.0; // bike length
+    const curveSteps = 16;
+    const curveStartAngle = 0.0;
+    const curveEndAngle = -1.57; // -90 degrees
+    Vector2? curvePrev;
+    for (int i = 0; i <= curveSteps; i++) {
+      final t = i / curveSteps;
+      final a = curveStartAngle + t * (curveEndAngle - curveStartAngle);
       final p = Vector2(
-        arcCenter.x + cos(a) * arcRadius,
-        arcCenter.y + sin(a) * arcRadius,
+        curveCenter.x + cos(a) * curveRadius,
+        curveCenter.y + sin(a) * curveRadius,
       );
-      if (arcPrev != null) segs.add(TrackSegment(arcPrev, p));
-      arcPrev = p;
+      if (curvePrev != null) segs.add(TrackSegment(curvePrev, p));
+      curvePrev = p;
     }
-
-    // Add vertical wall section
-    final wallTop = arcPrev!;
-    final wallBottom = Vector2(wallTop.x, wallTop.y - 150.0);
+    
+    // Vertical wall
+    final wallTop = curvePrev!;
+    final wallBottom = Vector2(wallTop.x, wallTop.y - 200.0);
     segs.add(TrackSegment(wallTop, wallBottom));
 
     final landingRamp = <Vector2>[
