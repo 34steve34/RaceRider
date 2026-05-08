@@ -72,7 +72,7 @@ class RaceRiderGame extends FlameGame with TapCallbacks {
     final segs = <TrackSegment>[];
     
     // Flat section
-    segs.add(TrackSegment(Vector2(-400.0, 38.0), Vector2(-200.0, 38.0));
+    segs.add(TrackSegment(Vector2(-400.0, 38.0), Vector2(-200.0, 38.0)));
     
     // 90-degree curve up
     final curveCenter = Vector2(-200.0, 38.0);
