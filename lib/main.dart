@@ -19,7 +19,7 @@ void main() async {
 Offset _off(Vector2 v) => Offset(v.x, v.y);
 
 class RaceRiderGame extends FlameGame with TapCallbacks {
-  static const buildLabel = 'physics v.106 - extradinary';
+  static const buildLabel = 'physics v.107 - chatGPT01';
   late Bike player;
   late List<TrackSegment> trackSegments;
   
@@ -453,10 +453,18 @@ class Bike {
     rearPos.addScaled(rearVel, dt);
     frontPos.addScaled(frontVel, dt);
 
-    for (int i = 0; i < 8; i++) {
+    for (int i = 0; i < 4; i++) {
       _solveDist(rearPos, frontPos, _wheelbase, 1.0, 1.0);
+
+      // Rear wheel always stabilized strongly
       _solveGround(rearPos, _oldRear);
-      _solveGround(frontPos, _oldFront);
+
+      // Front wheel gets weaker grounding during wheelie torque
+      bool attemptingWheelie = isGas && tilt < -0.15;
+
+      if (!attemptingWheelie || i < 2) {
+        _solveGround(frontPos, _oldFront);
+      }
     }
 
     rearVel.setFrom(rearPos);
@@ -528,7 +536,10 @@ class Bike {
     double distToGround = hit.distance;
     double restingDist = _wheelRadius + suspensionTravel;
     
-    if (distToGround < restingDist) {
+    bool wheelieInputActive = tilt < -0.12;
+
+     if (distToGround < restingDist &&
+      !(wheelieInputActive && pos == frontPos)) {
       double compression = (restingDist - distToGround).clamp(0.0, suspensionTravel);
       double springF = compression * suspensionStrength;
       
