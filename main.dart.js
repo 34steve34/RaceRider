@@ -31618,7 +31618,7 @@ q===$&&A.c()
 s=r.at+r.gi7().hv
 r.at=s
 if(s>=0.33){r.at=0
-q="RaceRider\nphysics v.103 - sign correct?\nSpeed: "+B.d.I(q.gp0(),1)+"\n"
+q="RaceRider\nphysics v.104 - obsurd\nSpeed: "+B.d.I(q.gp0(),1)+"\n"
 r.ax=q
 q+=B.c.cg("\u2500",20)+"\n"
 r.ax=q
@@ -31632,8 +31632,8 @@ q+="Total:   "+B.d.I($.Ig,1)+"\n"
 r.ax=q
 q=r.ax=q+("Wheelie Needed: "+B.d.I($.Ih,1)+"\n")
 s=$.Ig
-if(s<-$.Ih){r.ay=B.jn
-r.ax=q+"Wheelie Status: LIFTING!"}else if(s<0){r.ay=B.cw
+if(s>$.Ih){r.ay=B.jn
+r.ax=q+"Wheelie Status: LIFTING!"}else if(s>0){r.ay=B.cw
 r.ax=q+"Wheelie Status: Trying..."}else{r.ay=B.cx
 r.ax=q+"Wheelie Status: Not lifting"}}q=A.pQ(A.DJ(B.vC,r.ax),B.v)
 q.hJ()
