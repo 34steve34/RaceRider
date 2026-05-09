@@ -31507,8 +31507,8 @@ s=$.mT
 r=Math.cos(o)
 q=$.mS
 n=(s-9)*r*250*q*0.3
-m=i.y*$.vf
-if(m>0&&i.dy)m*=$.ve
+m=-i.y*$.vf
+if(m<0&&i.dy)m*=$.ve
 l=n+m
 $.Kl=n
 $.Km=m
@@ -31618,7 +31618,7 @@ q===$&&A.c()
 s=r.at+r.gi7().hv
 r.at=s
 if(s>=0.33){r.at=0
-q="RaceRider\nphysics v.102 - enough power?\nSpeed: "+B.d.I(q.gp0(),1)+"\n"
+q="RaceRider\nphysics v.103 - sign correct?\nSpeed: "+B.d.I(q.gp0(),1)+"\n"
 r.ax=q
 q+=B.c.cg("\u2500",20)+"\n"
 r.ax=q
