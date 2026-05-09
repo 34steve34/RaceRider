@@ -31602,7 +31602,7 @@ if(q==null){s=r.cu()
 s.toString
 q=r.nb$=A.q(r).h("hW.T").a(s)}q=q.aA
 q===$&&A.c()
-q=A.DH(A.IT(B.vB,"RaceRider\nphysics v.100 - torque\nSpeed: "+B.d.J(q.goZ(),1)),B.v)
+q=A.DH(A.IT(B.vB,"RaceRider\nphysics v.101 - GEMINI\nSpeed: "+B.d.J(q.goZ(),1)),B.v)
 q.jU()
 q.bl(a,B.tZ)}}
 A.qE.prototype={
