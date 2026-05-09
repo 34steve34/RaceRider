@@ -29,6 +29,9 @@ class RaceRiderGame extends FlameGame with TapCallbacks {
   bool tiltCalibrated = false;
   bool isGas = false;
   bool isBrake = false;
+  
+  // Store delta time for components to access
+  double dt = 0.0;
   late StreamSubscription _accelSub;
   
   bool isTuningMode = false;
@@ -137,6 +140,8 @@ class RaceRiderGame extends FlameGame with TapCallbacks {
   @override
   void update(double dt) {
     super.update(dt);
+    this.dt = dt; // Store dt for components to access
+    
     if (!tiltCalibrated) {
       tiltZero = rawTilt;
       tiltCalibrated = true;
