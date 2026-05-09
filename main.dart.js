@@ -31003,8 +31003,8 @@ s=new A.E(new Float64Array(2))
 s.a5(-200,38)
 b.push(new A.eG(a,s))
 a=new Float64Array(2)
-new A.E(a).a5(-272,38)
-for(r=null,q=0;q<=24;++q,r=k){p=3.14+q/24*1.5699999999999998
+new A.E(a).a5(-200,110)
+for(r=null,q=0;q<=24;++q,r=k){p=-1.57+q/24*1.57
 s=a[0]
 o=Math.cos(p)
 n=a[1]
@@ -31602,7 +31602,7 @@ if(q==null){s=r.cu()
 s.toString
 q=r.nb$=A.q(r).h("hW.T").a(s)}q=q.aA
 q===$&&A.c()
-q=A.DH(A.IT(B.vB,"RaceRider\nphysics v.97 - Sickle\nSpeed: "+B.d.J(q.goZ(),1)),B.v)
+q=A.DH(A.IT(B.vB,"RaceRider\nphysics v.98 - correct arc\nSpeed: "+B.d.J(q.goZ(),1)),B.v)
 q.jU()
 q.bl(a,B.tZ)}}
 A.qE.prototype={
