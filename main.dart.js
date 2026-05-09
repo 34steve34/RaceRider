@@ -31494,7 +31494,7 @@ p=new A.E(new Float64Array(2))
 p.a5(-r,q)
 o=Math.atan2(s[1],s[0])
 s=$.vc
-r=Math.sin(o)
+r=Math.cos(o)
 q=$.mS
 n=i.y*$.ve
 if(n>0&&i.dy)n*=$.vd
@@ -31503,7 +31503,7 @@ m===$&&A.c()
 l=i.ch
 l===$&&A.c()
 k=m.by(0,l).ej(p)/18
-j=(r*(s-9)*250*q*0.3+n-k*15*1.8)*9/$.mS
+j=4*((s-9)*r*250*q*0.3+n-k*15*1.8)/(18*$.mS)
 if(Math.abs(k+j*2/18*a)>6.283185307179586)j=(6.283185307179586-Math.abs(k))*J.PB(k)*18/(2*a)
 i.ch.b6(p,-j*a)
 i.CW.b6(p,j*a)},
@@ -31602,7 +31602,7 @@ if(q==null){s=r.cu()
 s.toString
 q=r.nb$=A.q(r).h("hW.T").a(s)}q=q.aA
 q===$&&A.c()
-q=A.DH(A.IT(B.vB,"RaceRider\nphysics v.99 - gemini arc\nSpeed: "+B.d.J(q.goZ(),1)),B.v)
+q=A.DH(A.IT(B.vB,"RaceRider\nphysics v.100 - torque\nSpeed: "+B.d.J(q.goZ(),1)),B.v)
 q.jU()
 q.bl(a,B.tZ)}}
 A.qE.prototype={
