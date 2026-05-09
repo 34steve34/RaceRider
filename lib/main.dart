@@ -19,7 +19,7 @@ void main() async {
 Offset _off(Vector2 v) => Offset(v.x, v.y);
 
 class RaceRiderGame extends FlameGame with TapCallbacks {
-  static const buildLabel = 'physics v.103 - sign correct?';
+  static const buildLabel = 'physics v.104 - obsurd';
   late Bike player;
   late List<TrackSegment> trackSegments;
   
@@ -773,10 +773,10 @@ class DebugOverlay extends Component with HasGameRef<RaceRiderGame> {
       _cachedDebugText += 'Wheelie Needed: ${Bike.debugWheelieTorqueNeeded.toStringAsFixed(1)}\n';
       
       // Color code the wheelie status
-      if (Bike.debugCurrentTotalTorque < -Bike.debugWheelieTorqueNeeded) {
+      if (Bike.debugCurrentTotalTorque > Bike.debugWheelieTorqueNeeded) {
         _cachedWheelieColor = Colors.green;
         _cachedDebugText += 'Wheelie Status: LIFTING!';
-      } else if (Bike.debugCurrentTotalTorque < 0) {
+      } else if (Bike.debugCurrentTotalTorque > 0) {
         _cachedWheelieColor = Colors.yellow;
         _cachedDebugText += 'Wheelie Status: Trying...';
       } else {
