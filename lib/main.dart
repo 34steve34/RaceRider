@@ -19,7 +19,7 @@ void main() async {
 Offset _off(Vector2 v) => Offset(v.x, v.y);
 
 class RaceRiderGame extends FlameGame with TapCallbacks {
-  static const buildLabel = 'physics v.99 - gemini arc';
+  static const buildLabel = 'physics v.100 - torque';
   late Bike player;
   late List<TrackSegment> trackSegments;
   
@@ -556,12 +556,18 @@ class Bike {
     _fwd.normalize();
     final tangent = Vector2(-_fwd.y, _fwd.x);
 
-    // === Natural Gravity Torque (much simpler and more stable) ===
-    double angle = atan2(_fwd.y, _fwd.x);                    // bike angle
-    double cogOffset = (_cogDistanceFromRear - _wheelbase / 2); 
-    double gravityTorque = sin(angle) * cogOffset * _gravity * _bikeMass * 0.30;
+    // === 1. Corrected Natural Gravity Torque ===
+    double angle = atan2(_fwd.y, _fwd.x); 
+    
+    // Use COSINE to find the horizontal distance of the COG from the pivot.
+    // Assuming 'angle' is 0 when flat and approaches PI/2 or -PI/2 when vertical.
+    double horizontalCogDistance = (_cogDistanceFromRear - _wheelbase / 2) * cos(angle); 
+    
+    // Gravity pulls DOWN. In most 2D engines (Y-down), clockwise rotation is positive.
+    // You may need to tweak the 0.30 multiplier to get the exact "weight" you want.
+    double gravityTorque = horizontalCogDistance * _gravity * _bikeMass * 0.30;
 
-    // === Player Input ===
+    // === 2. Player Input ===
     double playerTorque = tilt * _playerTorqueStrength;
 
     if (playerTorque > 0 && frontOnGround) {
@@ -570,27 +576,33 @@ class Bike {
 
     double totalTorque = gravityTorque + playerTorque;
 
-    // === Very Strong Damping ===
+    // === 3. Angular Damping (Crucial for Stability) ===
     Vector2 relVel = frontVel - rearVel;
     double currentRotVel = relVel.dot(tangent) / _wheelbase;
 
-    double damping = 15.0; // Equal damping for grounded and airborne to match BIKE RACE
-    totalTorque -= currentRotVel * damping * 1.8;   // extra multiplier
+    // Because balancing torque against gravity manually is like balancing a broom 
+    // on your finger, you NEED strong damping to prevent wild oscillations.
+    double damping = 15.0; 
+    totalTorque -= currentRotVel * damping * 1.8;   
 
-    // === Apply ===
-    double force = totalTorque * (_wheelbase / 2.0) / _bikeMass;
+    // === 4. Corrected Torque-to-Force Conversion ===
+    // Force = Torque / Radius. The radius is half the wheelbase.
+    // Acceleration = Force / Mass.
+    // This simplifies to: 4.0 * Torque / (Wheelbase * Mass)
+    double linearAcceleration = 4.0 * totalTorque / (_wheelbase * _bikeMass);
     
     // Calculate potential new rotation velocity and clamp if needed
-    double potentialRotVel = currentRotVel + (force * 2.0 / _wheelbase) * dt;
+    double potentialRotVel = currentRotVel + (linearAcceleration * 2.0 / _wheelbase) * dt;
     if (potentialRotVel.abs() > _maxRotationVelocity) {
-      // Limit force to stay within max rotation velocity
+      // Limit acceleration to stay within max rotation velocity
       double maxRotVelChange = (_maxRotationVelocity - currentRotVel.abs()) * currentRotVel.sign;
-      force = maxRotVelChange * _wheelbase / (2.0 * dt);
+      linearAcceleration = maxRotVelChange * _wheelbase / (2.0 * dt);
     }
 
-    rearVel.addScaled(tangent, -force * dt);
-    frontVel.addScaled(tangent, force * dt);
-  }
+    // === 5. Apply ===
+    rearVel.addScaled(tangent, -linearAcceleration * dt);
+    frontVel.addScaled(tangent, linearAcceleration * dt);
+}
 
   void _applyBrake(Vector2 vel, Vector2 tangent, double dt) {
     final fwd = _forwardTangent(tangent);
