@@ -339,8 +339,8 @@ class Bike {
   static double suspensionStrength = 1200.0; 
   static double suspensionDamping = 25.0; 
 
-  static double _playerTorqueStrength = 305.0;
-  static double _cogDistanceFromRear = 9.0;
+  static double _playerTorqueStrength = 3000.0;
+  static double _cogDistanceFromRear = 8.0;
   static double _cogHeight = 5.0;
   static double _frontGroundedTorqueScale = 0.12;
   static double _magnetStrength = 0.012;
