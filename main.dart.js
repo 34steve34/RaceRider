@@ -31359,7 +31359,7 @@ o=c.w
 o.a2(c.at)
 c.as.b5(c.ch,a)
 c.at.b5(c.CW,a)
-for(j=0;j<4;++j){c.Db(c.as,c.at,18,1,1)
+for(j=0;j<4;++j){c.Db(c.as,c.at,18,0.35,1.65)
 c.rK(c.as,p)
 if(!(c.z&&c.y<-0.15)||j<2)c.rK(c.at,o)}c.ch.a2(c.as)
 c.ch.aR(p)
@@ -31492,7 +31492,7 @@ q=!q}else q=!1
 if(q){p=B.d.hh(r-s,0,$.e9)
 q=$.vh
 o=c.b
-n=-b.ek(o)
+n=Math.max(0,-b.ek(o))
 b.b5(o,B.d.hh(p*q+n*$.vg,-2000,1e4)*e)
 if(n>550)this.db=B.an
 return p}return 0},
@@ -31627,7 +31627,7 @@ q===$&&A.c()
 s=r.at+r.gi7().hv
 r.at=s
 if(s>=0.33){r.at=0
-q="RaceRider\nphysics v.107 - chatGPT01\nSpeed: "+B.d.H(q.gp0(),1)+"\n"
+q="RaceRider\nphysics v.108 - chatGPT02\nSpeed: "+B.d.H(q.gp0(),1)+"\n"
 r.ax=q
 q+=B.c.cg("\u2500",20)+"\n"
 r.ax=q
@@ -34404,8 +34404,8 @@ $.bp=null
 $.Lq=0
 $.Rb=A.u(t.N,t.qB)
 $.e9=4.5
-$.vh=1200
-$.vg=25
+$.vh=700
+$.vg=12
 $.vf=3000
 $.mT=8
 $.Ie=5
