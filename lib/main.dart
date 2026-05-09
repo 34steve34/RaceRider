@@ -19,7 +19,7 @@ void main() async {
 Offset _off(Vector2 v) => Offset(v.x, v.y);
 
 class RaceRiderGame extends FlameGame with TapCallbacks {
-  static const buildLabel = 'physics v.101 - GEMINI';
+  static const buildLabel = 'physics v.102 - enough power?';
   late Bike player;
   late List<TrackSegment> trackSegments;
   
@@ -349,6 +349,12 @@ class Bike {
   static double _airborneGravityFactor = 0.85;
   static double _maxRotationVelocity = 2.0 * pi; // 1 revolution per second
 
+  // Debug variables for wheelie forces
+  static double debugCurrentGravityTorque = 0.0;
+  static double debugCurrentPlayerTorque = 0.0;
+  static double debugCurrentTotalTorque = 0.0;
+  static double debugWheelieTorqueNeeded = 0.0;
+
   static final _rearLocal = Vector2(-9.5, 6.5);
   static final _frontLocal = Vector2(8.5, 6.5);
   static final _headLocal = Vector2(-4.0, -7.0);
@@ -574,6 +580,17 @@ class Bike {
 
   double totalTorque = gravityTorque + playerTorque;
 
+  // Store debug values
+  debugCurrentGravityTorque = gravityTorque;
+  debugCurrentPlayerTorque = playerTorque;
+  debugCurrentTotalTorque = totalTorque;
+
+  // Calculate wheelie torque needed (torque to overcome gravity when flat)
+  // When flat (angle = 0), cos(angle) = 1, so we need enough negative torque to overcome gravity
+  double wheelieGravityResistance = (_wheelbase / 2 - _cogDistanceFromRear) * _gravity * _bikeMass * 0.30;
+  // Add some extra to actually lift the front (account for damping and inertia)
+  debugWheelieTorqueNeeded = wheelieGravityResistance + 200.0; // Extra 200 for lift-off
+
   // 4. Angular Damping
   Vector2 relVel = frontVel - rearVel;
   double currentRotVel = relVel.dot(tangent) / _wheelbase;
@@ -724,9 +741,54 @@ class Background extends Component {
 }
 
 class DebugOverlay extends Component with HasGameRef<RaceRiderGame> {
+  double _debugUpdateTimer = 0.0;
+  static const double _debugUpdateInterval = 0.33; // Update ~3 times per second
+  
+  // Cached display values
+  String _cachedDebugText = '';
+  Color _cachedWheelieColor = Colors.red;
+  
   @override
   void render(Canvas canvas) {
     final b = gameRef.player;
-    TextPainter(textDirection: TextDirection.ltr, text: TextSpan(text: 'RaceRider\n${RaceRiderGame.buildLabel}\nSpeed: ${b.speed.toStringAsFixed(1)}', style: const TextStyle(color: Colors.yellow, fontSize: 14)))..layout()..paint(canvas, const Offset(16, 16));
+    
+    // Update debug values only at the specified interval
+    _debugUpdateTimer += gameRef.dt;
+    if (_debugUpdateTimer >= _debugUpdateInterval) {
+      _debugUpdateTimer = 0.0;
+      
+      // Update cached values
+      _cachedDebugText = 'RaceRider\n${RaceRiderGame.buildLabel}\nSpeed: ${b.speed.toStringAsFixed(1)}\n';
+      _cachedDebugText += '─' * 20 + '\n';
+      _cachedDebugText += 'TORQUE DEBUG:\n';
+      _cachedDebugText += 'Gravity: ${Bike.debugCurrentGravityTorque.toStringAsFixed(1)}\n';
+      _cachedDebugText += 'Player:  ${Bike.debugCurrentPlayerTorque.toStringAsFixed(1)}\n';
+      _cachedDebugText += 'Total:   ${Bike.debugCurrentTotalTorque.toStringAsFixed(1)}\n';
+      _cachedDebugText += 'Wheelie Needed: ${Bike.debugWheelieTorqueNeeded.toStringAsFixed(1)}\n';
+      
+      // Color code the wheelie status
+      if (Bike.debugCurrentTotalTorque < -Bike.debugWheelieTorqueNeeded) {
+        _cachedWheelieColor = Colors.green;
+        _cachedDebugText += 'Wheelie Status: LIFTING!';
+      } else if (Bike.debugCurrentTotalTorque < 0) {
+        _cachedWheelieColor = Colors.yellow;
+        _cachedDebugText += 'Wheelie Status: Trying...';
+      } else {
+        _cachedWheelieColor = Colors.red;
+        _cachedDebugText += 'Wheelie Status: Not lifting';
+      }
+    }
+    
+    // Always render using cached values
+    TextPainter(textDirection: TextDirection.ltr, text: TextSpan(
+      text: _cachedDebugText, 
+      style: const TextStyle(color: Colors.yellow, fontSize: 14)
+    ))..layout()..paint(canvas, const Offset(16, 16));
+    
+    // Draw wheelie status indicator
+    TextPainter(textDirection: TextDirection.ltr, text: TextSpan(
+      text: '▲ WHEELIE', 
+      style: TextStyle(color: _cachedWheelieColor, fontSize: 16, fontWeight: FontWeight.bold)
+    ))..layout()..paint(canvas, const Offset(16, 200));
   }
 }
