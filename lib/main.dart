@@ -19,7 +19,7 @@ void main() async {
 Offset _off(Vector2 v) => Offset(v.x, v.y);
 
 class RaceRiderGame extends FlameGame with TapCallbacks {
-  static const buildLabel = 'physics v.102 - enough power?';
+  static const buildLabel = 'physics v.103 - sign correct?';
   late Bike player;
   late List<TrackSegment> trackSegments;
   
@@ -574,12 +574,13 @@ class Bike {
 
   // 2. Player Input
   // Standard Bike Race feel: tilt back (negative) should lift the front.
-  double playerTorque = tilt * _playerTorqueStrength;
+  // We invert the tilt so negative tilt produces positive torque (counter-clockwise)
+  double playerTorque = -tilt * _playerTorqueStrength;
 
   // 3. Directional Penalty Logic
-  // We only penalize "Nose Down" rotation (playerTorque > 0) while the front is grounded.
+  // We only penalize "Nose Down" rotation (playerTorque < 0) while the front is grounded.
   // This makes stoppies hard but keeps wheelies at 100% power.
-  if (playerTorque > 0 && frontOnGround) {
+  if (playerTorque < 0 && frontOnGround) {
     playerTorque *= _frontGroundedTorqueScale;
   }
 
