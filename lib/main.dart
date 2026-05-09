@@ -19,7 +19,7 @@ void main() async {
 Offset _off(Vector2 v) => Offset(v.x, v.y);
 
 class RaceRiderGame extends FlameGame with TapCallbacks {
-  static const buildLabel = 'physics v.100 - torque';
+  static const buildLabel = 'physics v.101 - GEMINI';
   late Bike player;
   late List<TrackSegment> trackSegments;
   
@@ -549,59 +549,50 @@ class Bike {
   }
 
    void _applyTilt(double dt) {
-    if (tilt.abs() < 0.03) return;
+  if (tilt.abs() < 0.03) return;
 
-    _fwd.setFrom(frontPos);
-    _fwd.sub(rearPos);
-    _fwd.normalize();
-    final tangent = Vector2(-_fwd.y, _fwd.x);
+  _fwd.setFrom(frontPos);
+  _fwd.sub(rearPos);
+  _fwd.normalize();
+  final tangent = Vector2(-_fwd.y, _fwd.x);
 
-    // === 1. Corrected Natural Gravity Torque ===
-    double angle = atan2(_fwd.y, _fwd.x); 
-    
-    // Use COSINE to find the horizontal distance of the COG from the pivot.
-    // Assuming 'angle' is 0 when flat and approaches PI/2 or -PI/2 when vertical.
-    double horizontalCogDistance = (_cogDistanceFromRear - _wheelbase / 2) * cos(angle); 
-    
-    // Gravity pulls DOWN. In most 2D engines (Y-down), clockwise rotation is positive.
-    // You may need to tweak the 0.30 multiplier to get the exact "weight" you want.
-    double gravityTorque = horizontalCogDistance * _gravity * _bikeMass * 0.30;
+  // 1. Natural Gravity Torque
+  double angle = atan2(_fwd.y, _fwd.x); 
+  double horizontalCogDistance = (_cogDistanceFromRear - _wheelbase / 2) * cos(angle); 
+  double gravityTorque = horizontalCogDistance * _gravity * _bikeMass * 0.30;
 
-    // === 2. Player Input ===
-    double playerTorque = tilt * _playerTorqueStrength;
+  // 2. Player Input
+  // Standard Bike Race feel: tilt back (negative) should lift the front.
+  double playerTorque = tilt * _playerTorqueStrength;
 
-    if (playerTorque > 0 && frontOnGround) {
-      playerTorque *= _frontGroundedTorqueScale;
-    }
+  // 3. Directional Penalty Logic
+  // We only penalize "Nose Down" rotation (playerTorque > 0) while the front is grounded.
+  // This makes stoppies hard but keeps wheelies at 100% power.
+  if (playerTorque > 0 && frontOnGround) {
+    playerTorque *= _frontGroundedTorqueScale;
+  }
 
-    double totalTorque = gravityTorque + playerTorque;
+  double totalTorque = gravityTorque + playerTorque;
 
-    // === 3. Angular Damping (Crucial for Stability) ===
-    Vector2 relVel = frontVel - rearVel;
-    double currentRotVel = relVel.dot(tangent) / _wheelbase;
+  // 4. Angular Damping
+  Vector2 relVel = frontVel - rearVel;
+  double currentRotVel = relVel.dot(tangent) / _wheelbase;
+  double damping = 15.0; 
+  totalTorque -= currentRotVel * damping * 1.8;   
 
-    // Because balancing torque against gravity manually is like balancing a broom 
-    // on your finger, you NEED strong damping to prevent wild oscillations.
-    double damping = 15.0; 
-    totalTorque -= currentRotVel * damping * 1.8;   
+  // 5. Torque-to-Force Conversion
+  double linearAcceleration = 4.0 * totalTorque / (_wheelbase * _bikeMass);
+  
+  // 6. Velocity Clamping
+  double potentialRotVel = currentRotVel + (linearAcceleration * 2.0 / _wheelbase) * dt;
+  if (potentialRotVel.abs() > _maxRotationVelocity) {
+    double maxRotVelChange = (_maxRotationVelocity - currentRotVel.abs()) * currentRotVel.sign;
+    linearAcceleration = maxRotVelChange * _wheelbase / (2.0 * dt);
+  }
 
-    // === 4. Corrected Torque-to-Force Conversion ===
-    // Force = Torque / Radius. The radius is half the wheelbase.
-    // Acceleration = Force / Mass.
-    // This simplifies to: 4.0 * Torque / (Wheelbase * Mass)
-    double linearAcceleration = 4.0 * totalTorque / (_wheelbase * _bikeMass);
-    
-    // Calculate potential new rotation velocity and clamp if needed
-    double potentialRotVel = currentRotVel + (linearAcceleration * 2.0 / _wheelbase) * dt;
-    if (potentialRotVel.abs() > _maxRotationVelocity) {
-      // Limit acceleration to stay within max rotation velocity
-      double maxRotVelChange = (_maxRotationVelocity - currentRotVel.abs()) * currentRotVel.sign;
-      linearAcceleration = maxRotVelChange * _wheelbase / (2.0 * dt);
-    }
-
-    // === 5. Apply ===
-    rearVel.addScaled(tangent, -linearAcceleration * dt);
-    frontVel.addScaled(tangent, linearAcceleration * dt);
+  // 7. Apply
+  rearVel.addScaled(tangent, -linearAcceleration * dt);
+  frontVel.addScaled(tangent, linearAcceleration * dt);
 }
 
   void _applyBrake(Vector2 vel, Vector2 tangent, double dt) {
@@ -625,15 +616,22 @@ class Bike {
     b.addScaled(_diff, -err * (massA / totalM));
   }
 
-  // Passing oldPos kills the springboard bounce caused by positional snapping
   void _solveGround(Vector2 pos, Vector2 oldPos) {
-    final hit = _nearestSurface(pos, trackSegments);
-    if (hit != null && hit.distance < _wheelRadius) {
-      Vector2 correction = hit.normal * (_wheelRadius - hit.distance);
-      pos.add(correction);
-      oldPos.add(correction); 
-    }
+  final hit = _nearestSurface(pos, trackSegments);
+  
+  // Only apply a correction if the wheel is actually INSIDE the ground (distance < radius)
+  if (hit != null && hit.distance < _wheelRadius) {
+    Vector2 correction = hit.normal * (_wheelRadius - hit.distance);
+    
+    // Push the current position out of the ground
+    pos.add(correction);
+    
+    // ALSO push the old position out. This effectively zeros out the 
+    // velocity component that was driving the wheel into the dirt,
+    // but leaves the upward velocity intact so the wheelie can happen.
+    oldPos.add(correction); 
   }
+}
 
   void _syncFrameAndCollision(double currAngle) {
     _center.setFrom(rearPos);
