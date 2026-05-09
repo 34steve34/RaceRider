@@ -31521,8 +31521,8 @@ r===$&&A.c()
 k=s.by(0,r).ek(p)/18
 j=4*(l-k*15*1.8)/(18*$.mS)
 if(Math.abs(k+j*2/18*a)>6.283185307179586)j=(6.283185307179586-Math.abs(k))*J.PG(k)*18/(2*a)
-i.ch.b5(p,-j*a)
-i.CW.b5(p,j*a)},
+i.ch.b5(p,j*a)
+i.CW.b5(p,-j*a)},
 pz(a,b,c){var s=b.a[0]<0?b.ie(0):b,r=a.ek(s),q=500*c
 a.b5(s,(r>0?Math.max(0,r-q):Math.min(0,r+q))-r)},
 Db(a,b,c,d,e){var s,r,q,p=this.b
@@ -31618,7 +31618,7 @@ q===$&&A.c()
 s=r.at+r.gi7().hv
 r.at=s
 if(s>=0.33){r.at=0
-q="RaceRider\nphysics v.104 - obsurd\nSpeed: "+B.d.I(q.gp0(),1)+"\n"
+q="RaceRider\nphysics v.105 - obsurd, totally\nSpeed: "+B.d.I(q.gp0(),1)+"\n"
 r.ax=q
 q+=B.c.cg("\u2500",20)+"\n"
 r.ax=q
