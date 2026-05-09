@@ -19,7 +19,7 @@ void main() async {
 Offset _off(Vector2 v) => Offset(v.x, v.y);
 
 class RaceRiderGame extends FlameGame with TapCallbacks {
-  static const buildLabel = 'physics v.105 - obsurd, totally';
+  static const buildLabel = 'physics v.106 - extradinary';
   late Bike player;
   late List<TrackSegment> trackSegments;
   
@@ -359,6 +359,8 @@ class Bike {
   static double debugCurrentPlayerTorque = 0.0;
   static double debugCurrentTotalTorque = 0.0;
   static double debugWheelieTorqueNeeded = 0.0;
+  static bool debugFrontGrounded = false;
+  static double debugFrontGroundDistance = 0.0;
 
   static final _rearLocal = Vector2(-9.5, 6.5);
   static final _frontLocal = Vector2(8.5, 6.5);
@@ -554,6 +556,10 @@ class Bike {
     frontOnGround = fHit != null && fHit.distance <= (_wheelRadius + suspensionTravel + 0.5);
     _rearSurface = rHit; 
     _frontSurface = fHit;
+
+    // Update debug values
+    debugFrontGrounded = frontOnGround;
+    debugFrontGroundDistance = fHit?.distance ?? 999.0;
 
     final headHit = _nearestSurface(collisionHeadPos, trackSegments);
     if (headHit != null && headHit.distance < _headRadius) _crash();
@@ -771,6 +777,8 @@ class DebugOverlay extends Component with HasGameRef<RaceRiderGame> {
       _cachedDebugText += 'Player:  ${Bike.debugCurrentPlayerTorque.toStringAsFixed(1)}\n';
       _cachedDebugText += 'Total:   ${Bike.debugCurrentTotalTorque.toStringAsFixed(1)}\n';
       _cachedDebugText += 'Wheelie Needed: ${Bike.debugWheelieTorqueNeeded.toStringAsFixed(1)}\n';
+      _cachedDebugText += 'Front Grounded: ${Bike.debugFrontGrounded ? "YES" : "NO"}\n';
+      _cachedDebugText += 'Front Distance: ${Bike.debugFrontGroundDistance.toStringAsFixed(1)}\n';
       
       // Color code the wheelie status
       if (Bike.debugCurrentTotalTorque > Bike.debugWheelieTorqueNeeded) {
