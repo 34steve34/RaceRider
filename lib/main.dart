@@ -19,7 +19,7 @@ void main() async {
 Offset _off(Vector2 v) => Offset(v.x, v.y);
 
 class RaceRiderGame extends FlameGame with TapCallbacks {
-  static const buildLabel = 'physics v.108 - chatGPT02';
+  static const buildLabel = 'physics v.109 - chatGPT03';
   late Bike player;
   late List<TrackSegment> trackSegments;
   
@@ -341,8 +341,8 @@ class Bike {
   static const _impactCrashLimit = 550.0; 
   
   static double suspensionTravel = 4.5; 
-  static double suspensionStrength = 700.0; 
-  static double suspensionDamping = 12.0; 
+  static double suspensionStrength = 260.0; 
+  static double suspensionDamping = 8.0; 
 
   static double _playerTorqueStrength = 3000.0;
   static double _cogDistanceFromRear = 8.0;
@@ -474,6 +474,19 @@ class Bike {
     frontVel.setFrom(frontPos);
     frontVel.sub(_oldFront);
     frontVel.scale(1.0 / dt);
+	Vector2 axle = frontPos - rearPos;
+    Vector2 tangent = Vector2(-axle.y, axle.x)..normalize();
+    Vector2 relVel = frontVel - rearVel;
+    double rotVel = relVel.dot(tangent) / _wheelbase;
+
+    if (rotVel.abs() > _maxRotationVelocity) {
+
+      double excess = rotVel.abs() - _maxRotationVelocity;
+      double correction = excess * 0.5 * rotVel.sign;
+
+      rearVel.addScaled(tangent, correction);
+      frontVel.addScaled(tangent, -correction);
+}
 
     _checkGroundAndCrash();
     _syncFrameAndCollision(angle);
@@ -548,7 +561,7 @@ class Bike {
       // Dampen both compression AND rebound to prevent the pogo-stick effect
       double dampF = compressionVelocity * suspensionDamping;
       
-      double totalF = (springF + dampF).clamp(-2000.0, 10000.0);
+      double totalF = (springF + dampF).clamp(-400.0, 1200.0);
       
       vel.addScaled(hit.normal, totalF * dt);
 
