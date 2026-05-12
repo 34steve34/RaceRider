@@ -510,7 +510,8 @@ class Bike {
     frontVel.sub(_oldFront);
     frontVel.scale(1.0 / dt);
     // Recalculate rotation velocity after constraints
-    Vector2 axle = frontPos - rearPos;
+    axle.setFrom(frontPos);
+    axle.sub(rearPos);
     Vector2 tangent = Vector2(-axle.y, axle.x)..normalize();
     Vector2 relVel = frontVel - rearVel;
     double rotVel = relVel.dot(tangent) / _wheelbase;
