@@ -19,7 +19,7 @@ void main() async {
 Offset _off(Vector2 v) => Offset(v.x, v.y);
 
 class RaceRiderGame extends FlameGame with TapCallbacks {
-  static const buildLabel = 'physics v.110 - chatGPT05';
+  static const buildLabel = 'physics v.110 - chatGPT06';
   late Bike player;
   late List<TrackSegment> trackSegments;
   
@@ -543,37 +543,57 @@ class Bike {
     frontWheelPos.addScaled(frontForkDir, suspensionTravel - frontCompression);
   }
 
-  double _processWheelSuspension(Vector2 pos, Vector2 vel, RaycastHit? hit, Vector2 forkDir, double dt) {
-    if (hit == null) return 0.0;
-    
-    double distToGround = hit.distance;
-    double restingDist = _wheelRadius + suspensionTravel;
-    
-    bool wheelieInputActive = tilt < -0.12;
+  double _processWheelSuspension(
+    Vector2 pos,
+    Vector2 vel,
+    RaycastHit? hit,
+    Vector2 forkDir,
+    double dt) {
 
-     if (distToGround < restingDist &&
-      !(wheelieInputActive && pos == frontPos)) {
-      double compression = (restingDist - distToGround).clamp(0.0, suspensionTravel);
-      double springF = compression * suspensionStrength;
-      
-      double compressionVelocity = max(0.0, -vel.dot(hit.normal));
-	  if (compressionVelocity > 120.0) {
-      compressionVelocity = 120.0;
-      }
-      
-      // Dampen both compression AND rebound to prevent the pogo-stick effect
-      double dampF = compressionVelocity * suspensionDamping;
-      
-      double totalF = (springF + dampF).clamp(-400.0, 1200.0);
-      
-      vel.addScaled(hit.normal, totalF * dt);
+  if (hit == null) return 0.0;
 
-      if (compressionVelocity > Bike._impactCrashLimit) _crash();
-      
-      return compression;
+  double distToGround = hit.distance;
+  double restingDist = _wheelRadius + suspensionTravel;
+
+  bool wheelieInputActive = tilt < -0.12;
+
+  if (distToGround < restingDist &&
+      !(wheelieInputActive && identical(pos, frontPos))) {
+
+    double compression =
+        (restingDist - distToGround)
+            .clamp(0.0, suspensionTravel);
+
+    double springF =
+        compression * suspensionStrength;
+
+    double compressionVelocity =
+        -vel.dot(hit.normal);
+
+    // Clamp BOTH compression and rebound
+    compressionVelocity =
+        compressionVelocity.clamp(-120.0, 120.0);
+
+    // Proper bidirectional damping
+    double dampF =
+        compressionVelocity * suspensionDamping;
+
+    double totalF =
+        (springF + dampF)
+            .clamp(-400.0, 1200.0);
+
+    vel.addScaled(hit.normal, totalF * dt);
+
+    if (compressionVelocity >
+        Bike._impactCrashLimit) {
+      _crash();
     }
-    return 0.0;
+
+    return compression;
   }
+
+  return 0.0;
+}
 
   void _checkGroundAndCrash() {
     final rHit = _nearestSurface(rearPos, trackSegments);
