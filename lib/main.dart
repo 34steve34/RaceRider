@@ -19,7 +19,7 @@ void main() async {
 Offset _off(Vector2 v) => Offset(v.x, v.y);
 
 class RaceRiderGame extends FlameGame with TapCallbacks {
-  static const buildLabel = 'physics v.110 - chatGPT04';
+  static const buildLabel = 'physics v.110 - chatGPT05';
   late Bike player;
   late List<TrackSegment> trackSegments;
   
@@ -453,7 +453,7 @@ class Bike {
     rearPos.addScaled(rearVel, dt);
     frontPos.addScaled(frontVel, dt);
 
-    for (int i = 0; i < 4; i++) {
+    for (int i = 0; i < 2; i++) {
       _solveDist(rearPos, frontPos, _wheelbase, 0.35, 1.65);
 
       // Rear wheel always stabilized strongly
@@ -544,6 +544,9 @@ class Bike {
   }
 
   double _processWheelSuspension(Vector2 pos, Vector2 vel, RaycastHit? hit, Vector2 forkDir, double dt) {
+    if (compressionVelocity > 120.0) {
+    compressionVelocity = 120.0;
+    }
     if (hit == null) return 0.0;
     
     double distToGround = hit.distance;
@@ -673,7 +676,9 @@ class Bike {
   final hit = _nearestSurface(pos, trackSegments);
   
   // Only apply a correction if the wheel is actually INSIDE the ground (distance < radius)
-  if (hit != null && hit.distance < _wheelRadius) {
+     double groundLimit = 1.0;
+
+    if (hit != null && hit.distance < groundLimit) {
     Vector2 correction = hit.normal * (_wheelRadius - hit.distance);
     
     // Push the current position out of the ground
