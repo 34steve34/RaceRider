@@ -31359,9 +31359,9 @@ o=a0.w
 o.a2(a0.at)
 a0.as.aT(a0.ch,a1)
 a0.at.aT(a0.CW,a1)
-for(j=0;j<4;++j){a0.Db(a0.as,a0.at,18,0.35,1.65)
+for(j=0;i=j<2,i;++j){a0.Db(a0.as,a0.at,18,0.35,1.65)
 a0.rK(a0.as,p)
-if(!(a0.z&&a0.y<-0.15)||j<2)a0.rK(a0.at,o)}a0.ch.a2(a0.as)
+if(!(a0.z&&a0.y<-0.15)||i)a0.rK(a0.at,o)}a0.ch.a2(a0.as)
 a0.ch.aR(p)
 p=1/a1
 a0.ch.aY(p)
@@ -31371,14 +31371,14 @@ a0.CW.aY(p)
 p=a0.at.bd(0,a0.as).a
 o=p[1]
 p=p[0]
-i=new A.D(new Float64Array(2))
-i.a4(-o,p)
-i.cA()
-h=a0.CW.bd(0,a0.ch).dH(i)/18
-p=Math.abs(h)
-if(p>6.283185307179586){g=(p-6.283185307179586)*0.5*J.Ke(h)
-a0.ch.aT(i,g)
-a0.CW.aT(i,-g)}l=a0.iQ(a0.as,a0.x)
+h=new A.D(new Float64Array(2))
+h.a4(-o,p)
+h.cA()
+g=a0.CW.bd(0,a0.ch).dH(h)/18
+p=Math.abs(g)
+if(p>6.283185307179586){f=(p-6.283185307179586)*0.5*J.Ke(g)
+a0.ch.aT(h,f)
+a0.CW.aT(h,-f)}l=a0.iQ(a0.as,a0.x)
 k=a0.iQ(a0.at,a0.x)
 a0.dx=l!=null&&l.d<=5+$.e9+0.5
 p=k==null
@@ -31391,12 +31391,12 @@ p=p?null:k.d
 $.Ko=p==null?999:p
 p=a0.ay
 p===$&&A.c()
-f=a0.iQ(p,a0.x)
-if(f!=null&&f.d<2.5)a0.db=B.an
+e=a0.iQ(p,a0.x)
+if(e!=null&&e.d<2.5)a0.db=B.an
 p=a0.at.a
 o=p[1]
-e=a0.as.a
-e=Math.atan2(o-e[1],p[0]-e[0])
+i=a0.as.a
+i=Math.atan2(o-i[1],p[0]-i[0])
 p=a0.c
 p.a2(a0.as)
 p.n(0,a0.at)
@@ -31405,7 +31405,7 @@ a0.ay.a2(p)
 o=a0.ay
 d=new A.D(new Float64Array(2))
 d.a4(-3.5,-13)
-A.Ml(d,e)
+A.Ml(d,i)
 o.n(0,d)
 q.a2(a0.at)
 q.aR(a0.as)
@@ -31503,6 +31503,7 @@ if(q){p=B.d.hh(r-s,0,$.e9)
 q=$.vh
 o=c.b
 n=Math.max(0,-b.dH(o))
+if(n>120)n=120
 b.aT(o,B.d.hh(p*q+n*$.vg,-400,1200)*e)
 if(n>550)this.db=B.an
 return p}return 0},
@@ -31556,7 +31557,7 @@ b.aT(p,-r*(d/q))},
 rK(a,b){var s,r=this.x
 r===$&&A.c()
 s=this.iQ(a,r)
-if(s!=null&&s.d<5)a.n(0,s.b.cg(0,5-s.d))},
+if(s!=null&&s.d<1)a.n(0,s.b.cg(0,5-s.d))},
 iQ(a,a0){var s,r,q,p,o,n,m,l,k,j,i,h,g,f,e,d,c,b
 for(s=a0.length,r=a.a,q=null,p=1/0,o=0;o<a0.length;a0.length===s||(0,A.o)(a0),++o){n=a0[o]
 m=n.a
@@ -31635,7 +31636,7 @@ q===$&&A.c()
 s=r.at+r.gi7().hv
 r.at=s
 if(s>=0.33){r.at=0
-q="RaceRider\nphysics v.110 - chatGPT04\nSpeed: "+B.d.H(q.gp0(),1)+"\n"
+q="RaceRider\nphysics v.110 - chatGPT05\nSpeed: "+B.d.H(q.gp0(),1)+"\n"
 r.ax=q
 q+=B.c.cg("\u2500",20)+"\n"
 r.ax=q
