@@ -19,7 +19,7 @@ void main() async {
 Offset _off(Vector2 v) => Offset(v.x, v.y);
 
 class RaceRiderGame extends FlameGame with TapCallbacks {
-  static const buildLabel = 'physics v.110 - chatGPT06';
+  static const buildLabel = 'physics v.110 - WINDSURF 01';
   late Bike player;
   late List<TrackSegment> trackSegments;
   
@@ -39,11 +39,11 @@ class RaceRiderGame extends FlameGame with TapCallbacks {
   
   final List<String> tuningParamNames = [
     'Torque', 'Jump', 'Mass', 'CogDist', 'CogHeight', 'MagStr', 'FrontTorque', 
-    'SuspStr', 'SuspDmp', 'SuspTrv'
+    'SuspStr', 'SuspDmp', 'SuspTrv', 'MaxRotVel', 'LandDamp', 'AirDamp'
   ];
   final List<double> tuningParamSteps = [
     10.0, 0.05, 1.0, 0.5, 0.5, 0.0005, 0.01, 
-    50.0, 5.0, 0.5
+    50.0, 5.0, 0.5, 0.1, 2.0, 0.5
   ];
   
   double crashTimer = 0.0;
@@ -220,6 +220,9 @@ class RaceRiderGame extends FlameGame with TapCallbacks {
       case 7: Bike.suspensionStrength += step; break;
       case 8: Bike.suspensionDamping += step; break;
       case 9: Bike.suspensionTravel += step; break;
+      case 10: Bike._maxRotationVelocity += step; break;
+      case 11: Bike._landingRotationDamping += step; break;
+      case 12: Bike._airborneRotationDamping += step; break;
     }
   }
   
@@ -286,6 +289,9 @@ class RaceRiderGame extends FlameGame with TapCallbacks {
         case 7: val = Bike.suspensionStrength; break;
         case 8: val = Bike.suspensionDamping; break;
         case 9: val = Bike.suspensionTravel; break;
+        case 10: val = Bike._maxRotationVelocity; break;
+        case 11: val = Bike._landingRotationDamping; break;
+        case 12: val = Bike._airborneRotationDamping; break;
       }
       
       TextPainter(
@@ -352,7 +358,9 @@ class Bike {
   static double _wheelbase = 18.0;
   static double _bikeMass = 10.0;
   static double _airborneGravityFactor = 0.85;
-  static double _maxRotationVelocity = 2.0 * pi; // 1 revolution per second
+  static double _maxRotationVelocity = 1.5 * pi; // Reduced from 2.0 * pi for better control
+  static double _landingRotationDamping = 25.0; // Strong damping on landing
+  static double _airborneRotationDamping = 8.0; // Lighter damping in air
 
   // Debug variables for wheelie forces
   static double debugCurrentGravityTorque = 0.0;
@@ -447,11 +455,38 @@ class Bike {
       if (frontOnGround) _applyBrake(frontVel, _frontSurface!.tangent, dt);
     }
 
+    // Apply rotation velocity clamping BEFORE position updates
+    Vector2 axle = frontPos - rearPos;
+    Vector2 tangent = Vector2(-axle.y, axle.x)..normalize();
+    Vector2 relVel = frontVel - rearVel;
+    double rotVel = relVel.dot(tangent) / _wheelbase;
+
+    // Stronger clamping with smoother correction
+    if (rotVel.abs() > _maxRotationVelocity) {
+      double excess = rotVel.abs() - _maxRotationVelocity;
+      double correctionFactor = 0.8; // More aggressive correction
+      double correction = excess * correctionFactor * rotVel.sign;
+      
+      rearVel.addScaled(tangent, correction);
+      frontVel.addScaled(tangent, -correction);
+    }
+
+    // Apply landing stabilization when transitioning from air to ground
+    bool wasAirborne = !(rearOnGround || frontOnGround);
+    
     _oldRear.setFrom(rearPos);
     _oldFront.setFrom(frontPos);
 
     rearPos.addScaled(rearVel, dt);
     frontPos.addScaled(frontVel, dt);
+
+    // Check if we just landed
+    bool justLanded = wasAirborne && (rearOnGround || frontOnGround);
+    
+    // Apply extra damping on landing to prevent spinning
+    if (justLanded) {
+      _applyLandingStabilization(tangent, dt);
+    }
 
     for (int i = 0; i < 2; i++) {
       _solveDist(rearPos, frontPos, _wheelbase, 0.35, 1.65);
@@ -474,19 +509,18 @@ class Bike {
     frontVel.setFrom(frontPos);
     frontVel.sub(_oldFront);
     frontVel.scale(1.0 / dt);
-	Vector2 axle = frontPos - rearPos;
+    // Recalculate rotation velocity after constraints
+    Vector2 axle = frontPos - rearPos;
     Vector2 tangent = Vector2(-axle.y, axle.x)..normalize();
     Vector2 relVel = frontVel - rearVel;
     double rotVel = relVel.dot(tangent) / _wheelbase;
-
-    if (rotVel.abs() > _maxRotationVelocity) {
-
-      double excess = rotVel.abs() - _maxRotationVelocity;
-      double correction = excess * 0.5 * rotVel.sign;
-
-      rearVel.addScaled(tangent, correction);
-      frontVel.addScaled(tangent, -correction);
-}
+    
+    // Final safety check - emergency brake if still spinning too fast
+    if (rotVel.abs() > _maxRotationVelocity * 1.5) {
+      double emergencyCorrection = rotVel * 0.3;
+      rearVel.addScaled(tangent, emergencyCorrection);
+      frontVel.addScaled(tangent, -emergencyCorrection);
+    }
 
     _checkGroundAndCrash();
     _syncFrameAndCollision(angle);
@@ -612,7 +646,22 @@ class Bike {
     if (headHit != null && headHit.distance < _headRadius) _crash();
   }
 
-   void _applyTilt(double dt) {
+  void _applyLandingStabilization(Vector2 tangent, double dt) {
+    // Calculate current rotation velocity
+    Vector2 relVel = frontVel - rearVel;
+    double currentRotVel = relVel.dot(tangent) / _wheelbase;
+    
+    // Apply strong damping to kill unwanted spin
+    double dampingForce = currentRotVel * _landingRotationDamping;
+    
+    // Convert to linear forces and apply to wheels
+    double linearForce = dampingForce * _wheelbase / 2.0;
+    
+    rearVel.addScaled(tangent, linearForce * dt);
+    frontVel.addScaled(tangent, -linearForce * dt);
+  }
+
+  void _applyTilt(double dt) {
   if (tilt.abs() < 0.03) return;
 
   _fwd.setFrom(frontPos);
@@ -650,10 +699,10 @@ class Bike {
   // Add some extra to actually lift the front (account for damping and inertia)
   debugWheelieTorqueNeeded = wheelieGravityResistance + 200.0; // Extra 200 for lift-off
 
-  // 4. Angular Damping
+  // 4. Angular Damping - use different damping for airborne vs grounded
   Vector2 relVel = frontVel - rearVel;
   double currentRotVel = relVel.dot(tangent) / _wheelbase;
-  double damping = 15.0; 
+  double damping = (rearOnGround || frontOnGround) ? 15.0 : _airborneRotationDamping;
   totalTorque -= currentRotVel * damping * 1.8;   
 
   // 5. Torque-to-Force Conversion
@@ -704,10 +753,9 @@ class Bike {
     // Push the current position out of the ground
     pos.add(correction);
     
-    // ALSO push the old position out. This effectively zeros out the 
-    // velocity component that was driving the wheel into the dirt,
-    // but leaves the upward velocity intact so the wheelie can happen.
-    // oldPos.add(correction); TEMPORARY!!
+    // Also push the old position out to zero out velocity driving into ground
+    // This prevents the wheel from "remembering" the impact velocity
+    oldPos.add(correction * 0.8); // Slightly reduced to maintain some upward momentum
   }
 }
 
