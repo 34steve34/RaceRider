@@ -512,9 +512,11 @@ class Bike {
     // Recalculate rotation velocity after constraints
     axle.setFrom(frontPos);
     axle.sub(rearPos);
-    Vector2 tangent = Vector2(-axle.y, axle.x)..normalize();
-    Vector2 relVel = frontVel - rearVel;
-    double rotVel = relVel.dot(tangent) / _wheelbase;
+    tangent.setValues(-axle.y, axle.x);
+    tangent.normalize();
+    relVel.setFrom(frontVel);
+    relVel.sub(rearVel);
+    rotVel = relVel.dot(tangent) / _wheelbase;
     
     // Final safety check - emergency brake if still spinning too fast
     if (rotVel.abs() > _maxRotationVelocity * 1.5) {
