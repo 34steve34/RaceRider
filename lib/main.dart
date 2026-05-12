@@ -19,7 +19,7 @@ void main() async {
 Offset _off(Vector2 v) => Offset(v.x, v.y);
 
 class RaceRiderGame extends FlameGame with TapCallbacks {
-  static const buildLabel = 'physics v.110 - WINDSURF 01';
+  static const buildLabel = 'physics v.110 - WINDSURF 02';
   late Bike player;
   late List<TrackSegment> trackSegments;
   
@@ -358,9 +358,9 @@ class Bike {
   static double _wheelbase = 18.0;
   static double _bikeMass = 10.0;
   static double _airborneGravityFactor = 0.85;
-  static double _maxRotationVelocity = 1.5 * pi; // Reduced from 2.0 * pi for better control
-  static double _landingRotationDamping = 25.0; // Strong damping on landing
-  static double _airborneRotationDamping = 8.0; // Lighter damping in air
+  static double _maxRotationVelocity = 1.2 * pi; // Further reduced for better control
+  static double _landingRotationDamping = 35.0; // Increased for stronger landing stabilization
+  static double _airborneRotationDamping = 15.0; // Increased to prevent airborne spinning
 
   // Debug variables for wheelie forces
   static double debugCurrentGravityTorque = 0.0;
@@ -654,7 +654,7 @@ class Bike {
     Vector2 relVel = frontVel - rearVel;
     double currentRotVel = relVel.dot(tangent) / _wheelbase;
     
-    // Apply strong damping to kill unwanted spin
+    // Apply very strong damping to kill unwanted spin immediately
     double dampingForce = currentRotVel * _landingRotationDamping;
     
     // Convert to linear forces and apply to wheels
@@ -662,6 +662,13 @@ class Bike {
     
     rearVel.addScaled(tangent, linearForce * dt);
     frontVel.addScaled(tangent, -linearForce * dt);
+    
+    // Also apply angular velocity clamp for immediate effect
+    if (currentRotVel.abs() > _maxRotationVelocity * 0.8) {
+      double clampForce = (currentRotVel.abs() - _maxRotationVelocity * 0.8) * currentRotVel.sign * 0.5;
+      rearVel.addScaled(tangent, clampForce * dt);
+      frontVel.addScaled(tangent, -clampForce * dt);
+    }
   }
 
   void _applyTilt(double dt) {
@@ -702,11 +709,18 @@ class Bike {
   // Add some extra to actually lift the front (account for damping and inertia)
   debugWheelieTorqueNeeded = wheelieGravityResistance + 200.0; // Extra 200 for lift-off
 
-  // 4. Angular Damping - use different damping for airborne vs grounded
+  // 4. Angular Damping - use stronger damping for all states
   Vector2 relVel = frontVel - rearVel;
   double currentRotVel = relVel.dot(tangent) / _wheelbase;
-  double damping = (rearOnGround || frontOnGround) ? 15.0 : _airborneRotationDamping;
-  totalTorque -= currentRotVel * damping * 1.8;   
+  double damping;
+  
+  if (rearOnGround || frontOnGround) {
+    damping = 20.0; // Stronger grounded damping
+  } else {
+    damping = _airborneRotationDamping; // Much stronger airborne damping
+  }
+  
+  totalTorque -= currentRotVel * damping * 2.0; // Increased damping multiplier   
 
   // 5. Torque-to-Force Conversion
   double linearAcceleration = 4.0 * totalTorque / (_wheelbase * _bikeMass);
@@ -747,18 +761,28 @@ class Bike {
   void _solveGround(Vector2 pos, Vector2 oldPos) {
   final hit = _nearestSurface(pos, trackSegments);
   
-  // Only apply a correction if the wheel is actually INSIDE the ground (distance < radius)
-     double groundLimit = 1.0;
+  // Stronger ground constraint - prevent wheel from falling through
+     double groundLimit = _wheelRadius + 0.5; // Increased limit for better ground detection
 
     if (hit != null && hit.distance < groundLimit) {
-    Vector2 correction = hit.normal * (_wheelRadius - hit.distance);
+    Vector2 correction = hit.normal * (groundLimit - hit.distance);
     
     // Push the current position out of the ground
     pos.add(correction);
     
     // Also push the old position out to zero out velocity driving into ground
     // This prevents the wheel from "remembering" the impact velocity
-    oldPos.add(correction * 0.8); // Slightly reduced to maintain some upward momentum
+    oldPos.add(correction * 0.9); // Increased to better eliminate penetration velocity
+    
+    // Apply additional upward impulse if wheel is moving into ground
+    Vector2 vel = pos - oldPos;
+    vel.scale(1.0 / (1/120.0)); // Approximate velocity
+    double intoGroundVel = -vel.dot(hit.normal);
+    if (intoGroundVel > 50.0) {
+      vel.addScaled(hit.normal, intoGroundVel * 0.5);
+      pos.setFrom(oldPos);
+      pos.addScaled(vel, 1/120.0);
+    }
   }
 }
 
