@@ -544,9 +544,6 @@ class Bike {
   }
 
   double _processWheelSuspension(Vector2 pos, Vector2 vel, RaycastHit? hit, Vector2 forkDir, double dt) {
-    if (compressionVelocity > 120.0) {
-    compressionVelocity = 120.0;
-    }
     if (hit == null) return 0.0;
     
     double distToGround = hit.distance;
@@ -560,6 +557,9 @@ class Bike {
       double springF = compression * suspensionStrength;
       
       double compressionVelocity = max(0.0, -vel.dot(hit.normal));
+	  if (compressionVelocity > 120.0) {
+      compressionVelocity = 120.0;
+      }
       
       // Dampen both compression AND rebound to prevent the pogo-stick effect
       double dampF = compressionVelocity * suspensionDamping;
