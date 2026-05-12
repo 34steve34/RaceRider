@@ -19,7 +19,7 @@ void main() async {
 Offset _off(Vector2 v) => Offset(v.x, v.y);
 
 class RaceRiderGame extends FlameGame with TapCallbacks {
-  static const buildLabel = 'physics v.109 - chatGPT03';
+  static const buildLabel = 'physics v.110 - chatGPT04';
   late Bike player;
   late List<TrackSegment> trackSegments;
   
@@ -682,7 +682,7 @@ class Bike {
     // ALSO push the old position out. This effectively zeros out the 
     // velocity component that was driving the wheel into the dirt,
     // but leaves the upward velocity intact so the wheelie can happen.
-    oldPos.add(correction); 
+    // oldPos.add(correction); TEMPORARY!!
   }
 }
 
