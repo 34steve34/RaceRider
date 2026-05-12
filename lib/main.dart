@@ -19,7 +19,7 @@ void main() async {
 Offset _off(Vector2 v) => Offset(v.x, v.y);
 
 class RaceRiderGame extends FlameGame with TapCallbacks {
-  static const buildLabel = 'physics v.110 - WINDSURF 02';
+  static const buildLabel = 'physics v.110 - WINDSURF 03';
   late Bike player;
   late List<TrackSegment> trackSegments;
   
@@ -439,6 +439,9 @@ class Bike {
       return;
     }
 
+    // Check ground state FIRST before applying any forces
+    _checkGroundAndCrash();
+
     _applyTilt(dt);
 
     final gVal = (rearOnGround || frontOnGround) ? _gravity : _gravity * _airborneGravityFactor;
@@ -520,12 +523,12 @@ class Bike {
     
     // Final safety check - emergency brake if still spinning too fast
     if (rotVel.abs() > _maxRotationVelocity * 1.5) {
-      double emergencyCorrection = rotVel * 0.3;
+      double emergencyCorrection = rotVel * 0.5; // Stronger emergency correction
       rearVel.addScaled(tangent, emergencyCorrection);
       frontVel.addScaled(tangent, -emergencyCorrection);
     }
 
-    _checkGroundAndCrash();
+    // Remove duplicate ground check since we do it at the start now
     _syncFrameAndCollision(angle);
 
     final dragFactor = 1.0 - (_airDrag * dt);
