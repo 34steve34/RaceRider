@@ -31553,12 +31553,10 @@ r=(s-c)/s
 q=d+e
 a.aT(p,r*(e/q))
 b.aT(p,-r*(d/q))},
-rK(a,b){var s,r,q=this.x
-q===$&&A.c()
-s=this.iQ(a,q)
-if(s!=null&&s.d<5){r=s.b.cg(0,5-s.d)
-a.n(0,r)
-b.n(0,r)}},
+rK(a,b){var s,r=this.x
+r===$&&A.c()
+s=this.iQ(a,r)
+if(s!=null&&s.d<5)a.n(0,s.b.cg(0,5-s.d))},
 iQ(a,a0){var s,r,q,p,o,n,m,l,k,j,i,h,g,f,e,d,c,b
 for(s=a0.length,r=a.a,q=null,p=1/0,o=0;o<a0.length;a0.length===s||(0,A.o)(a0),++o){n=a0[o]
 m=n.a
@@ -31637,7 +31635,7 @@ q===$&&A.c()
 s=r.at+r.gi7().hv
 r.at=s
 if(s>=0.33){r.at=0
-q="RaceRider\nphysics v.109 - chatGPT03\nSpeed: "+B.d.H(q.gp0(),1)+"\n"
+q="RaceRider\nphysics v.110 - chatGPT04\nSpeed: "+B.d.H(q.gp0(),1)+"\n"
 r.ax=q
 q+=B.c.cg("\u2500",20)+"\n"
 r.ax=q
