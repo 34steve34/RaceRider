@@ -19,7 +19,7 @@ void main() async {
 Offset _off(Vector2 v) => Offset(v.x, v.y);
 
 class RaceRiderGame extends FlameGame with TapCallbacks {
-  static const buildLabel = 'v.200 - Gemini VERLET UNIFIED 01';
+  static const buildLabel = 'v.201 - gemini VERLET 02';
   late Bike player;
   late List<TrackSegment> trackSegments;
   
@@ -40,9 +40,10 @@ class RaceRiderGame extends FlameGame with TapCallbacks {
     'Torque', 'Jump', 'Mass', 'CogDist', 'CogHeight', 'MagStr', 'FrontTorque', 
     'SuspStr', 'SuspDmp', 'SuspTrv', 'MaxRotVel', 'LandDamp', 'AirDamp'
   ];
+  // Updated tuning steps for the massive new torque scale
   final List<double> tuningParamSteps = [
-    10.0, 0.05, 1.0, 0.5, 0.5, 0.0005, 0.01, 
-    50.0, 5.0, 0.5, 0.1, 2.0, 0.5
+    1000.0, 0.05, 1.0, 0.5, 0.5, 0.0005, 0.01, 
+    50.0, 5.0, 0.5, 0.1, 10.0, 5.0
   ];
   
   double crashTimer = 0.0;
@@ -73,14 +74,12 @@ class RaceRiderGame extends FlameGame with TapCallbacks {
   List<TrackSegment> _buildTrack() {
     final segs = <TrackSegment>[];
     
-    // Flat section
     segs.add(TrackSegment(Vector2(-400.0, 38.0), Vector2(-200.0, 38.0)));
     
-    // 90-degree curve UP
     final curveCenter = Vector2(-200.0, 38.0 - 72.0); 
     const curveRadius = 72.0;
     const curveSteps = 24;
-    const curveStartAngle = 1.5708;  // PI / 2
+    const curveStartAngle = 1.5708;  
     const curveEndAngle = 0.0;       
     
     Vector2? curvePrev;
@@ -97,7 +96,6 @@ class RaceRiderGame extends FlameGame with TapCallbacks {
       curvePrev = p;
     }
     
-    // Vertical wall
     final wallTop = curvePrev!;
     final wallBottom = Vector2(wallTop.x, wallTop.y - 150.0);
     segs.add(TrackSegment(wallTop, wallBottom));
@@ -335,7 +333,8 @@ class Bike {
   static double suspensionStrength = 260.0; 
   static double suspensionDamping = 8.0; 
 
-  static double _playerTorqueStrength = 3000.0;
+  // SCALED UP massively to overcome physics gravity
+  static double _playerTorqueStrength = 35000.0;
   static double _cogDistanceFromRear = 8.0;
   static double _cogHeight = 5.0;
   static double _frontGroundedTorqueScale = 0.12;
@@ -344,8 +343,10 @@ class Bike {
   static double _bikeMass = 10.0;
   static double _airborneGravityFactor = 0.85;
   static double _maxRotationVelocity = 0.8 * pi; 
-  static double _landingRotationDamping = 60.0;  
-  static double _airborneRotationDamping = 20.0; 
+  
+  // Damping slightly increased to handle higher torque
+  static double _landingRotationDamping = 120.0;  
+  static double _airborneRotationDamping = 40.0; 
 
   static double debugCurrentGravityTorque = 0.0;
   static double debugCurrentPlayerTorque = 0.0;
@@ -366,7 +367,6 @@ class Bike {
   bool isGas = false;
   bool isBrake = false;
 
-  // Verlet Positions
   late Vector2 rearPos, frontPos;
   late Vector2 rearOldPos, frontOldPos;
   late Vector2 headPos, collisionHeadPos;
@@ -423,7 +423,6 @@ class Bike {
     frontOnGround = false;
     double restingDist = _wheelRadius + suspensionTravel;
 
-    // --- REAR WHEEL UNIFIED CONTACT ---
     if (_rearSurface != null) {
       double sd = (rearPos - _rearSurface!.point).dot(_rearSurface!.normal);
       if (sd < restingDist) {
@@ -431,11 +430,9 @@ class Bike {
         double penetration = restingDist - sd;
         double vNorm = rVel.dot(_rearSurface!.normal);
         
-        // Unified Spring Calculation
         double rNormAccel = max(0.0, penetration * suspensionStrength - vNorm * suspensionDamping);
         rAccel += _rearSurface!.normal * rNormAccel;
         
-        // Drive & Brake
         if (isGas) {
           Vector2 driveDir = _forwardTangent(_rearSurface!.tangent);
           rAccel += driveDir * _rearDrive;
@@ -447,15 +444,12 @@ class Bike {
           rAccel += _rearSurface!.tangent * bForce.clamp(-maxFric, maxFric);
         }
         
-        // Crash limit
         if (vNorm < -_impactCrashLimit) _crash();
       } else if (sd < restingDist + 10.0 && sd > 0) {
-        // Magnetism 
         rAccel -= _rearSurface!.normal * (_gravity * _magnetStrength * 100.0);
       }
     }
 
-    // --- FRONT WHEEL UNIFIED CONTACT ---
     if (_frontSurface != null) {
       double sd = (frontPos - _frontSurface!.point).dot(_frontSurface!.normal);
       debugFrontGroundDistance = sd;
@@ -485,25 +479,27 @@ class Bike {
     Vector2 axle = frontPos - rearPos;
     Vector2 tangent = Vector2(-axle.y, axle.x)..normalize(); 
     
-    // Applying Tilt Reversal Request (Positive tilt now equals nose-up)
-    double playerTorque = tilt * _playerTorqueStrength;
+    // Negative sign added for reverse tilt
+    double playerTorque = -tilt * _playerTorqueStrength; 
     
     if (playerTorque < 0 && frontOnGround) {
-      playerTorque *= _frontGroundedTorqueScale; // Nose down penalty
+      playerTorque *= _frontGroundedTorqueScale; 
     }
 
     double angle = atan2(axle.y, axle.x);
-    double cogDist = (_cogDistanceFromRear - _wheelbase / 2) * cos(angle);
-    double gravTorque = cogDist * _gravity * (_bikeMass * 0.5);
+    // Corrected COG Math to properly shift weight rearward
+    double cogDist = (_wheelbase / 2 - _cogDistanceFromRear) * cos(angle);
+    double gravTorque = cogDist * _gravity * _bikeMass;
 
     double totalTorque = playerTorque + gravTorque;
 
     debugCurrentGravityTorque = gravTorque;
     debugCurrentPlayerTorque = playerTorque;
     debugCurrentTotalTorque = totalTorque;
-    debugWheelieTorqueNeeded = ((_wheelbase / 2 - _cogDistanceFromRear) * _gravity * (_bikeMass * 0.5)) + 200.0;
+    
+    // Corrected debug calculation to reflect actual required upward acceleration
+    debugWheelieTorqueNeeded = (cos(angle) * _gravity * _wheelbase * (_bikeMass * 0.5)) - gravTorque;
 
-    // Angular Damping
     Vector2 relVel = fVel - rVel;
     double rotVel = relVel.dot(tangent) / _wheelbase;
     double dampForce = rotVel * (rearOnGround || frontOnGround ? _landingRotationDamping : _airborneRotationDamping);
@@ -512,7 +508,6 @@ class Bike {
     rAccel += tangent * linearTorqueAccel;
     fAccel -= tangent * linearTorqueAccel;
 
-    // --- VERLET INTEGRATION ---
     double drag = 1.0 - (_airDrag * dt);
     Vector2 rNext = rearPos + rVel * drag * dt + rAccel * (dt * dt);
     Vector2 fNext = frontPos + fVel * drag * dt + fAccel * (dt * dt);
@@ -522,8 +517,6 @@ class Bike {
     rearPos.setFrom(rNext);
     frontPos.setFrom(fNext);
 
-    // --- CONSTRAINTS ---
-    // Iterate to maintain perfectly rigid wheelbase
     for (int i = 0; i < 8; i++) {
       _solveDist(rearPos, frontPos, _wheelbase);
     }
@@ -541,7 +534,6 @@ class Bike {
     final dist = diff.length;
     if (dist < 0.0001) return;
     final err = (dist - target) / dist;
-    // Equal mass distribution for constraints
     a.add(diff * (err * 0.5));
     b.sub(diff * (err * 0.5));
   }
@@ -581,9 +573,9 @@ class Bike {
     final wheelP = Paint()..color = Colors.black87..strokeWidth = 3..style = PaintingStyle.stroke;
     final riderP = Paint()..color = const Color(0xFF2255BB);
 
-    // Visual decoupled suspension
     Vector2 fwd = (frontPos - rearPos).normalized();
-    Vector2 localDown = Vector2(fwd.y, -fwd.x);
+    // FIXED: Y-axis inversion for correct downward visual
+    Vector2 localDown = Vector2(-fwd.y, fwd.x);
 
     Vector2 rWheelVis = rearPos + localDown * suspensionTravel;
     if (_rearSurface != null) {
