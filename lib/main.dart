@@ -502,7 +502,7 @@ class Bike {
     
     // Apply extra damping on landing to prevent spinning
     if (justLanded) {
-      _applyLandingStabilization(tangent, dt);
+      _applyLandingStabilization(_tangent, dt);
     }
 
     for (int i = 0; i < 2; i++) {
