@@ -385,7 +385,8 @@ class Bike {
   final Vector2 _rotCache = Vector2.zero(); 
   final Vector2 _axle = Vector2.zero();
   final Vector2 _tangent = Vector2.zero();
-  final Vector2 _relVel = Vector2.zero(); 
+  final Vector2 _relVel = Vector2.zero();
+  double _rotVel = 0.0; 
   
   final Vector2 _oldRear = Vector2.zero();
   final Vector2 _oldFront = Vector2.zero();
@@ -468,20 +469,20 @@ class Bike {
     _tangent.normalize();
     _relVel.setFrom(frontVel);
     _relVel.sub(rearVel);
-    rotVel = _relVel.dot(_tangent) / _wheelbase;
+    _rotVel = _relVel.dot(_tangent) / _wheelbase;
 
     // Stronger clamping with smoother correction
-    if (rotVel.abs() > _maxRotationVelocity) {
-      double excess = rotVel.abs() - _maxRotationVelocity;
+    if (_rotVel.abs() > _maxRotationVelocity) {
+      double excess = _rotVel.abs() - _maxRotationVelocity;
       double correctionFactor = 0.9; // Even more aggressive correction
-      double correction = excess * correctionFactor * rotVel.sign;
+      double correction = excess * correctionFactor * _rotVel.sign;
       
       rearVel.addScaled(_tangent, correction);
       frontVel.addScaled(_tangent, -correction);
       
       // Apply immediate position correction for severe cases
-      if (rotVel.abs() > _maxRotationVelocity * 2.0) {
-        double posCorrection = (rotVel.abs() - _maxRotationVelocity) * 0.1 * rotVel.sign;
+      if (_rotVel.abs() > _maxRotationVelocity * 2.0) {
+        double posCorrection = (_rotVel.abs() - _maxRotationVelocity) * 0.1 * _rotVel.sign;
         rearPos.addScaled(_tangent, posCorrection);
         frontPos.addScaled(_tangent, -posCorrection);
       }
@@ -536,11 +537,11 @@ class Bike {
     _tangent.normalize();
     _relVel.setFrom(frontVel);
     _relVel.sub(rearVel);
-    rotVel = _relVel.dot(_tangent) / _wheelbase;
+    _rotVel = _relVel.dot(_tangent) / _wheelbase;
     
     // Final safety check - emergency brake if still spinning too fast
-    if (rotVel.abs() > _maxRotationVelocity * 1.5) {
-      double emergencyCorrection = rotVel * 0.5; // Stronger emergency correction
+    if (_rotVel.abs() > _maxRotationVelocity * 1.5) {
+      double emergencyCorrection = _rotVel * 0.5; // Stronger emergency correction
       rearVel.addScaled(_tangent, emergencyCorrection);
       frontVel.addScaled(_tangent, -emergencyCorrection);
     }
