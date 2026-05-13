@@ -19,7 +19,7 @@ void main() async {
 Offset _off(Vector2 v) => Offset(v.x, v.y);
 
 class RaceRiderGame extends FlameGame with TapCallbacks {
-  static const buildLabel = 'v.201 - gemini VERLET 02';
+  static const buildLabel = 'v.202gemini04 ZERO SPIN PATCH';
   late Bike player;
   late List<TrackSegment> trackSegments;
   
@@ -40,7 +40,6 @@ class RaceRiderGame extends FlameGame with TapCallbacks {
     'Torque', 'Jump', 'Mass', 'CogDist', 'CogHeight', 'MagStr', 'FrontTorque', 
     'SuspStr', 'SuspDmp', 'SuspTrv', 'MaxRotVel', 'LandDamp', 'AirDamp'
   ];
-  // Updated tuning steps for the massive new torque scale
   final List<double> tuningParamSteps = [
     1000.0, 0.05, 1.0, 0.5, 0.5, 0.0005, 0.01, 
     50.0, 5.0, 0.5, 0.1, 10.0, 5.0
@@ -327,24 +326,25 @@ class Bike {
   static const _maxSpeed = 300.0;
   static const _wheelRadius = 5.0;
   static const _headRadius = 2.5;
-  static const _impactCrashLimit = 550.0; 
+  
+  // Raised impact limit so proper landings don't explode
+  static const _impactCrashLimit = 850.0; 
   
   static double suspensionTravel = 4.5; 
-  static double suspensionStrength = 260.0; 
-  static double suspensionDamping = 8.0; 
+  // Heavily increased strength and damping to stop bounciness
+  static double suspensionStrength = 500.0; 
+  static double suspensionDamping = 35.0; 
 
-  // SCALED UP massively to overcome physics gravity
-  static double _playerTorqueStrength = 35000.0;
+  static double _playerTorqueStrength = 55000.0; 
   static double _cogDistanceFromRear = 8.0;
   static double _cogHeight = 5.0;
   static double _frontGroundedTorqueScale = 0.12;
   static double _magnetStrength = 0.012;
   static double _wheelbase = 18.0;
   static double _bikeMass = 10.0;
-  static double _airborneGravityFactor = 0.85;
+  static double _airborneGravityFactor = 0.85; 
   static double _maxRotationVelocity = 0.8 * pi; 
   
-  // Damping slightly increased to handle higher torque
   static double _landingRotationDamping = 120.0;  
   static double _airborneRotationDamping = 40.0; 
 
@@ -379,6 +379,10 @@ class Bike {
   SurfaceHit? _frontSurface;
 
   late final Vector2 _headFromWheelCenter;
+
+  // Mass distribution logic for natural Center of Gravity rotation
+  double get _massRear => (_wheelbase - _cogDistanceFromRear) / _wheelbase;
+  double get _massFront => _cogDistanceFromRear / _wheelbase;
 
   Bike(Vector2 startPos) {
     rearPos = startPos + _rearLocal;
@@ -479,32 +483,28 @@ class Bike {
     Vector2 axle = frontPos - rearPos;
     Vector2 tangent = Vector2(-axle.y, axle.x)..normalize(); 
     
-    // Negative sign added for reverse tilt
     double playerTorque = -tilt * _playerTorqueStrength; 
     
     if (playerTorque < 0 && frontOnGround) {
       playerTorque *= _frontGroundedTorqueScale; 
     }
 
+    // Removed the fake Airborne Gravity Torque motor. Player Torque is the only applied rotational force.
+    double totalTorque = playerTorque; 
+
     double angle = atan2(axle.y, axle.x);
-    // Corrected COG Math to properly shift weight rearward
-    double cogDist = (_wheelbase / 2 - _cogDistanceFromRear) * cos(angle);
-    double gravTorque = cogDist * _gravity * _bikeMass;
-
-    double totalTorque = playerTorque + gravTorque;
-
-    debugCurrentGravityTorque = gravTorque;
+    
+    // Debug info updated for pure mathematical observation
+    debugCurrentGravityTorque = _cogDistanceFromRear * _bikeMass * _gravity * cos(angle);
     debugCurrentPlayerTorque = playerTorque;
     debugCurrentTotalTorque = totalTorque;
-    
-    // Corrected debug calculation to reflect actual required upward acceleration
-    debugWheelieTorqueNeeded = (cos(angle) * _gravity * _wheelbase * (_bikeMass * 0.5)) - gravTorque;
+    debugWheelieTorqueNeeded = debugCurrentGravityTorque;
 
     Vector2 relVel = fVel - rVel;
     double rotVel = relVel.dot(tangent) / _wheelbase;
     double dampForce = rotVel * (rearOnGround || frontOnGround ? _landingRotationDamping : _airborneRotationDamping);
     
-    double linearTorqueAccel = (totalTorque / (_wheelbase * (_bikeMass * 0.5))) - dampForce;
+    double linearTorqueAccel = (totalTorque / (_wheelbase * _bikeMass)) - dampForce;
     rAccel += tangent * linearTorqueAccel;
     fAccel -= tangent * linearTorqueAccel;
 
@@ -534,8 +534,11 @@ class Bike {
     final dist = diff.length;
     if (dist < 0.0001) return;
     final err = (dist - target) / dist;
-    a.add(diff * (err * 0.5));
-    b.sub(diff * (err * 0.5));
+    
+    // Proper mass distribution solves the COG naturally.
+    // Heavier wheel moves less. Lighter wheel drops more.
+    a.add(diff * (err * _massFront));
+    b.sub(diff * (err * _massRear));
   }
 
   void _syncFrameAndCollision(double currAngle) {
@@ -574,7 +577,6 @@ class Bike {
     final riderP = Paint()..color = const Color(0xFF2255BB);
 
     Vector2 fwd = (frontPos - rearPos).normalized();
-    // FIXED: Y-axis inversion for correct downward visual
     Vector2 localDown = Vector2(-fwd.y, fwd.x);
 
     Vector2 rWheelVis = rearPos + localDown * suspensionTravel;
@@ -634,17 +636,15 @@ class DebugOverlay extends Component with HasGameRef<RaceRiderGame> {
       _cachedDebugText = 'RaceRider\n${RaceRiderGame.buildLabel}\nSpeed: ${b.speed.toStringAsFixed(1)}\n';
       _cachedDebugText += '─' * 20 + '\n';
       _cachedDebugText += 'TORQUE DEBUG:\n';
-      _cachedDebugText += 'Gravity: ${Bike.debugCurrentGravityTorque.toStringAsFixed(1)}\n';
-      _cachedDebugText += 'Player:  ${Bike.debugCurrentPlayerTorque.toStringAsFixed(1)}\n';
-      _cachedDebugText += 'Total:   ${Bike.debugCurrentTotalTorque.toStringAsFixed(1)}\n';
-      _cachedDebugText += 'Wheelie Needed: ${Bike.debugWheelieTorqueNeeded.toStringAsFixed(1)}\n';
+      _cachedDebugText += 'Gravity Needed to Wheelie: ${Bike.debugCurrentGravityTorque.toStringAsFixed(1)}\n';
+      _cachedDebugText += 'Player Applied:  ${Bike.debugCurrentPlayerTorque.toStringAsFixed(1)}\n';
       _cachedDebugText += 'Front Grounded: ${Bike.debugFrontGrounded ? "YES" : "NO"}\n';
       _cachedDebugText += 'Front Distance: ${Bike.debugFrontGroundDistance.toStringAsFixed(1)}\n';
       
-      if (Bike.debugCurrentTotalTorque > Bike.debugWheelieTorqueNeeded) {
+      if (Bike.debugCurrentPlayerTorque > Bike.debugWheelieTorqueNeeded) {
         _cachedWheelieColor = Colors.green;
         _cachedDebugText += 'Wheelie Status: LIFTING!';
-      } else if (Bike.debugCurrentTotalTorque > 0) {
+      } else if (Bike.debugCurrentPlayerTorque > 0) {
         _cachedWheelieColor = Colors.yellow;
         _cachedDebugText += 'Wheelie Status: Trying...';
       } else {
