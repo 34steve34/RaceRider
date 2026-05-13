@@ -19,7 +19,7 @@ void main() async {
 Offset _off(Vector2 v) => Offset(v.x, v.y);
 
 class RaceRiderGame extends FlameGame with TapCallbacks {
-  static const buildLabel = 'v.203gemini 05 - FEEDBACK LOOP FIX';
+  static const buildLabel = 'physics v.204 -gemini BRAKE SYSTEM ADDED';
   late Bike player;
   late List<TrackSegment> trackSegments;
   
@@ -38,11 +38,11 @@ class RaceRiderGame extends FlameGame with TapCallbacks {
   
   final List<String> tuningParamNames = [
     'Torque', 'Jump', 'Mass', 'CogDist', 'CogHeight', 'MagStr', 'FrontTorque', 
-    'SuspStr', 'SuspDmp', 'SuspTrv', 'CrashLim', 'LandDamp', 'AirDamp'
+    'SuspStr', 'SuspDmp', 'SuspTrv', 'CrashLim', 'LandDamp', 'AirDamp', 'BrakeStr'
   ];
   final List<double> tuningParamSteps = [
     1000.0, 0.05, 1.0, 0.5, 0.5, 0.0005, 0.01, 
-    50.0, 5.0, 0.5, 50.0, 10.0, 5.0
+    50.0, 5.0, 0.5, 50.0, 10.0, 5.0, 50.0
   ];
   
   double crashTimer = 0.0;
@@ -200,6 +200,7 @@ class RaceRiderGame extends FlameGame with TapCallbacks {
       case 10: Bike._impactCrashLimit += step; break;
       case 11: Bike._landingRotationDamping += step; break;
       case 12: Bike._airborneRotationDamping += step; break;
+      case 13: Bike._brakeStrength += step; break;
     }
   }
   
@@ -252,6 +253,7 @@ class RaceRiderGame extends FlameGame with TapCallbacks {
         case 10: val = Bike._impactCrashLimit; break;
         case 11: val = Bike._landingRotationDamping; break;
         case 12: val = Bike._airborneRotationDamping; break;
+        case 13: val = Bike._brakeStrength; break;
       }
       
       drawDebugText('${tuningParamNames[currentTuningParam]}: ${val.toStringAsFixed(2)}', Offset(width * 0.35, height * 0.05), Colors.yellow);
@@ -279,6 +281,7 @@ enum BikeState { riding, crashed }
 class Bike {
   static const _gravity = 300.0;
   static const _rearDrive = 420.0;
+  static double _brakeStrength = 700.0; // THE NEW PARAMETER
   static const _wheelRadius = 5.0;
   static const _headRadius = 3.0;
   
@@ -363,7 +366,14 @@ class Bike {
         double penetration = restingDist - sd;
         double vNorm = rVel.dot(_rearSurface!.normal);
         rAccel += _rearSurface!.normal * max(0.0, penetration * suspensionStrength - vNorm * suspensionDamping);
+        
+        // --- REAR WHEEL FORCES ---
         if (isGas) rAccel += _forwardTangent(_rearSurface!.tangent) * _rearDrive;
+        if (isBrake) {
+          double vTan = rVel.dot(_rearSurface!.tangent);
+          rAccel -= _rearSurface!.tangent * (vTan.sign * _brakeStrength);
+        }
+        
         if (vNorm < -_impactCrashLimit) _crash();
       }
     }
@@ -374,6 +384,13 @@ class Bike {
         frontOnGround = true;
         double vNorm = fVel.dot(_frontSurface!.normal);
         fAccel += _frontSurface!.normal * max(0.0, (restingDist - sd) * suspensionStrength - vNorm * suspensionDamping);
+        
+        // --- FRONT WHEEL BRAKING ---
+        if (isBrake) {
+          double vTan = fVel.dot(_frontSurface!.tangent);
+          fAccel -= _frontSurface!.tangent * (vTan.sign * _brakeStrength);
+        }
+        
         if (vNorm < -_impactCrashLimit) _crash();
       }
     }
@@ -387,9 +404,6 @@ class Bike {
     Vector2 relVel = fVel - rVel;
     double rotVel = relVel.dot(tangent) / _wheelbase;
     double damping = (rearOnGround || frontOnGround) ? _landingRotationDamping : _airborneRotationDamping;
-    
-    // THE FIX: Changed to '+' to ensure Negative Feedback damping.
-    // If rotVel is CCW (negative), adding (negative * damping) results in a CW resisting force.
     double linearTorqueAccel = (playerTorque / (_wheelbase * _bikeMass)) + (rotVel * damping);
 
     rAccel += tangent * linearTorqueAccel;
