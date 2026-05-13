@@ -19,7 +19,7 @@ void main() async {
 Offset _off(Vector2 v) => Offset(v.x, v.y);
 
 class RaceRiderGame extends FlameGame with TapCallbacks {
-  static const buildLabel = 'physics v.204 -gemini BRAKE SYSTEM ADDED';
+  static const buildLabel = 'gemini v.205 - ANGLED FORKS';
   late Bike player;
   late List<TrackSegment> trackSegments;
   
@@ -281,7 +281,7 @@ enum BikeState { riding, crashed }
 class Bike {
   static const _gravity = 300.0;
   static const _rearDrive = 420.0;
-  static double _brakeStrength = 700.0; // THE NEW PARAMETER
+  static double _brakeStrength = 700.0; 
   static const _wheelRadius = 5.0;
   static const _headRadius = 3.0;
   
@@ -290,7 +290,7 @@ class Bike {
   static double suspensionStrength = 550.0; 
   static double suspensionDamping = 40.0; 
 
-  static double _playerTorqueStrength = 52000.0; 
+  static double _playerTorqueStrength = 85000.0; 
   static double _cogDistanceFromRear = 8.5;
   static double _cogHeight = 5.0;
   static double _frontGroundedTorqueScale = 0.15;
@@ -316,7 +316,6 @@ class Bike {
   bool frontOnGround = false;
   
   SurfaceHit? _rearSurface, _frontSurface;
-  late final Vector2 _headFromWheelCenter;
 
   double get _massRear => (_wheelbase - _cogDistanceFromRear) / _wheelbase;
   double get _massFront => _cogDistanceFromRear / _wheelbase;
@@ -326,7 +325,6 @@ class Bike {
     frontPos = startPos + Vector2(8.5, 6.5);
     rearOldPos = rearPos.clone();
     frontOldPos = frontPos.clone();
-    _headFromWheelCenter = Vector2(-4.0, -7.0) - (Vector2(-9.5, 6.5) + Vector2(8.5, 6.5)) / 2.0;
     _syncFrameAndCollision(0.0);
   }
 
@@ -354,43 +352,51 @@ class Bike {
     Vector2 fVel = (frontPos - frontOldPos) / dt;
     Vector2 rAccel = Vector2(0, _gravity), fAccel = Vector2(0, _gravity);
 
-    _rearSurface = _nearestSurface(rearPos, trackSegments);
-    _frontSurface = _nearestSurface(frontPos, trackSegments);
+    // Fork Directions
+    Vector2 fwd = (frontPos - rearPos).normalized();
+    Vector2 localDown = Vector2(-fwd.y, fwd.x); 
+    Vector2 rForkDir = localDown.clone()..rotate(0.2); // Swingarm (points slightly back)
+    Vector2 fForkDir = localDown.clone()..rotate(-0.5); // Rake angle (~30 deg forward)
+
+    // Project wheel position based on fork angle
+    Vector2 rTarget = rearPos + rForkDir * suspensionTravel;
+    Vector2 fTarget = frontPos + fForkDir * suspensionTravel;
+
+    _rearSurface = _nearestSurface(rTarget, trackSegments);
+    _frontSurface = _nearestSurface(fTarget, trackSegments);
     rearOnGround = frontOnGround = false;
-    double restingDist = _wheelRadius + suspensionTravel;
 
     if (_rearSurface != null) {
-      double sd = (rearPos - _rearSurface!.point).dot(_rearSurface!.normal);
-      if (sd < restingDist) {
+      double sd = (rTarget - _rearSurface!.point).dot(_rearSurface!.normal);
+      if (sd < _wheelRadius) {
         rearOnGround = true;
-        double penetration = restingDist - sd;
+        double penetration = _wheelRadius - sd;
         double vNorm = rVel.dot(_rearSurface!.normal);
         rAccel += _rearSurface!.normal * max(0.0, penetration * suspensionStrength - vNorm * suspensionDamping);
         
-        // --- REAR WHEEL FORCES ---
         if (isGas) rAccel += _forwardTangent(_rearSurface!.tangent) * _rearDrive;
         if (isBrake) {
           double vTan = rVel.dot(_rearSurface!.tangent);
           rAccel -= _rearSurface!.tangent * (vTan.sign * _brakeStrength);
         }
-        
         if (vNorm < -_impactCrashLimit) _crash();
+      } else if (sd < _wheelRadius + 10.0 && sd > 0) {
+        rAccel -= _rearSurface!.normal * (_gravity * _magnetStrength * 100.0);
       }
     }
 
     if (_frontSurface != null) {
-      double sd = (frontPos - _frontSurface!.point).dot(_frontSurface!.normal);
-      if (sd < restingDist) {
+      double sd = (fTarget - _frontSurface!.point).dot(_frontSurface!.normal);
+      if (sd < _wheelRadius) {
         frontOnGround = true;
+        double penetration = _wheelRadius - sd;
         double vNorm = fVel.dot(_frontSurface!.normal);
-        fAccel += _frontSurface!.normal * max(0.0, (restingDist - sd) * suspensionStrength - vNorm * suspensionDamping);
+        fAccel += _frontSurface!.normal * max(0.0, penetration * suspensionStrength - vNorm * suspensionDamping);
         
-        // --- FRONT WHEEL BRAKING ---
         if (isBrake) {
           double vTan = fVel.dot(_frontSurface!.tangent);
           fAccel -= _frontSurface!.tangent * (vTan.sign * _brakeStrength);
         }
-        
         if (vNorm < -_impactCrashLimit) _crash();
       }
     }
@@ -431,10 +437,12 @@ class Bike {
 
   void _syncFrameAndCollision(double currAngle) {
     Vector2 center = (rearPos + frontPos) / 2.0;
-    collisionHeadPos = center + (Vector2(-3.5, -13.0)..rotate(currAngle));
     Vector2 fwd = (frontPos - rearPos).normalized();
-    Vector2 up = Vector2(-fwd.y, fwd.x);
-    headPos = center + fwd * _headFromWheelCenter.x + up * _headFromWheelCenter.y;
+    Vector2 localDown = Vector2(-fwd.y, fwd.x); 
+    
+    // Positioned exactly midway (no forward offset), and lower (closer to the frame)
+    headPos = center + localDown * -3.5; 
+    collisionHeadPos = headPos;
   }
 
   SurfaceHit? _nearestSurface(Vector2 pt, List<TrackSegment> segs) {
@@ -462,21 +470,42 @@ class Bike {
 
     Vector2 fwd = (frontPos - rearPos).normalized();
     Vector2 localDown = Vector2(-fwd.y, fwd.x);
+    Vector2 rForkDir = localDown.clone()..rotate(0.2); 
+    Vector2 fForkDir = localDown.clone()..rotate(-0.5); 
 
-    Vector2 rWheelVis = rearPos + localDown * suspensionTravel;
-    if (_rearSurface != null && (rearPos - _rearSurface!.point).dot(_rearSurface!.normal) < _wheelRadius + suspensionTravel) {
-      rWheelVis = _rearSurface!.point + _rearSurface!.normal * _wheelRadius;
+    Vector2 rWheelVis = rearPos + rForkDir * suspensionTravel;
+    if (_rearSurface != null) {
+      Vector2 targetWheel = rearPos + rForkDir * suspensionTravel;
+      double sd = (targetWheel - _rearSurface!.point).dot(_rearSurface!.normal);
+      if (sd < _wheelRadius) {
+        double normalComp = _wheelRadius - sd;
+        double forkAlign = rForkDir.dot(-_rearSurface!.normal).clamp(0.1, 1.0);
+        double forkComp = (normalComp / forkAlign).clamp(0.0, suspensionTravel);
+        rWheelVis = rearPos + rForkDir * (suspensionTravel - forkComp);
+      }
     }
-    Vector2 fWheelVis = frontPos + localDown * suspensionTravel;
-    if (_frontSurface != null && (frontPos - _frontSurface!.point).dot(_frontSurface!.normal) < _wheelRadius + suspensionTravel) {
-      fWheelVis = _frontSurface!.point + _frontSurface!.normal * _wheelRadius;
+
+    Vector2 fWheelVis = frontPos + fForkDir * suspensionTravel;
+    if (_frontSurface != null) {
+      Vector2 targetWheel = frontPos + fForkDir * suspensionTravel;
+      double sd = (targetWheel - _frontSurface!.point).dot(_frontSurface!.normal);
+      if (sd < _wheelRadius) {
+        double normalComp = _wheelRadius - sd;
+        double forkAlign = fForkDir.dot(-_frontSurface!.normal).clamp(0.1, 1.0);
+        double forkComp = (normalComp / forkAlign).clamp(0.0, suspensionTravel);
+        fWheelVis = frontPos + fForkDir * (suspensionTravel - forkComp);
+      }
     }
 
     canvas.drawCircle(_off(rWheelVis), _wheelRadius, wheelP);
     canvas.drawCircle(_off(fWheelVis), _wheelRadius, wheelP);
     canvas.drawLine(_off(rearPos), _off(frontPos), frameP);
-    canvas.drawLine(_off(rearPos), _off(headPos), frameP);
-    canvas.drawLine(_off(frontPos), _off(headPos), frameP);
+    
+    // Draw visual forks connecting frame to wheels
+    final shockP = Paint()..color = Colors.grey[400]!..strokeWidth = 2;
+    canvas.drawLine(_off(rearPos), _off(rWheelVis), shockP);
+    canvas.drawLine(_off(frontPos), _off(fWheelVis), shockP);
+    
     canvas.drawCircle(_off(headPos), _headRadius, riderP);
   }
 }
