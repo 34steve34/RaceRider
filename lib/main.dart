@@ -383,6 +383,7 @@ class Bike {
   final Vector2 _fwd = Vector2.zero();
   final Vector2 _up = Vector2.zero();
   final Vector2 _rotCache = Vector2.zero(); 
+  final Vector2 _axle = Vector2.zero(); 
   
   final Vector2 _oldRear = Vector2.zero();
   final Vector2 _oldFront = Vector2.zero();
@@ -459,9 +460,9 @@ class Bike {
     }
 
     // Apply rotation velocity clamping BEFORE position updates
-    axle.setFrom(frontPos);
-    axle.sub(rearPos);
-    tangent.setValues(-axle.y, axle.x);
+    _axle.setFrom(frontPos);
+    _axle.sub(rearPos);
+    tangent.setValues(-_axle.y, _axle.x);
     tangent.normalize();
     relVel.setFrom(frontVel);
     relVel.sub(rearVel);
@@ -527,9 +528,9 @@ class Bike {
     frontVel.sub(_oldFront);
     frontVel.scale(1.0 / dt);
     // Recalculate rotation velocity after constraints
-    axle.setFrom(frontPos);
-    axle.sub(rearPos);
-    tangent.setValues(-axle.y, axle.x);
+    _axle.setFrom(frontPos);
+    _axle.sub(rearPos);
+    tangent.setValues(-_axle.y, _axle.x);
     tangent.normalize();
     relVel.setFrom(frontVel);
     relVel.sub(rearVel);
