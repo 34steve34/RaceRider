@@ -383,7 +383,9 @@ class Bike {
   final Vector2 _fwd = Vector2.zero();
   final Vector2 _up = Vector2.zero();
   final Vector2 _rotCache = Vector2.zero(); 
-  final Vector2 _axle = Vector2.zero(); 
+  final Vector2 _axle = Vector2.zero();
+  final Vector2 _tangent = Vector2.zero();
+  final Vector2 _relVel = Vector2.zero(); 
   
   final Vector2 _oldRear = Vector2.zero();
   final Vector2 _oldFront = Vector2.zero();
@@ -462,11 +464,11 @@ class Bike {
     // Apply rotation velocity clamping BEFORE position updates
     _axle.setFrom(frontPos);
     _axle.sub(rearPos);
-    tangent.setValues(-_axle.y, _axle.x);
-    tangent.normalize();
-    relVel.setFrom(frontVel);
-    relVel.sub(rearVel);
-    rotVel = relVel.dot(tangent) / _wheelbase;
+    _tangent.setValues(-_axle.y, _axle.x);
+    _tangent.normalize();
+    _relVel.setFrom(frontVel);
+    _relVel.sub(rearVel);
+    rotVel = _relVel.dot(_tangent) / _wheelbase;
 
     // Stronger clamping with smoother correction
     if (rotVel.abs() > _maxRotationVelocity) {
@@ -474,14 +476,14 @@ class Bike {
       double correctionFactor = 0.9; // Even more aggressive correction
       double correction = excess * correctionFactor * rotVel.sign;
       
-      rearVel.addScaled(tangent, correction);
-      frontVel.addScaled(tangent, -correction);
+      rearVel.addScaled(_tangent, correction);
+      frontVel.addScaled(_tangent, -correction);
       
       // Apply immediate position correction for severe cases
       if (rotVel.abs() > _maxRotationVelocity * 2.0) {
         double posCorrection = (rotVel.abs() - _maxRotationVelocity) * 0.1 * rotVel.sign;
-        rearPos.addScaled(tangent, posCorrection);
-        frontPos.addScaled(tangent, -posCorrection);
+        rearPos.addScaled(_tangent, posCorrection);
+        frontPos.addScaled(_tangent, -posCorrection);
       }
     }
 
@@ -530,22 +532,21 @@ class Bike {
     // Recalculate rotation velocity after constraints
     _axle.setFrom(frontPos);
     _axle.sub(rearPos);
-    tangent.setValues(-_axle.y, _axle.x);
-    tangent.normalize();
-    relVel.setFrom(frontVel);
-    relVel.sub(rearVel);
-    rotVel = relVel.dot(tangent) / _wheelbase;
+    _tangent.setValues(-_axle.y, _axle.x);
+    _tangent.normalize();
+    _relVel.setFrom(frontVel);
+    _relVel.sub(rearVel);
+    rotVel = _relVel.dot(_tangent) / _wheelbase;
     
     // Final safety check - emergency brake if still spinning too fast
     if (rotVel.abs() > _maxRotationVelocity * 1.5) {
       double emergencyCorrection = rotVel * 0.5; // Stronger emergency correction
-      rearVel.addScaled(tangent, emergencyCorrection);
-      frontVel.addScaled(tangent, -emergencyCorrection);
+      rearVel.addScaled(_tangent, emergencyCorrection);
+      frontVel.addScaled(_tangent, -emergencyCorrection);
     }
 
     // Remove duplicate ground check since we do it at the start now
     _syncFrameAndCollision(angle);
-
     final dragFactor = 1.0 - (_airDrag * dt);
     rearVel.scale(dragFactor);
     frontVel.scale(dragFactor);
