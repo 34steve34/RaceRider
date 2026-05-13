@@ -19,7 +19,7 @@ void main() async {
 Offset _off(Vector2 v) => Offset(v.x, v.y);
 
 class RaceRiderGame extends FlameGame with TapCallbacks {
-  static const buildLabel = 'physics v.110 - WINDSURF 03';
+  static const buildLabel = 'physics v.110 - WINDSURF 04';
   late Bike player;
   late List<TrackSegment> trackSegments;
   
@@ -459,19 +459,29 @@ class Bike {
     }
 
     // Apply rotation velocity clamping BEFORE position updates
-    Vector2 axle = frontPos - rearPos;
-    Vector2 tangent = Vector2(-axle.y, axle.x)..normalize();
-    Vector2 relVel = frontVel - rearVel;
-    double rotVel = relVel.dot(tangent) / _wheelbase;
+    axle.setFrom(frontPos);
+    axle.sub(rearPos);
+    tangent.setValues(-axle.y, axle.x);
+    tangent.normalize();
+    relVel.setFrom(frontVel);
+    relVel.sub(rearVel);
+    rotVel = relVel.dot(tangent) / _wheelbase;
 
     // Stronger clamping with smoother correction
     if (rotVel.abs() > _maxRotationVelocity) {
       double excess = rotVel.abs() - _maxRotationVelocity;
-      double correctionFactor = 0.8; // More aggressive correction
+      double correctionFactor = 0.9; // Even more aggressive correction
       double correction = excess * correctionFactor * rotVel.sign;
       
       rearVel.addScaled(tangent, correction);
       frontVel.addScaled(tangent, -correction);
+      
+      // Apply immediate position correction for severe cases
+      if (rotVel.abs() > _maxRotationVelocity * 2.0) {
+        double posCorrection = (rotVel.abs() - _maxRotationVelocity) * 0.1 * rotVel.sign;
+        rearPos.addScaled(tangent, posCorrection);
+        frontPos.addScaled(tangent, -posCorrection);
+      }
     }
 
     // Apply landing stabilization when transitioning from air to ground
@@ -498,9 +508,13 @@ class Bike {
       _solveGround(rearPos, _oldRear);
 
       // Front wheel gets weaker grounding during wheelie torque
-      bool attemptingWheelie = isGas && tilt < -0.15;
+      bool attemptingWheelie = isGas && tilt < -0.12; // Reduced threshold for better responsiveness
+      
+      // Calculate current torque to determine if front should lift
+      bool strongUpwardTorque = Bike.debugCurrentTotalTorque > Bike.debugWheelieTorqueNeeded;
 
-      if (!attemptingWheelie || i < 2) {
+      // Skip ground constraint for front wheel if attempting wheelie OR strong upward torque
+      if (!attemptingWheelie && !strongUpwardTorque) {
         _solveGround(frontPos, _oldFront);
       }
     }
