@@ -19,7 +19,7 @@ void main() async {
 Offset _off(Vector2 v) => Offset(v.x, v.y);
 
 class RaceRiderGame extends FlameGame with TapCallbacks {
-  static const buildLabel = 'physics v.110 - WINDSURF 04';
+  static const buildLabel = 'physics v.110 - CLAUDE 01';
   late Bike player;
   late List<TrackSegment> trackSegments;
   
@@ -358,9 +358,9 @@ class Bike {
   static double _wheelbase = 18.0;
   static double _bikeMass = 10.0;
   static double _airborneGravityFactor = 0.85;
-  static double _maxRotationVelocity = 1.2 * pi; // Further reduced for better control
-  static double _landingRotationDamping = 35.0; // Increased for stronger landing stabilization
-  static double _airborneRotationDamping = 15.0; // Increased to prevent airborne spinning
+  static double _maxRotationVelocity = 0.8 * pi; // Tighter cap prevents wild spins
+  static double _landingRotationDamping = 60.0;  // Much stronger landing stabilization
+  static double _airborneRotationDamping = 20.0; // Moderate airborne control
 
   // Debug variables for wheelie forces
   static double debugCurrentGravityTorque = 0.0;
@@ -386,7 +386,8 @@ class Bike {
   final Vector2 _axle = Vector2.zero();
   final Vector2 _tangent = Vector2.zero();
   final Vector2 _relVel = Vector2.zero();
-  double _rotVel = 0.0; 
+  double _rotVel = 0.0;
+  bool _wasAirborne = true; // tracks previous-frame airborne state for landing detection
   
   final Vector2 _oldRear = Vector2.zero();
   final Vector2 _oldFront = Vector2.zero();
@@ -443,8 +444,7 @@ class Bike {
       return;
     }
 
-    // Check ground state FIRST before applying any forces
-    _checkGroundAndCrash();
+    // Ground state is checked AFTER moving positions (see below)
 
     _applyTilt(dt);
 
@@ -488,8 +488,8 @@ class Bike {
       }
     }
 
-    // Apply landing stabilization when transitioning from air to ground
-    bool wasAirborne = !(rearOnGround || frontOnGround);
+    // Use PREVIOUS frame's airborne state so landing detection actually fires
+    bool wasAirborne = _wasAirborne;
     
     _oldRear.setFrom(rearPos);
     _oldFront.setFrom(frontPos);
@@ -497,12 +497,19 @@ class Bike {
     rearPos.addScaled(rearVel, dt);
     frontPos.addScaled(frontVel, dt);
 
-    // Check if we just landed
+    // Now re-check ground after moving (justLanded = was in air, now on ground)
+    _checkGroundAndCrash();
     bool justLanded = wasAirborne && (rearOnGround || frontOnGround);
+    _wasAirborne = !(rearOnGround || frontOnGround); // save for next frame
     
     // Apply extra damping on landing to prevent spinning
     if (justLanded) {
       _applyLandingStabilization(_tangent, dt);
+    }
+    
+    // Continuous grounded rotation damping — keeps bike planted like Bike Race
+    if (rearOnGround && frontOnGround) {
+      _applyGroundedRotationDamping(dt);
     }
 
     for (int i = 0; i < 2; i++) {
@@ -670,24 +677,42 @@ class Bike {
   }
 
   void _applyLandingStabilization(Vector2 tangent, double dt) {
-    // Calculate current rotation velocity
     Vector2 relVel = frontVel - rearVel;
     double currentRotVel = relVel.dot(tangent) / _wheelbase;
-    
-    // Apply very strong damping to kill unwanted spin immediately
+
+    // Immediately clamp to max rotation velocity on landing
+    if (currentRotVel.abs() > _maxRotationVelocity * 0.5) {
+      double clampTarget = _maxRotationVelocity * 0.5 * currentRotVel.sign;
+      double delta = currentRotVel - clampTarget;
+      rearVel.addScaled(tangent, delta * _wheelbase * 0.5);
+      frontVel.addScaled(tangent, -delta * _wheelbase * 0.5);
+      currentRotVel = clampTarget;
+    }
+
+    // Strong damping force to kill remaining spin
     double dampingForce = currentRotVel * _landingRotationDamping;
-    
-    // Convert to linear forces and apply to wheels
     double linearForce = dampingForce * _wheelbase / 2.0;
-    
     rearVel.addScaled(tangent, linearForce * dt);
     frontVel.addScaled(tangent, -linearForce * dt);
-    
-    // Also apply angular velocity clamp for immediate effect
-    if (currentRotVel.abs() > _maxRotationVelocity * 0.8) {
-      double clampForce = (currentRotVel.abs() - _maxRotationVelocity * 0.8) * currentRotVel.sign * 0.5;
-      rearVel.addScaled(tangent, clampForce * dt);
-      frontVel.addScaled(tangent, -clampForce * dt);
+  }
+
+  /// Continuous rotation damping when both wheels are grounded.
+  /// Bike Race keeps the bike planted — no wild spinning on the ground.
+  void _applyGroundedRotationDamping(double dt) {
+    _axle.setFrom(frontPos);
+    _axle.sub(rearPos);
+    final tangent = Vector2(-_axle.y, _axle.x)..normalize();
+
+    _relVel.setFrom(frontVel);
+    _relVel.sub(rearVel);
+    final rotVel = _relVel.dot(tangent) / _wheelbase;
+
+    // Kill excess rotation beyond a gentle lean limit
+    const maxGroundedRot = 0.3; // rad/s while on the ground
+    if (rotVel.abs() > maxGroundedRot) {
+      double excess = rotVel - maxGroundedRot * rotVel.sign;
+      rearVel.addScaled(tangent, excess * 0.8);
+      frontVel.addScaled(tangent, -excess * 0.8);
     }
   }
 
@@ -734,13 +759,15 @@ class Bike {
   double currentRotVel = relVel.dot(tangent) / _wheelbase;
   double damping;
   
-  if (rearOnGround || frontOnGround) {
-    damping = 20.0; // Stronger grounded damping
+  if (rearOnGround && frontOnGround) {
+    damping = 60.0; // Both wheels down: aggressively kill rotation
+  } else if (rearOnGround || frontOnGround) {
+    damping = 30.0; // One wheel down: strong damping
   } else {
-    damping = _airborneRotationDamping; // Much stronger airborne damping
+    damping = _airborneRotationDamping; // Airborne: moderate control
   }
   
-  totalTorque -= currentRotVel * damping * 2.0; // Increased damping multiplier   
+  totalTorque -= currentRotVel * damping * 2.0;
 
   // 5. Torque-to-Force Conversion
   double linearAcceleration = 4.0 * totalTorque / (_wheelbase * _bikeMass);
@@ -780,29 +807,24 @@ class Bike {
 
   void _solveGround(Vector2 pos, Vector2 oldPos) {
   final hit = _nearestSurface(pos, trackSegments);
-  
-  // Stronger ground constraint - prevent wheel from falling through
-     double groundLimit = _wheelRadius + 0.5; // Increased limit for better ground detection
+  if (hit == null) return;
 
-    if (hit != null && hit.distance < groundLimit) {
-    Vector2 correction = hit.normal * (groundLimit - hit.distance);
-    
-    // Push the current position out of the ground
+  // Signed distance: positive = correct side (above track), negative = fell through
+  final toPos = pos - hit.point;
+  final signedDist = toPos.dot(hit.normal);
+
+  // The axle must stay at least (wheelRadius + suspensionTravel) above the surface.
+  // Using just wheelRadius+0.5 was the old bug — too small, let wheels pass through.
+  final groundLimit = _wheelRadius + suspensionTravel;
+
+  if (signedDist < groundLimit) {
+    // Whether above-but-too-close OR below (fell through), push axle back up
+    final correctionAmount = groundLimit - signedDist;
+    final correction = hit.normal * correctionAmount;
+
     pos.add(correction);
-    
-    // Also push the old position out to zero out velocity driving into ground
-    // This prevents the wheel from "remembering" the impact velocity
-    oldPos.add(correction * 0.9); // Increased to better eliminate penetration velocity
-    
-    // Apply additional upward impulse if wheel is moving into ground
-    Vector2 vel = pos - oldPos;
-    vel.scale(1.0 / (1/120.0)); // Approximate velocity
-    double intoGroundVel = -vel.dot(hit.normal);
-    if (intoGroundVel > 50.0) {
-      vel.addScaled(hit.normal, intoGroundVel * 0.5);
-      pos.setFrom(oldPos);
-      pos.addScaled(vel, 1/120.0);
-    }
+    // Move oldPos slightly less to bleed off inward velocity, but not create bounce
+    oldPos.add(correction * 0.85);
   }
 }
 
