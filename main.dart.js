@@ -31360,7 +31360,7 @@ s=b0.as
 if(s&&b0.at)c=$.vh
 else c=s||b0.at?$.vk:$.ve
 s=p.aa(0,q).be(e)
-b=d/(18*$.vf)+s/18*c
+b=d/(18*$.vf)-s/18*c
 o=o.X(0,e.a2(0,b))
 n=n.aa(0,e.a2(0,b))
 s=1-0.05*b1
@@ -31513,7 +31513,7 @@ r=o.f
 r===$&&A.c()
 o=o.w
 o===$&&A.c()
-o=A.M9(A.Ma(B.vm,"RaceRider v.208 gemini - GHOST COLLISION FIX\nSpeed: "+B.d.J((q+Math.sqrt(r.aa(0,o).gev()))/0.016666666666666666,1)),B.x)
+o=A.M9(A.Ma(B.vm,"RaceRider v.209 claude torque sign change\nSpeed: "+B.d.J((q+Math.sqrt(r.aa(0,o).gev()))/0.016666666666666666,1)),B.x)
 o.uR()
 o.bG(a,B.tM)}}
 A.qH.prototype={
