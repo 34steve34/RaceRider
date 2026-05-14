@@ -19,7 +19,7 @@ void main() async {
 Offset _off(Vector2 v) => Offset(v.x, v.y);
 
 class RaceRiderGame extends FlameGame with TapCallbacks {
-  static const buildLabel = 'physics v.209 - gemini HIGH WHEELIE STABILITY';
+  static const buildLabel = 'v.210 - SAAD CONTINUITY & WIDE THROW';
   late Bike player;
   late List<TrackSegment> trackSegments;
   
@@ -129,7 +129,9 @@ class RaceRiderGame extends FlameGame with TapCallbacks {
       tiltCalibrated = true;
     }
     
-    final normalized = ((rawTilt - tiltZero) / 3.0).clamp(-1.0, 1.0);
+    // INCREASED THROW: Using 8.0 divisor instead of 3.0.
+    // This requires more physical tilt to reach 1.0 (Full Scale).
+    final normalized = ((rawTilt - tiltZero) / 8.0).clamp(-1.0, 1.0);
     smoothedTilt = smoothedTilt * 0.15 + normalized * 0.85;
     if (smoothedTilt.abs() < 0.05) smoothedTilt = 0.0;
     
@@ -302,7 +304,6 @@ class Bike {
   static double _airborneGravityFactor = 1.0; 
   
   static double _landingRotationDamping = 140.0;  
-  // INCREASED from 45.0 to 65.0 to give the bike more stability while balanced high
   static double _wheelieRotationDamping = 65.0;   
   static double _airborneRotationDamping = 45.0;  
 
@@ -410,20 +411,15 @@ class Bike {
       }
     }
 
-    // --- TORQUE MATH WITH DYNAMIC ANGLE CUSHION ---
+    // --- CONTINUOUS TORQUE PHYSICS (v.210) ---
     Vector2 axle = frontPos - rearPos;
     Vector2 tangent = Vector2(-axle.y, axle.x)..normalize(); 
     
     double angle = atan2(axle.y, axle.x);
-    double angleFactor = 1.0;
     
-    // ARCADE HACK: Soften the torque as the bike approaches vertical
-    // to make high wheelies smooth and easy to balance without snapping.
-    if (rearOnGround && !frontOnGround) {
-      // cos(angle) is 1.0 when flat, 0.0 when perfectly vertical.
-      // We clamp to 0.25 so you don't lose total control at the 12 o'clock point.
-      angleFactor = max(0.25, cos(angle).abs());
-    }
+    // The Saad Continuity: 0.25 + 0.75 * cos(angle)
+    // This removes the "step" in torque and creates a smooth balance dip.
+    double angleFactor = 0.25 + 0.75 * cos(angle).abs();
 
     double playerTorque = -tilt * _playerTorqueStrength * angleFactor; 
     
