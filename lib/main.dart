@@ -19,7 +19,7 @@ void main() async {
 Offset _off(Vector2 v) => Offset(v.x, v.y);
 
 class RaceRiderGame extends FlameGame with TapCallbacks {
-  static const buildLabel = 'v.209 claude torque sign change';
+  static const buildLabel = 'physics v.209 - gemini HIGH WHEELIE STABILITY';
   late Bike player;
   late List<TrackSegment> trackSegments;
   
@@ -302,10 +302,10 @@ class Bike {
   static double _airborneGravityFactor = 1.0; 
   
   static double _landingRotationDamping = 140.0;  
-  static double _wheelieRotationDamping = 45.0;   
+  // INCREASED from 45.0 to 65.0 to give the bike more stability while balanced high
+  static double _wheelieRotationDamping = 65.0;   
   static double _airborneRotationDamping = 45.0;  
 
-  // Hard limit for ground detection so sky-collisions don't happen
   static const double _maxSurfaceDist = 40.0;
 
   late List<TrackSegment> trackSegments;
@@ -375,7 +375,6 @@ class Bike {
     _frontSurface = _nearestSurface(fTarget, trackSegments);
     rearOnGround = frontOnGround = false;
 
-    // ONLY process ground hits if the track is actually nearby
     if (_rearSurface != null && _rearSurface!.distance < _maxSurfaceDist) {
       double sd = (rTarget - _rearSurface!.point).dot(_rearSurface!.normal);
       if (sd < _wheelRadius) {
@@ -411,9 +410,22 @@ class Bike {
       }
     }
 
+    // --- TORQUE MATH WITH DYNAMIC ANGLE CUSHION ---
     Vector2 axle = frontPos - rearPos;
     Vector2 tangent = Vector2(-axle.y, axle.x)..normalize(); 
-    double playerTorque = -tilt * _playerTorqueStrength; 
+    
+    double angle = atan2(axle.y, axle.x);
+    double angleFactor = 1.0;
+    
+    // ARCADE HACK: Soften the torque as the bike approaches vertical
+    // to make high wheelies smooth and easy to balance without snapping.
+    if (rearOnGround && !frontOnGround) {
+      // cos(angle) is 1.0 when flat, 0.0 when perfectly vertical.
+      // We clamp to 0.25 so you don't lose total control at the 12 o'clock point.
+      angleFactor = max(0.25, cos(angle).abs());
+    }
+
+    double playerTorque = -tilt * _playerTorqueStrength * angleFactor; 
     
     if (playerTorque < 0 && frontOnGround) playerTorque *= _frontGroundedTorqueScale;
 
@@ -428,7 +440,7 @@ class Bike {
 
     Vector2 relVel = fVel - rVel;
     double rotVel = relVel.dot(tangent) / _wheelbase;
-    double linearTorqueAccel = (playerTorque / (_wheelbase * _bikeMass)) - (rotVel * damping);
+    double linearTorqueAccel = (playerTorque / (_wheelbase * _bikeMass)) + (rotVel * damping);
 
     rAccel += tangent * linearTorqueAccel;
     fAccel -= tangent * linearTorqueAccel;
