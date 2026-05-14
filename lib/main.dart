@@ -19,7 +19,7 @@ void main() async {
 Offset _off(Vector2 v) => Offset(v.x, v.y);
 
 class RaceRiderGame extends FlameGame with TapCallbacks {
-  static const buildLabel = 'v.208 gemini - GHOST COLLISION FIX';
+  static const buildLabel = 'v.209 claude torque sign change';
   late Bike player;
   late List<TrackSegment> trackSegments;
   
@@ -428,7 +428,7 @@ class Bike {
 
     Vector2 relVel = fVel - rVel;
     double rotVel = relVel.dot(tangent) / _wheelbase;
-    double linearTorqueAccel = (playerTorque / (_wheelbase * _bikeMass)) + (rotVel * damping);
+    double linearTorqueAccel = (playerTorque / (_wheelbase * _bikeMass)) - (rotVel * damping);
 
     rAccel += tangent * linearTorqueAccel;
     fAccel -= tangent * linearTorqueAccel;
