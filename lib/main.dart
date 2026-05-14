@@ -291,14 +291,14 @@ class Bike {
   
   static double _impactCrashLimit = 950.0; 
   static double suspensionTravel = 4.5; 
-  static double suspensionStrength = 550.0; 
+  static double suspensionStrength = 1300.0;
   static double suspensionDamping = 40.0; 
 
   static double _playerTorqueStrength = 200000.0; 
   static double _cogDistanceFromRear = 8.5;
   static double _cogHeight = 5.0;
   static double _frontGroundedTorqueScale = 0.15;
-  static double _magnetStrength = 0.015;
+  static double _magnetStrength = 0.005;
   static double _wheelbase = 18.0;
   static double _bikeMass = 10.0;
   static double _airborneGravityFactor = 1.0; 
