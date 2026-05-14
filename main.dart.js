@@ -31050,7 +31050,7 @@ if(c!=null)b.push(new A.eG(c,k))}return b},
 ah(a){var s,r,q,p,o=this
 o.wT(a)
 if(!o.H){o.cb=o.b9
-o.H=!0}s=B.d.ef((o.b9-o.cb)/3,-1,1)
+o.H=!0}s=B.d.ef((o.b9-o.cb)/8,-1,1)
 r=o.cs=o.cs*0.15+s*0.85
 if(Math.abs(r)<0.05)r=o.cs=0
 q=o.aD
@@ -31292,32 +31292,32 @@ A.vd.prototype={
 ah(a){var s
 for(s=a;s>=0.008333333333333333;){this.Db(0.008333333333333333)
 s-=0.008333333333333333}},
-Db(b3){var s,r,q,p,o,n,m,l,k,j,i,h,g,f,e,d,c,b,a,a0,a1,a2,a3,a4,a5,a6,a7,a8,a9,b0,b1,b2=this
-if(b2.Q===B.am){s=b2.e
+Db(b1){var s,r,q,p,o,n,m,l,k,j,i,h,g,f,e,d,c,b,a,a0,a1,a2,a3,a4,a5,a6,a7,a8,a9,b0=this
+if(b0.Q===B.am){s=b0.e
 s===$&&A.c()
-r=b2.r
+r=b0.r
 r===$&&A.c()
 s.n(0,s.aa(0,r).a2(0,0.98))
-r=b2.f
+r=b0.f
 r===$&&A.c()
-s=b2.w
+s=b0.w
 s===$&&A.c()
 r.n(0,r.aa(0,s).a2(0,0.98))
-return}s=b2.e
+return}s=b0.e
 s===$&&A.c()
-r=b2.r
+r=b0.r
 r===$&&A.c()
-q=s.aa(0,r).b4(0,b3)
-r=b2.f
+q=s.aa(0,r).b4(0,b1)
+r=b0.f
 r===$&&A.c()
-s=b2.w
+s=b0.w
 s===$&&A.c()
-p=r.aa(0,s).b4(0,b3)
+p=r.aa(0,s).b4(0,b1)
 o=new A.E(new Float64Array(2))
 o.a5(0,300)
 n=new A.E(new Float64Array(2))
 n.a5(0,300)
-s=b2.f.aa(0,b2.e).nC().a
+s=b0.f.aa(0,b0.e).nC().a
 r=s[1]
 s=s[0]
 m=new A.E(new Float64Array(2))
@@ -31328,85 +31328,84 @@ A.DZ(l,0.2)
 k=new A.E(new Float64Array(2))
 k.a3(m)
 A.DZ(k,-0.5)
-j=b2.e.X(0,l.a2(0,$.cs))
-i=b2.f.X(0,k.a2(0,$.cs))
-s=b2.a
+j=b0.e.X(0,l.a2(0,$.cs))
+i=b0.f.X(0,k.a2(0,$.cs))
+s=b0.a
 s===$&&A.c()
-b2.ax=b2.lY(j,s)
-b2.ay=b2.lY(i,b2.a)
-b2.as=b2.at=!1
-s=b2.ax
-if(s!=null&&s.d<40){h=j.aa(0,s.a).be(b2.ax.b)
-if(h<5){b2.as=!0
-g=q.be(b2.ax.b)
-o=o.X(0,b2.ax.b.a2(0,Math.max(0,(5-h)*$.mW-g*$.mV)))
-if(b2.c){s=b2.ax.c
-o=o.X(0,(s.a[0]<0?s.fC(0):s).a2(0,420))}if(b2.d){f=q.be(b2.ax.c)
-o=o.aa(0,b2.ax.c.a2(0,J.Ke(f)*$.mS))}if(g<-$.mU)b2.Q=B.am}else if(h<15&&h>0)o=o.aa(0,b2.ax.b.a2(0,300*$.vi*100))}s=b2.ay
-if(s!=null&&s.d<40){h=i.aa(0,s.a).be(b2.ay.b)
-if(h<5){b2.at=!0
-g=p.be(b2.ay.b)
-n=n.X(0,b2.ay.b.a2(0,Math.max(0,(5-h)*$.mW-g*$.mV)))
-if(b2.d){f=p.be(b2.ay.c)
-n=n.aa(0,b2.ay.c.a2(0,J.Ke(f)*$.mS))}if(g<-$.mU)b2.Q=B.am}}s=b2.f.aa(0,b2.e).a
+b0.ax=b0.lY(j,s)
+b0.ay=b0.lY(i,b0.a)
+b0.as=b0.at=!1
+s=b0.ax
+if(s!=null&&s.d<40){h=j.aa(0,s.a).be(b0.ax.b)
+if(h<5){b0.as=!0
+g=q.be(b0.ax.b)
+o=o.X(0,b0.ax.b.a2(0,Math.max(0,(5-h)*$.mW-g*$.mV)))
+if(b0.c){s=b0.ax.c
+o=o.X(0,(s.a[0]<0?s.fC(0):s).a2(0,420))}if(b0.d){f=q.be(b0.ax.c)
+o=o.aa(0,b0.ax.c.a2(0,J.Ke(f)*$.mS))}if(g<-$.mU)b0.Q=B.am}else if(h<15&&h>0)o=o.aa(0,b0.ax.b.a2(0,300*$.vi*100))}s=b0.ay
+if(s!=null&&s.d<40){h=i.aa(0,s.a).be(b0.ay.b)
+if(h<5){b0.at=!0
+g=p.be(b0.ay.b)
+n=n.X(0,b0.ay.b.a2(0,Math.max(0,(5-h)*$.mW-g*$.mV)))
+if(b0.d){f=p.be(b0.ay.c)
+n=n.aa(0,b0.ay.c.a2(0,J.Ke(f)*$.mS))}if(g<-$.mU)b0.Q=B.am}}s=b0.f.aa(0,b0.e).a
 r=s[1]
 e=s[0]
 d=new A.E(new Float64Array(2))
 d.a5(-r,e)
 d.hN()
-c=Math.atan2(s[1],s[0])
-b=b2.as&&!b2.at?Math.max(0.25,Math.abs(Math.cos(c))):1
-a=-b2.b*$.vj*b
-if(a<0&&b2.at)a*=$.vg
-s=b2.as
-if(s&&b2.at)a0=$.vh
-else a0=s||b2.at?$.vk:$.ve
+s=Math.cos(Math.atan2(s[1],s[0]))
+c=-b0.b*$.vj*(0.25+0.75*Math.abs(s))
+if(c<0&&b0.at)c*=$.vg
+s=b0.as
+if(s&&b0.at)b=$.vh
+else b=s||b0.at?$.vk:$.ve
 s=p.aa(0,q).be(d)
-a1=a/(18*$.vf)+s/18*a0
-o=o.X(0,d.a2(0,a1))
-n=n.aa(0,d.a2(0,a1))
-s=1-0.05*b3
-r=b3*b3
-a2=b2.e.X(0,q.a2(0,s).a2(0,b3)).X(0,o.a2(0,r))
-a3=b2.f.X(0,p.a2(0,s).a2(0,b3)).X(0,n.a2(0,r))
-b2.r.a3(b2.e)
-b2.w.a3(b2.f)
-b2.e.a3(a2)
-b2.f.a3(a3)
-for(a4=0;a4<8;++a4){s=b2.f
-r=b2.e
-a5=new Float64Array(2)
-a6=new A.E(a5)
-a7=s.a
-a5[1]=a7[1]
-a5[0]=a7[0]
-a6.c5(r)
-a8=Math.sqrt(a6.gev())
-if(a8<0.0001)continue
-a9=(a8-18)/a8
-s=b2.e
+a=c/(18*$.vf)+s/18*b
+o=o.X(0,d.a2(0,a))
+n=n.aa(0,d.a2(0,a))
+s=1-0.05*b1
+r=b1*b1
+a0=b0.e.X(0,q.a2(0,s).a2(0,b1)).X(0,o.a2(0,r))
+a1=b0.f.X(0,p.a2(0,s).a2(0,b1)).X(0,n.a2(0,r))
+b0.r.a3(b0.e)
+b0.w.a3(b0.f)
+b0.e.a3(a0)
+b0.f.a3(a1)
+for(a2=0;a2<8;++a2){s=b0.f
+r=b0.e
+a3=new Float64Array(2)
+a4=new A.E(a3)
+a5=s.a
+a3[1]=a5[1]
+a3[0]=a5[0]
+a4.c5(r)
+a6=Math.sqrt(a4.gev())
+if(a6<0.0001)continue
+a7=(a6-18)/a6
+s=b0.e
 r=$.mT
 e=new Float64Array(2)
-b0=new A.E(e)
-e[1]=a5[1]
-e[0]=a5[0]
-b0.cE(a9*(r/18))
-s.n(0,b0)
-b0=b2.f
+a8=new A.E(e)
+e[1]=a3[1]
+e[0]=a3[0]
+a8.cE(a7*(r/18))
+s.n(0,a8)
+a8=b0.f
 s=$.mT
 r=new Float64Array(2)
 e=new A.E(r)
-r[1]=a5[1]
-r[0]=a5[0]
-e.cE(a9*((18-s)/18))
-b0.c5(e)}s=b2.f.a
+r[1]=a3[1]
+r[0]=a3[0]
+e.cE(a7*((18-s)/18))
+a8.c5(e)}s=b0.f.a
 r=s[1]
-e=b2.e.a
-b2.rG(Math.atan2(r-e[1],s[0]-e[0]))
-e=b2.z
+e=b0.e.a
+b0.rG(Math.atan2(r-e[1],s[0]-e[0]))
+e=b0.z
 e===$&&A.c()
-b1=b2.lY(e,b2.a)
-if(b1!=null&&b1.d<3)b2.Q=B.am},
+a9=b0.lY(e,b0.a)
+if(a9!=null&&a9.d<3)b0.Q=B.am},
 rG(a){var s,r,q,p=this,o=p.e
 o===$&&A.c()
 s=p.f
@@ -31515,7 +31514,7 @@ r=o.f
 r===$&&A.c()
 o=o.w
 o===$&&A.c()
-o=A.M9(A.Ma(B.vm,"RaceRider physics v.209 - gemini HIGH WHEELIE STABILITY\nSpeed: "+B.d.J((q+Math.sqrt(r.aa(0,o).gev()))/0.016666666666666666,1)),B.x)
+o=A.M9(A.Ma(B.vm,"RaceRider v.210 - SAAD CONTINUITY & WIDE THROW\nSpeed: "+B.d.J((q+Math.sqrt(r.aa(0,o).gev()))/0.016666666666666666,1)),B.x)
 o.uR()
 o.bG(a,B.tM)}}
 A.qH.prototype={
