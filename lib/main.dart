@@ -19,7 +19,7 @@ void main() async {
 Offset _off(Vector2 v) => Offset(v.x, v.y);
 
 class RaceRiderGame extends FlameGame with TapCallbacks {
-  static const buildLabel = 'v.206 GEMINI- TRIANGLE & AIR TORQUE';
+  static const buildLabel = 'v.208 gemini - GHOST COLLISION FIX';
   late Bike player;
   late List<TrackSegment> trackSegments;
   
@@ -38,11 +38,11 @@ class RaceRiderGame extends FlameGame with TapCallbacks {
   
   final List<String> tuningParamNames = [
     'Torque', 'Jump', 'Mass', 'CogDist', 'CogHeight', 'MagStr', 'FrontTorque', 
-    'SuspStr', 'SuspDmp', 'SuspTrv', 'CrashLim', 'LandDamp', 'AirDamp', 'BrakeStr'
+    'SuspStr', 'SuspDmp', 'SuspTrv', 'CrashLim', 'LandDamp', 'WhlDamp', 'AirDamp', 'BrakeStr'
   ];
   final List<double> tuningParamSteps = [
-    2500.0, 0.05, 1.0, 0.5, 0.5, 0.0005, 0.01, 
-    50.0, 5.0, 0.5, 50.0, 10.0, 2.0, 50.0
+    5000.0, 0.05, 1.0, 0.5, 0.5, 0.0005, 0.01, 
+    50.0, 5.0, 0.5, 50.0, 10.0, 5.0, 5.0, 50.0
   ];
   
   double crashTimer = 0.0;
@@ -199,8 +199,9 @@ class RaceRiderGame extends FlameGame with TapCallbacks {
       case 9: Bike.suspensionTravel += step; break;
       case 10: Bike._impactCrashLimit += step; break;
       case 11: Bike._landingRotationDamping += step; break;
-      case 12: Bike._airborneRotationDamping += step; break;
-      case 13: Bike._brakeStrength += step; break;
+      case 12: Bike._wheelieRotationDamping += step; break;
+      case 13: Bike._airborneRotationDamping += step; break;
+      case 14: Bike._brakeStrength += step; break;
     }
   }
   
@@ -252,8 +253,9 @@ class RaceRiderGame extends FlameGame with TapCallbacks {
         case 9: val = Bike.suspensionTravel; break;
         case 10: val = Bike._impactCrashLimit; break;
         case 11: val = Bike._landingRotationDamping; break;
-        case 12: val = Bike._airborneRotationDamping; break;
-        case 13: val = Bike._brakeStrength; break;
+        case 12: val = Bike._wheelieRotationDamping; break;
+        case 13: val = Bike._airborneRotationDamping; break;
+        case 14: val = Bike._brakeStrength; break;
       }
       
       drawDebugText('${tuningParamNames[currentTuningParam]}: ${val.toStringAsFixed(2)}', Offset(width * 0.35, height * 0.05), Colors.yellow);
@@ -290,8 +292,7 @@ class Bike {
   static double suspensionStrength = 550.0; 
   static double suspensionDamping = 40.0; 
 
-  // MASSIVELY increased torque to allow for fast airborne flips
-  static double _playerTorqueStrength = 150000.0; 
+  static double _playerTorqueStrength = 200000.0; 
   static double _cogDistanceFromRear = 8.5;
   static double _cogHeight = 5.0;
   static double _frontGroundedTorqueScale = 0.15;
@@ -301,8 +302,11 @@ class Bike {
   static double _airborneGravityFactor = 1.0; 
   
   static double _landingRotationDamping = 140.0;  
-  // SLASHED airborne damping to allow the new high torque to spin the bike
-  static double _airborneRotationDamping = 10.0; 
+  static double _wheelieRotationDamping = 45.0;   
+  static double _airborneRotationDamping = 45.0;  
+
+  // Hard limit for ground detection so sky-collisions don't happen
+  static const double _maxSurfaceDist = 40.0;
 
   late List<TrackSegment> trackSegments;
   double tilt = 0.0;
@@ -328,7 +332,6 @@ class Bike {
     rearOldPos = rearPos.clone();
     frontOldPos = frontPos.clone();
     
-    // Initializing vectors to be set correctly in _syncFrameAndCollision
     frameTopPos = startPos.clone();
     headPos = startPos.clone();
     collisionHeadPos = startPos.clone();
@@ -360,13 +363,11 @@ class Bike {
     Vector2 fVel = (frontPos - frontOldPos) / dt;
     Vector2 rAccel = Vector2(0, _gravity), fAccel = Vector2(0, _gravity);
 
-    // Fork Directions
     Vector2 fwd = (frontPos - rearPos).normalized();
     Vector2 localDown = Vector2(-fwd.y, fwd.x); 
     Vector2 rForkDir = localDown.clone()..rotate(0.2); 
     Vector2 fForkDir = localDown.clone()..rotate(-0.5); 
 
-    // Project wheel position based on fork angle
     Vector2 rTarget = rearPos + rForkDir * suspensionTravel;
     Vector2 fTarget = frontPos + fForkDir * suspensionTravel;
 
@@ -374,7 +375,8 @@ class Bike {
     _frontSurface = _nearestSurface(fTarget, trackSegments);
     rearOnGround = frontOnGround = false;
 
-    if (_rearSurface != null) {
+    // ONLY process ground hits if the track is actually nearby
+    if (_rearSurface != null && _rearSurface!.distance < _maxSurfaceDist) {
       double sd = (rTarget - _rearSurface!.point).dot(_rearSurface!.normal);
       if (sd < _wheelRadius) {
         rearOnGround = true;
@@ -393,7 +395,7 @@ class Bike {
       }
     }
 
-    if (_frontSurface != null) {
+    if (_frontSurface != null && _frontSurface!.distance < _maxSurfaceDist) {
       double sd = (fTarget - _frontSurface!.point).dot(_frontSurface!.normal);
       if (sd < _wheelRadius) {
         frontOnGround = true;
@@ -409,15 +411,23 @@ class Bike {
       }
     }
 
-    // --- TORQUE MATH ---
     Vector2 axle = frontPos - rearPos;
     Vector2 tangent = Vector2(-axle.y, axle.x)..normalize(); 
     double playerTorque = -tilt * _playerTorqueStrength; 
+    
     if (playerTorque < 0 && frontOnGround) playerTorque *= _frontGroundedTorqueScale;
+
+    double damping;
+    if (rearOnGround && frontOnGround) {
+      damping = _landingRotationDamping; 
+    } else if (rearOnGround || frontOnGround) {
+      damping = _wheelieRotationDamping; 
+    } else {
+      damping = _airborneRotationDamping; 
+    }
 
     Vector2 relVel = fVel - rVel;
     double rotVel = relVel.dot(tangent) / _wheelbase;
-    double damping = (rearOnGround || frontOnGround) ? _landingRotationDamping : _airborneRotationDamping;
     double linearTorqueAccel = (playerTorque / (_wheelbase * _bikeMass)) + (rotVel * damping);
 
     rAccel += tangent * linearTorqueAccel;
@@ -448,13 +458,8 @@ class Bike {
     Vector2 fwd = (frontPos - rearPos).normalized();
     Vector2 localDown = Vector2(-fwd.y, fwd.x); 
     
-    // The Triangle Frame Point (tall, ~14 units up from axle line)
     frameTopPos = center + localDown * -14.0;
-    
-    // The crash detection point is at the highest vertex of the frame
     collisionHeadPos = frameTopPos;
-    
-    // The blue rider dot is centered and safely inside the frame triangle
     headPos = center + localDown * -7.0; 
   }
 
@@ -487,7 +492,7 @@ class Bike {
     Vector2 fForkDir = localDown.clone()..rotate(-0.5); 
 
     Vector2 rWheelVis = rearPos + rForkDir * suspensionTravel;
-    if (_rearSurface != null) {
+    if (_rearSurface != null && _rearSurface!.distance < _maxSurfaceDist) {
       Vector2 targetWheel = rearPos + rForkDir * suspensionTravel;
       double sd = (targetWheel - _rearSurface!.point).dot(_rearSurface!.normal);
       if (sd < _wheelRadius) {
@@ -499,7 +504,7 @@ class Bike {
     }
 
     Vector2 fWheelVis = frontPos + fForkDir * suspensionTravel;
-    if (_frontSurface != null) {
+    if (_frontSurface != null && _frontSurface!.distance < _maxSurfaceDist) {
       Vector2 targetWheel = frontPos + fForkDir * suspensionTravel;
       double sd = (targetWheel - _frontSurface!.point).dot(_frontSurface!.normal);
       if (sd < _wheelRadius) {
@@ -510,21 +515,17 @@ class Bike {
       }
     }
 
-    // Draw the wheels
     canvas.drawCircle(_off(rWheelVis), _wheelRadius, wheelP);
     canvas.drawCircle(_off(fWheelVis), _wheelRadius, wheelP);
     
-    // Draw the Triangle Frame
     canvas.drawLine(_off(rearPos), _off(frontPos), frameP);
     canvas.drawLine(_off(rearPos), _off(frameTopPos), frameP);
     canvas.drawLine(_off(frontPos), _off(frameTopPos), frameP);
     
-    // Draw visual forks connecting frame to wheels
     final shockP = Paint()..color = Colors.grey[400]!..strokeWidth = 2;
     canvas.drawLine(_off(rearPos), _off(rWheelVis), shockP);
     canvas.drawLine(_off(frontPos), _off(fWheelVis), shockP);
     
-    // Draw the rider
     canvas.drawCircle(_off(headPos), _headRadius, riderP);
   }
 }
