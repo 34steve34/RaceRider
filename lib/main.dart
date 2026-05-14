@@ -19,7 +19,7 @@ void main() async {
 Offset _off(Vector2 v) => Offset(v.x, v.y);
 
 class RaceRiderGame extends FlameGame with TapCallbacks {
-  static const buildLabel = 'gemini v.205 - ANGLED FORKS';
+  static const buildLabel = 'v.206 GEMINI- TRIANGLE & AIR TORQUE';
   late Bike player;
   late List<TrackSegment> trackSegments;
   
@@ -41,8 +41,8 @@ class RaceRiderGame extends FlameGame with TapCallbacks {
     'SuspStr', 'SuspDmp', 'SuspTrv', 'CrashLim', 'LandDamp', 'AirDamp', 'BrakeStr'
   ];
   final List<double> tuningParamSteps = [
-    1000.0, 0.05, 1.0, 0.5, 0.5, 0.0005, 0.01, 
-    50.0, 5.0, 0.5, 50.0, 10.0, 5.0, 50.0
+    2500.0, 0.05, 1.0, 0.5, 0.5, 0.0005, 0.01, 
+    50.0, 5.0, 0.5, 50.0, 10.0, 2.0, 50.0
   ];
   
   double crashTimer = 0.0;
@@ -290,7 +290,8 @@ class Bike {
   static double suspensionStrength = 550.0; 
   static double suspensionDamping = 40.0; 
 
-  static double _playerTorqueStrength = 85000.0; 
+  // MASSIVELY increased torque to allow for fast airborne flips
+  static double _playerTorqueStrength = 150000.0; 
   static double _cogDistanceFromRear = 8.5;
   static double _cogHeight = 5.0;
   static double _frontGroundedTorqueScale = 0.15;
@@ -300,7 +301,8 @@ class Bike {
   static double _airborneGravityFactor = 1.0; 
   
   static double _landingRotationDamping = 140.0;  
-  static double _airborneRotationDamping = 45.0; 
+  // SLASHED airborne damping to allow the new high torque to spin the bike
+  static double _airborneRotationDamping = 10.0; 
 
   late List<TrackSegment> trackSegments;
   double tilt = 0.0;
@@ -309,7 +311,7 @@ class Bike {
 
   late Vector2 rearPos, frontPos;
   late Vector2 rearOldPos, frontOldPos;
-  late Vector2 headPos, collisionHeadPos;
+  late Vector2 frameTopPos, headPos, collisionHeadPos;
 
   BikeState state = BikeState.riding;
   bool rearOnGround = false;
@@ -325,6 +327,12 @@ class Bike {
     frontPos = startPos + Vector2(8.5, 6.5);
     rearOldPos = rearPos.clone();
     frontOldPos = frontPos.clone();
+    
+    // Initializing vectors to be set correctly in _syncFrameAndCollision
+    frameTopPos = startPos.clone();
+    headPos = startPos.clone();
+    collisionHeadPos = startPos.clone();
+    
     _syncFrameAndCollision(0.0);
   }
 
@@ -355,8 +363,8 @@ class Bike {
     // Fork Directions
     Vector2 fwd = (frontPos - rearPos).normalized();
     Vector2 localDown = Vector2(-fwd.y, fwd.x); 
-    Vector2 rForkDir = localDown.clone()..rotate(0.2); // Swingarm (points slightly back)
-    Vector2 fForkDir = localDown.clone()..rotate(-0.5); // Rake angle (~30 deg forward)
+    Vector2 rForkDir = localDown.clone()..rotate(0.2); 
+    Vector2 fForkDir = localDown.clone()..rotate(-0.5); 
 
     // Project wheel position based on fork angle
     Vector2 rTarget = rearPos + rForkDir * suspensionTravel;
@@ -440,9 +448,14 @@ class Bike {
     Vector2 fwd = (frontPos - rearPos).normalized();
     Vector2 localDown = Vector2(-fwd.y, fwd.x); 
     
-    // Positioned exactly midway (no forward offset), and lower (closer to the frame)
-    headPos = center + localDown * -3.5; 
-    collisionHeadPos = headPos;
+    // The Triangle Frame Point (tall, ~14 units up from axle line)
+    frameTopPos = center + localDown * -14.0;
+    
+    // The crash detection point is at the highest vertex of the frame
+    collisionHeadPos = frameTopPos;
+    
+    // The blue rider dot is centered and safely inside the frame triangle
+    headPos = center + localDown * -7.0; 
   }
 
   SurfaceHit? _nearestSurface(Vector2 pt, List<TrackSegment> segs) {
@@ -497,15 +510,21 @@ class Bike {
       }
     }
 
+    // Draw the wheels
     canvas.drawCircle(_off(rWheelVis), _wheelRadius, wheelP);
     canvas.drawCircle(_off(fWheelVis), _wheelRadius, wheelP);
+    
+    // Draw the Triangle Frame
     canvas.drawLine(_off(rearPos), _off(frontPos), frameP);
+    canvas.drawLine(_off(rearPos), _off(frameTopPos), frameP);
+    canvas.drawLine(_off(frontPos), _off(frameTopPos), frameP);
     
     // Draw visual forks connecting frame to wheels
     final shockP = Paint()..color = Colors.grey[400]!..strokeWidth = 2;
     canvas.drawLine(_off(rearPos), _off(rWheelVis), shockP);
     canvas.drawLine(_off(frontPos), _off(fWheelVis), shockP);
     
+    // Draw the rider
     canvas.drawCircle(_off(headPos), _headRadius, riderP);
   }
 }
