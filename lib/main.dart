@@ -19,7 +19,7 @@ void main() async {
 Offset _off(Vector2 v) => Offset(v.x, v.y);
 
 class RaceRiderGame extends FlameGame with TapCallbacks {
-  static const buildLabel = 'v.211 - new track';
+  static const buildLabel = 'physics v.211 - gemini CLIFF EDGE FIX';
   late Bike player;
   late List<TrackSegment> trackSegments;
   
@@ -70,21 +70,22 @@ class RaceRiderGame extends FlameGame with TapCallbacks {
     super.onRemove();
   }
 
-   // Updated Track Layout in RaceRiderGame class
   List<TrackSegment> _buildTrack() {
     final segs = <TrackSegment>[];
     
     // 1. Starting Flat
     segs.add(TrackSegment(Vector2(-600.0, 38.0), Vector2(-400.0, 38.0)));
     
-    // 2. NEW SUSPENSION TEST RAMP (4 lengths tall, 5 lengths long)
-    // Bike length is ~18 units. Height: ~72. Length: ~90.
+    // 2. SUSPENSION TEST RAMP
     final rampStart = Vector2(-400.0, 38.0);
-    final rampTop = Vector2(-310.0, -34.0); // 90 horizontal, 72 vertical climb
+    final rampTop = Vector2(-310.0, -34.0); 
     segs.add(TrackSegment(rampStart, rampTop));
     
+    // NEW: Vertical Cliff Face (Closes the gap so the track is solid)
+    final landingStart = Vector2(-310.0, 38.0);
+    segs.add(TrackSegment(rampTop, landingStart));
+    
     // 3. Drop off and Landing Flat
-    final landingStart = Vector2(-310.0, 38.0); // Directly below the cliff
     final landingEnd = Vector2(-200.0, 38.0);
     segs.add(TrackSegment(landingStart, landingEnd));
     
@@ -106,10 +107,33 @@ class RaceRiderGame extends FlameGame with TapCallbacks {
     
     // 5. The Vertical Wall
     final wallTop = curvePrev!;
-    final wallBottom = Vector2(wallTop.x, wallTop.y - 250.0); // Made taller for the new torque
+    final wallBottom = Vector2(wallTop.x, wallTop.y - 250.0);
     segs.add(TrackSegment(wallTop, wallBottom));
-    
-    // ... (rest of the loop and landing ramp code remains the same)
+	
+    // 6. Landing Ramps & Loop
+    final landingRamp = <Vector2>[
+      Vector2(928.0, 26.0), Vector2(1018.0, 112.0), Vector2(1090.0, 138.0),
+      Vector2(1100.0, 130.0), Vector2(1240.0, 98.0), Vector2(1390.0, 114.0),
+      Vector2(1540.0, 76.0), Vector2(1710.0, 124.0), Vector2(1910.0, 112.0),
+      Vector2(2120.0, 112.0),
+    ];
+    for (int i = 0; i < landingRamp.length - 1; i++) {
+      segs.add(TrackSegment(landingRamp[i], landingRamp[i + 1]));
+    }
+
+    final loopCenter = Vector2(840.0, -94.0);
+    const loopRadius = 106.0;
+    const loopSteps = 48;
+    const startAngle = 2.62;
+    const endAngle = 6.68;
+    Vector2? prev;
+    for (int i = 0; i <= loopSteps; i++) {
+      final t = i / loopSteps;
+      final a = startAngle + t * (endAngle - startAngle);
+      final p = Vector2(loopCenter.x + cos(a) * loopRadius, loopCenter.y + sin(a) * loopRadius);
+      if (prev != null) segs.add(TrackSegment(prev, p));
+      prev = p;
+    }
     return segs;
   }
 
@@ -123,8 +147,6 @@ class RaceRiderGame extends FlameGame with TapCallbacks {
       tiltCalibrated = true;
     }
     
-    // INCREASED THROW: Using 8.0 divisor instead of 3.0.
-    // This requires more physical tilt to reach 1.0 (Full Scale).
     final normalized = ((rawTilt - tiltZero) / 8.0).clamp(-1.0, 1.0);
     smoothedTilt = smoothedTilt * 0.15 + normalized * 0.85;
     if (smoothedTilt.abs() < 0.05) smoothedTilt = 0.0;
@@ -285,14 +307,16 @@ class Bike {
   
   static double _impactCrashLimit = 950.0; 
   static double suspensionTravel = 4.5; 
-  static double suspensionStrength = 1300.0;
+  
+  // UPDATED TO USER PREFERENCES
+  static double suspensionStrength = 1300.0; 
   static double suspensionDamping = 40.0; 
+  static double _magnetStrength = 0.005;
 
   static double _playerTorqueStrength = 200000.0; 
   static double _cogDistanceFromRear = 8.5;
   static double _cogHeight = 5.0;
   static double _frontGroundedTorqueScale = 0.15;
-  static double _magnetStrength = 0.005;
   static double _wheelbase = 18.0;
   static double _bikeMass = 10.0;
   static double _airborneGravityFactor = 1.0; 
@@ -405,18 +429,13 @@ class Bike {
       }
     }
 
-    // --- CONTINUOUS TORQUE PHYSICS (v.210) ---
     Vector2 axle = frontPos - rearPos;
     Vector2 tangent = Vector2(-axle.y, axle.x)..normalize(); 
     
     double angle = atan2(axle.y, axle.x);
-    
-    // The Saad Continuity: 0.25 + 0.75 * cos(angle)
-    // This removes the "step" in torque and creates a smooth balance dip.
     double angleFactor = 0.25 + 0.75 * cos(angle).abs();
 
     double playerTorque = -tilt * _playerTorqueStrength * angleFactor; 
-    
     if (playerTorque < 0 && frontOnGround) playerTorque *= _frontGroundedTorqueScale;
 
     double damping;
@@ -469,12 +488,29 @@ class Bike {
     SurfaceHit? best; double bDist = double.infinity;
     for (final s in segs) {
       final l2 = s.delta.length2; if (l2 == 0) continue;
+      
       final t = ((pt - s.a).dot(s.delta) / l2).clamp(0.0, 1.0);
       final close = s.a + s.delta * t;
       final dist = (pt - close).length;
+      
       if (dist < bDist) {
         bDist = dist;
-        best = SurfaceHit(point: close, normal: Vector2(s.tangent.y, -s.tangent.x), tangent: s.tangent, distance: dist);
+        Vector2 geomNormal = Vector2(s.tangent.y, -s.tangent.x);
+        Vector2 geomTangent = s.tangent;
+
+        // --- GHOST HOOK / EDGE CAP FIX ---
+        // If the wheel is past the end of the line (hitting the vertex)
+        Vector2 toPt = pt - close;
+        if ((t <= 0.001 || t >= 0.999) && toPt.length2 > 0) {
+          // And the normal is pointing AWAY from the wheel
+          if (geomNormal.dot(toPt) < 0) {
+            // Reassign the normal to point directly from the corner to the wheel
+            geomNormal = toPt.normalized();
+            geomTangent = Vector2(-geomNormal.y, geomNormal.x);
+          }
+        }
+
+        best = SurfaceHit(point: close, normal: geomNormal, tangent: geomTangent, distance: dist);
       }
     }
     return best;
