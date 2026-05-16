@@ -19,18 +19,18 @@ void main() async {
 Offset _off(Vector2 v) => Offset(v.x, v.y);
 
 // --- SPATIAL PARTITIONING GRID ---
-// Divides the 2D game world into manageable cells to optimize collision scanning.
+// Divides the world into an efficient coordinate hash map. Keeps performance 
+// flawless and identical whether the map has 10 segments or 10,000 segments.
 class SpatialGrid {
   final double cellSize;
   final Map<String, List<TrackSegment>> _buckets = {};
 
-  SpatialGrid({this.cellSize = 60.0});
+  SpatialGrid({this.cellSize = 80.0});
 
   String _getKey(int cx, int cy) => '$cx,$cy';
 
   void clear() => _buckets.clear();
 
-  // Registers a segment into every grid cell its bounding box overlaps
   void insert(TrackSegment seg) {
     int minX = (min(seg.a.x, seg.b.x) / cellSize).floor();
     int maxX = (max(seg.a.x, seg.b.x) / cellSize).floor();
@@ -39,13 +39,11 @@ class SpatialGrid {
 
     for (int cx = minX; cx <= maxX; cx++) {
       for (int cy = minY; cy <= maxY; cy++) {
-        final key = _getKey(cx, cy);
-        _buckets.putIfAbsent(key, () => []).add(seg);
+        _buckets.putIfAbsent(_getKey(cx, cy), () => []).add(seg);
       }
     }
   }
 
-  // Retrieves all distinct segments nearby a specific world position radius
   List<TrackSegment> getNearby(Vector2 pos, double radius) {
     final Set<TrackSegment> nearby = {};
     int minX = ((pos.x - radius) / cellSize).floor();
@@ -55,8 +53,7 @@ class SpatialGrid {
 
     for (int cx = minX; cx <= maxX; cx++) {
       for (int cy = minY; cy <= maxY; cy++) {
-        final key = _getKey(cx, cy);
-        final cellSegs = _buckets[key];
+        final cellSegs = _buckets[_getKey(cx, cy)];
         if (cellSegs != null) nearby.addAll(cellSegs);
       }
     }
@@ -65,7 +62,7 @@ class SpatialGrid {
 }
 
 class RaceRiderGame extends FlameGame with TapCallbacks {
-  static const buildLabel = 'physics v.300 - Spatial Hash Grid Restructure';
+  static const buildLabel = 'physics v.310 - Long Track & Documented Engine Constants';
   late Bike player;
   late List<TrackSegment> trackSegments;
   final SpatialGrid grid = SpatialGrid(cellSize: 80.0);
@@ -84,7 +81,7 @@ class RaceRiderGame extends FlameGame with TapCallbacks {
   int currentTuningParam = 0;
   
   final List<String> tuningParamNames = [
-    'Torque', 'Jump', 'Mass', 'CogDist', 'CogHeight', 'MagStr', 'FrontTorque', 
+    'Torque', 'AirGrav', 'Mass', 'CogDist', 'CogHeight', 'MagStr', 'FrontTorque', 
     'SuspStr', 'SuspDmp', 'SuspTrv', 'CrashLim', 'LandDamp', 'WhlDamp', 'AirDamp', 'BrakeStr'
   ];
   final List<double> tuningParamSteps = [
@@ -104,7 +101,7 @@ class RaceRiderGame extends FlameGame with TapCallbacks {
     add(DebugOverlay());
     
     camera.viewfinder
-      ..zoom = 2.1
+      ..zoom = 1.9 // Slightly zoomed out to appreciate the longer view-distance layouts
       ..anchor = Anchor.center;
       
     _accelSub = accelerometerEvents.listen((e) => rawTilt = e.y);
@@ -124,7 +121,7 @@ class RaceRiderGame extends FlameGame with TapCallbacks {
     super.onRemove();
   }
 
-  // FACTORY METHOD: Stitches continuous paths together seamlessly
+  // UTILITY: Links procedural points sequentially to preserve physics vector tracking
   List<TrackSegment> _stitchPath(List<Vector2> points) {
     final pathSegs = <TrackSegment>[];
     for (int i = 0; i < points.length - 1; i++) {
@@ -138,70 +135,102 @@ class RaceRiderGame extends FlameGame with TapCallbacks {
     return pathSegs;
   }
 
+  // --- THE LONGER COMPREHENSIVE ROADMAP MAP ---
   List<TrackSegment> _buildTrack() {
     final allSegs = <TrackSegment>[];
     
-    // 1. Initial Flat & Ramp & Cliff Face Sequence (Stitched)
-    final initialPoints = [
-      Vector2(-600.0, 38.0),
+    // SECTION 1: Starter Zone (Flat Strip -> Testing Ramp -> Cliff Edge Face Drop)
+    final section1Points = [
+      Vector2(-700.0, 38.0),
       Vector2(-400.0, 38.0),
-      Vector2(-310.0, -34.0), // Ramp Top
-      Vector2(-310.0, 38.0),  // Vertical Drop
-      Vector2(-200.0, 38.0),  // Landing Flat
+      Vector2(-310.0, -34.0), // The Launch Peak
+      Vector2(-310.0, 38.0),  // The vertical geometric cliff wall drop
+      Vector2(-150.0, 38.0),  // Flat landing strip
     ];
-    allSegs.addAll(_stitchPath(initialPoints));
+    allSegs.addAll(_stitchPath(section1Points));
     
-    // 2. Smooth Launch Arc/Curve (Procedurally Stitched)
-    final curveCenter = Vector2(-200.0, 38.0 - 72.0); 
-    const curveRadius = 72.0;
-    const curveSteps = 24;
-    const curveStartAngle = 1.5708;  
-    const curveEndAngle = 0.0;       
-    
-    final curvePoints = <Vector2>[];
-    for (int i = 0; i <= curveSteps; i++) {
-      final t = i / curveSteps;
-      final a = curveStartAngle + t * (curveEndAngle - curveStartAngle);
-      curvePoints.add(Vector2(curveCenter.x + cos(a) * curveRadius, curveCenter.y + sin(a) * curveRadius));
+    // SECTION 2: Rolling Bumps (Sinusoidal Waves to test suspension/damping settings)
+    final bumpsPoints = <Vector2>[];
+    double startX = -150.0;
+    double endX = 250.0;
+    int waveSegments = 30;
+    for (int i = 0; i <= waveSegments; i++) {
+      double pct = i / waveSegments;
+      double currX = startX + pct * (endX - startX);
+      // Generate standard rolling waves using sine functions
+      double currY = 38.0 - (sin(pct * pi * 4) * 16.0); 
+      bumpsPoints.add(Vector2(currX, currY));
     }
-    final curveSegs = _stitchPath(curvePoints);
-    if (allSegs.isNotEmpty && curveSegs.isNotEmpty) {
-      allSegs.last.next = curveSegs.first;
-      curveSegs.first.prev = allSegs.last;
-    }
-    allSegs.addAll(curveSegs);
-    
-    // 3. Vertical Wall attached to curve endpoint
-    final wallBottom = Vector2(curvePoints.last.x, curvePoints.last.y - 250.0);
-    final wallSeg = TrackSegment(curvePoints.last, wallBottom);
-    allSegs.last.next = wallSeg;
-    wallSeg.prev = allSegs.last;
-    allSegs.add(wallSeg);
-	
-    // 4. Isolated/Disjoint Loops & Landing Platform Ramps
-    final loopCenter = Vector2(840.0, -94.0);
-    const loopRadius = 106.0;
-    const loopSteps = 48;
-    const startAngle = 2.62;
-    const endAngle = 6.68;
+    final bumpSegs = _stitchPath(bumpsPoints);
+    _connectTwoSections(allSegs, bumpSegs);
+    allSegs.addAll(bumpSegs);
+
+    // SECTION 3: The Massive 360-Degree Loop (Smooth 64-segment structure)
+    final loopCenter = Vector2(500.0, -110.0);
+    const loopRadius = 140.0;
+    const loopSteps = 64; // High allocation for clean tracking calculations
+    const startAngle = 1.5708; // Bottom-entry point of loop orientation
+    const endAngle = 1.5708 + (2 * pi); // 360-degree wrapping spin
     
     final loopPoints = <Vector2>[];
     for (int i = 0; i <= loopSteps; i++) {
-      final t = i / loopSteps;
-      final a = startAngle + t * (endAngle - startAngle);
+      double t = i / loopSteps;
+      double a = startAngle + t * (endAngle - startAngle);
       loopPoints.add(Vector2(loopCenter.x + cos(a) * loopRadius, loopCenter.y + sin(a) * loopRadius));
     }
-    allSegs.addAll(_stitchPath(loopPoints));
+    final loopSegs = _stitchPath(loopPoints);
+    _connectTwoSections(allSegs, loopSegs);
+    allSegs.addAll(loopSegs);
 
-    final landingRampPoints = <Vector2>[
-      Vector2(928.0, 26.0), Vector2(1018.0, 112.0), Vector2(1090.0, 138.0),
-      Vector2(1100.0, 130.0), Vector2(1240.0, 98.0), Vector2(1390.0, 114.0),
-      Vector2(1540.0, 76.0), Vector2(1710.0, 124.0), Vector2(1910.0, 112.0),
-      Vector2(2120.0, 112.0),
+    // SECTION 4: Wall-Climb Accelerator Arc transitioning directly into Vertical Wall
+    final wallCurveCenter = Vector2(800.0, 38.0 - 90.0);
+    const wallCurveRadius = 90.0;
+    const wallCurveSteps = 20;
+    
+    final wallCurvePoints = <Vector2>[];
+    for (int i = 0; i <= wallCurveSteps; i++) {
+      double t = i / wallCurveSteps;
+      double a = 1.5708 + t * (0.0 - 1.5708); // Radians sweeping down and rightward to vertical 90
+      wallCurvePoints.add(Vector2(wallCurveCenter.x + cos(a) * wallCurveRadius, wallCurveCenter.y + sin(a) * wallCurveRadius));
+    }
+    final wallCurveSegs = _stitchPath(wallCurvePoints);
+    _connectTwoSections(allSegs, wallCurveSegs);
+    allSegs.addAll(wallCurveSegs);
+
+    // Vertical Wall Element (Test the absolute climbing physics capacity of the rear drive wheel)
+    final wallTop = Vector2(wallCurvePoints.last.x, wallCurvePoints.last.y - 320.0);
+    final verticalWallSeg = TrackSegment(wallCurvePoints.last, wallTop);
+    allSegs.last.next = verticalWallSeg;
+    verticalWallSeg.prev = allSegs.last;
+    allSegs.add(verticalWallSeg);
+
+    // SECTION 5: Floating Sky Platforms & Giant Leaps/Chasm Drops
+    final skyPlatformPoints = [
+      wallTop + Vector2(10.0, 0.0), // Small micro ledge safety cap
+      wallTop + Vector2(250.0, -50.0), // Upward slope floating bridge path
+      wallTop + Vector2(500.0, -50.0), // Drop-off ledge trigger
     ];
-    allSegs.addAll(_stitchPath(landingRampPoints));
+    final skySegs = _stitchPath(skyPlatformPoints);
+    // Left detached entirely in space on purpose to behave as a floating jump obstacle!
+    allSegs.addAll(skySegs);
+
+    // SECTION 6: The Long Return Valley Landing Catch Run out
+    final valleyLandingPoints = [
+      Vector2(1450.0, 200.0), // Deep impact landing basin entry
+      Vector2(1650.0, 150.0),
+      Vector2(1900.0, 110.0),
+      Vector2(2500.0, 110.0), // Long straight finish strip
+    ];
+    allSegs.addAll(_stitchPath(valleyLandingPoints));
 
     return allSegs;
+  }
+
+  void _connectTwoSections(List<TrackSegment> baseList, List<TrackSegment> newList) {
+    if (baseList.isNotEmpty && newList.isNotEmpty) {
+      baseList.last.next = newList.first;
+      newList.first.prev = baseList.last;
+    }
   }
 
   @override
@@ -346,7 +375,7 @@ class RaceRiderGame extends FlameGame with TapCallbacks {
     }
   }
 
-  Vector2 _spawnPoint() => Vector2(-550.0, -50.0);
+  Vector2 _spawnPoint() => Vector2(-650.0, -50.0);
 }
 
 class TrackSegment {
@@ -368,33 +397,109 @@ class SurfaceHit {
 enum BikeState { riding, crashed }
 
 class Bike {
+  // =========================================================================
+  //                       DOCUMENTED TUNING SETTINGS
+  // =========================================================================
+
+  /// Global downward environmental pull applied every fixed step (pixels/s^2).
+  /// -> INCREASING makes the bike heavy, increases fall acceleration, requires more torque/gas to climb.
+  /// -> DECREASING makes flight floaty, mimicking low gravity or moon physics.
   static const _gravity = 300.0;
+
+  /// Pure forward linear force applied to the rear wheel when pressing Gas.
+  /// -> INCREASING increases linear acceleration (shortens time to top speed).
+  /// -> DECREASING makes bike feel sluggish, struggling on steep ramps or vertical inclines.
   static const _rearDrive = 420.0;
+
+  /// Counter-acting linear braking friction force applied simultaneously to both hubs.
+  /// -> INCREASING causes instant, abrupt stopping power.
+  /// -> DECREASING yields a long, progressive slide to a halt when holding brake.
   static double _brakeStrength = 700.0; 
+
+  /// Radius size boundary checked for contact patch tracking (pixels).
+  /// -> NOTE: Changing this requires shifting structural chassis frame layout geometry sizes correspondingly.
   static const _wheelRadius = 5.0;
+
+  /// Structural hit box circle enclosing the rider's upper head.
+  /// -> INCREASING makes the crash zone bigger (easier to fail when leaning near walls).
+  /// -> DECREASING allows the player's head to get closer to track before crashing.
   static const _headRadius = 3.0;
-  
+
+  /// The ceiling limit for maximum structural compression velocity allowed before chassis collapse.
+  /// -> INCREASING allows taking high drops and hard high-speed impacts without exploding.
+  /// -> DECREASING makes the bike fragile, requiring smooth landing angles to avoid crashing.
   static double _impactCrashLimit = 950.0; 
+
+  /// Maximum linear length extension room for the virtual suspension springs (pixels).
+  /// -> INCREASING elevates chassis ride height off ground, extending maximum absorption capacity.
+  /// -> DECREASING lowers ride height, shortening clearance room and making bottom-outs common.
   static double suspensionTravel = 4.5; 
-  
-  static double suspensionStrength = 1300.0; 
-  static double suspensionDamping = 40.0; 
+
+  /// Stiffness constant of the suspension springs.
+  /// -> INCREASING creates an ultra-stiff, rigid frame layout that resists bottoming out but bounces on sharp edits.
+  /// -> DECREASING softens compression, creating smooth absorption but making chassis prone to bottoming out.
+  static double suspensionStrength = 1500.0; 
+
+  /// Velocity absorption rate that dampens or limits bouncing energy in springs.
+  /// -> INCREASING kills oscillation instantly, deadening landings to make the bike stick to slopes.
+  /// -> DECREASING makes the bike bouncy and springy, oscillating rapidly over bumps.
+  static double suspensionDamping = 30.0; 
+
+  /// Virtual structural centripetal adhesive force keeping the wheel hubs glued over steep loop faces.
+  /// -> INCREASING generates high downforce effect, pulling tires strongly into track loops.
+  /// -> DECREASING allows centrifugal force to fly off tracking loops if speed drops below threshold.
   static double _magnetStrength = 0.005;
 
-  static double _playerTorqueStrength = 200000.0; 
+  /// Pure rotational torque power multiplier granted via mobile screen tilt input.
+  /// -> INCREASING provides intense airborne agility; snappy flips and rapid adjustments.
+  /// -> DECREASING yields slower rotation, making recovery from bad launch angles sluggish.
+  static double _playerTorqueStrength = 300000.0; 
+
+  /// Horizontal position of Center of Gravity relative to rear hub (pixels).
+  /// -> INCREASING shifts weight to front wheel, making wheelies harder to pull up but stabilizing climbs.
+  /// -> DECREASING shifts weight to rear wheel, letting front end pop up effortlessly on gas inputs.
   static double _cogDistanceFromRear = 8.5;
-  static double _cogHeight = 5.0;
+
+  /// Vertical height positioning coordinate of Center of Gravity up from axle baseline.
+  /// -> INCREASING raises tipping threshold center, intensifying gravity's tipping leverage on hills.
+  /// -> DECREASING creates highly stable, low-slung, easy-to-balance center points.
+  static double _cogHeight = 3.5;
+
+  /// Scalar reducing structural player tilt leverage while front tire remains grounded.
+  /// -> INCREASING allows pulling wheelies instantly from a dead stop, but can feel twitchy on flat lines.
+  /// -> DECREASING prevents the front wheel from lifting too violently under pure tilt during high-speed runs.
   static double _frontGroundedTorqueScale = 0.15;
+
+  /// Constant rigid distance spacing structural constraint separation between wheel hubs.
   static double _wheelbase = 18.0;
+
+  /// Inertial rotational mass factor of the combined chassis body structure.
+  /// -> INCREASING requires more raw torque strength to spin or rotate the vehicle frame in mid-air.
+  /// -> DECREASING makes rotation immediate and light, requiring less overall force to spin.
   static double _bikeMass = 10.0;
+
+  /// Gravity modifier scaling factor when airborne.
   static double _airborneGravityFactor = 1.0; 
-  
+
+  /// Angular velocity resistance applied when BOTH wheels have track contact points.
+  /// -> INCREASING stabilizes bike tracking over flat sequences, fighting unwanted pitch oscillations.
+  /// -> DECREASING allows instant rotation reactions on transitions.
   static double _landingRotationDamping = 140.0;  
+
+  /// Angular velocity resistance applied when executing single contact point wheelies.
+  /// -> INCREASING makes steady balance states easy to hold at high angles without washing out.
+  /// -> DECREASING makes balance sensitive, requiring minute inputs to maintain sweet spots.
   static double _wheelieRotationDamping = 65.0;   
+
+  /// Angular velocity resistance applied to free flight in empty air spaces.
+  /// -> INCREASING introduces rotational drag, stopping excessive spinning when releasing controls.
+  /// -> DECREASING allows clean, continuous conservation of momentum for multi-flips.
   static double _airborneRotationDamping = 45.0;  
 
-  // Tightened optimization gating radius to fit the spatial hash setup
+  // Gating threshold distance used by spatial engine grid query maps to optimize lookups.
   static const double _maxSurfaceDist = 12.0;
+
+  // =========================================================================
 
   final SpatialGrid spatialGrid;
   double tilt = 0.0;
@@ -463,7 +568,6 @@ class Bike {
     Vector2 rTarget = rearPos + rForkDir * suspensionTravel;
     Vector2 fTarget = frontPos + fForkDir * suspensionTravel;
 
-    // QUERY THE GRID INSTEAD OF SCROLLING ALL MAP SEGMENTS GLOBAL-WIDE
     _rearSurface = _nearestSurface(rTarget);
     _frontSurface = _nearestSurface(fTarget);
     rearOnGround = frontOnGround = false;
@@ -504,7 +608,6 @@ class Bike {
       }
     }
 
-    // --- COG AND TORQUE FIXES ---
     Vector2 axle = frontPos - rearPos;
     Vector2 tangent = Vector2(-axle.y, axle.x)..normalize();
     double angle = atan2(axle.y, axle.x);
@@ -568,12 +671,10 @@ class Bike {
     headPos = center + localDown * -7.0; 
   }
 
-  // REWRITTEN NEAREST SURFACE PROJECTION FILTER
   SurfaceHit? _nearestSurface(Vector2 pt) {
     SurfaceHit? best; 
     double bDist = double.infinity;
     
-    // Retrieve only segments overlapping locally near this spatial vector cluster
     final localSegs = spatialGrid.getNearby(pt, _maxSurfaceDist + 10.0);
 
     for (final s in localSegs) {
@@ -589,13 +690,12 @@ class Bike {
         Vector2 geomNormal = Vector2(s.tangent.y, -s.tangent.x);
         Vector2 geomTangent = s.tangent;
 
-        // Continuity check: smooth out joint transitions if vertices match
-        double effectiveDist = dist;
+        // Continuity boundaries: ignores edge endings if linked to a sequential adjacent segment
         if (rawT < -0.001 && s.prev != null) continue; 
         if (rawT > 1.001 && s.next != null) continue;
 
-        if (effectiveDist < bDist) {
-          bDist = effectiveDist;
+        if (dist < bDist) {
+          bDist = dist;
           Vector2 toPt = pt - close;
           if ((t <= 0.001 || t >= 0.999) && toPt.length2 > 0) {
             if (geomNormal.dot(toPt) < 0) {
