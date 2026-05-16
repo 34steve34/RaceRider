@@ -494,7 +494,7 @@ class Bike {
   /// Angular velocity resistance applied to free flight in empty air spaces.
   /// -> INCREASING introduces rotational drag, stopping excessive spinning when releasing controls.
   /// -> DECREASING allows clean, continuous conservation of momentum for multi-flips.
-  static double _airborneRotationDamping = 45.0;  
+  static double _airborneRotationDamping = 85.0;  
 
   // Gating threshold distance used by spatial engine grid query maps to optimize lookups.
   static const double _maxSurfaceDist = 12.0;
