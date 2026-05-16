@@ -19,7 +19,7 @@ void main() async {
 Offset _off(Vector2 v) => Offset(v.x, v.y);
 
 class RaceRiderGame extends FlameGame with TapCallbacks {
-  static const buildLabel = 'physics v.214 - claude COG gravity torque';
+  static const buildLabel = 'physics v.214 - gemini COG gravity torque';
   late Bike player;
   late List<TrackSegment> trackSegments;
   
@@ -313,9 +313,9 @@ class Bike {
   static double suspensionDamping = 40.0; 
   static double _magnetStrength = 0.005;
 
-  static double _playerTorqueStrength = 200000.0; 
+  static double _playerTorqueStrength = 400000.0; 
   static double _cogDistanceFromRear = 8.5;
-  static double _cogHeight = 5.0;
+  static double _cogHeight = 1.5;
   static double _frontGroundedTorqueScale = 0.15;
   static double _wheelbase = 18.0;
   static double _bikeMass = 10.0;
@@ -476,7 +476,7 @@ class Bike {
     double gravTorqueAccel = 0.0;
     if (rearOnGround && !frontOnGround) {
       double cogHorizontalOffset =
-          cos(angle) * _cogDistanceFromRear + sin(angle) * _cogHeight;
+          cos(angle) * _cogDistanceFromRear - sin(angle) * _cogHeight;
       // Negative sign: positive offset → nose-down → negative in our convention
       // (positive linearTorqueAccel = rear down = nose UP in this system).
       gravTorqueAccel = -_gravity * cogHorizontalOffset / _wheelbase;
