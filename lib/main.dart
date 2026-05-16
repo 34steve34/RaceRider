@@ -19,7 +19,7 @@ void main() async {
 Offset _off(Vector2 v) => Offset(v.x, v.y);
 
 class RaceRiderGame extends FlameGame with TapCallbacks {
-  static const buildLabel = 'physics v.212 - gemini CLIFF EDGE FIX02';
+  static const buildLabel = 'physics v.212 - gemini   FIX03';
   late Bike player;
   late List<TrackSegment> trackSegments;
   
@@ -381,9 +381,11 @@ class Bike {
     Vector2 rVel = (rearPos - rearOldPos) / dt;
     Vector2 fVel = (frontPos - frontOldPos) / dt;
     
-    // --- AIR DRAG (TERMINAL VELOCITY) ---
-    rVel *= 0.99; // Subtle air resistance
-    fVel *= 0.99;
+    // --- FIXED AIR DRAG ---
+    // 0.999 removes 0.1% of speed per frame, capping extreme freefall 
+    // without ruining your forward momentum.
+    rVel *= 0.999; 
+    fVel *= 0.999;
 
     Vector2 rAccel = Vector2(0, _gravity), fAccel = Vector2(0, _gravity);
 
@@ -414,7 +416,7 @@ class Bike {
         }
         if (vNorm < -_impactCrashLimit) _crash();
       } 
-      // FIXED MAGNET: Only pulls if distance is within 5 units of the wheel
+      // DISTANCE GATED MAGNET
       else if (sd < _wheelRadius + 5.0 && sd > 0) {
         rAccel -= _rearSurface!.normal * (_gravity * _magnetStrength * 100.0);
       }
@@ -427,11 +429,16 @@ class Bike {
         double penetration = _wheelRadius - sd;
         double vNorm = fVel.dot(_frontSurface!.normal);
         fAccel += _frontSurface!.normal * max(0.0, penetration * suspensionStrength - vNorm * suspensionDamping);
+        
+        if (isBrake) {
+          double vTan = fVel.dot(_frontSurface!.tangent);
+          fAccel -= _frontSurface!.tangent * (vTan.sign * _brakeStrength);
+        }
         if (vNorm < -_impactCrashLimit) _crash();
       }
     }
 
-    // --- TORQUE MATH ---
+    // --- SYMMETRIC TORQUE ---
     Vector2 axle = frontPos - rearPos;
     Vector2 tangent = Vector2(-axle.y, axle.x)..normalize(); 
     double angle = atan2(axle.y, axle.x);
@@ -440,7 +447,6 @@ class Bike {
     double playerTorque = -tilt * _playerTorqueStrength * angleFactor; 
     if (playerTorque < 0 && frontOnGround) playerTorque *= _frontGroundedTorqueScale;
 
-    // Symmetric rotation damping to prevent "rowing"
     double damping = (rearOnGround || frontOnGround) ? _wheelieRotationDamping : _airborneRotationDamping;
     Vector2 relVel = fVel - rVel;
     double rotVel = relVel.dot(tangent) / _wheelbase;
@@ -464,7 +470,12 @@ class Bike {
       rearPos.add(diff * (err * _massFront));
       frontPos.sub(diff * (err * _massRear));
     }
+    
+    // --- FIXED IMMORTALITY ---
+    // These lines were missing in the last snippet!
     _syncFrameAndCollision(atan2(frontPos.y - rearPos.y, frontPos.x - rearPos.x));
+    SurfaceHit? hHit = _nearestSurface(collisionHeadPos, trackSegments);
+    if (hHit != null && hHit.distance < _headRadius) _crash();
   }
 
   void _syncFrameAndCollision(double currAngle) {
