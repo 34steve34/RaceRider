@@ -19,8 +19,6 @@ void main() async {
 Offset _off(Vector2 v) => Offset(v.x, v.y);
 
 // --- SPATIAL PARTITIONING GRID ---
-// Divides the world into an efficient coordinate hash map. Keeps performance 
-// flawless and identical whether the map has 10 segments or 10,000 segments.
 class SpatialGrid {
   final double cellSize;
   final Map<String, List<TrackSegment>> _buckets = {};
@@ -62,7 +60,7 @@ class SpatialGrid {
 }
 
 class RaceRiderGame extends FlameGame with TapCallbacks {
-  static const buildLabel = 'physics v.310 - Long Track & Documented Engine Constants';
+  static const buildLabel = 'physics v.320 - Continuous Multi-Tier Safety Track';
   late Bike player;
   late List<TrackSegment> trackSegments;
   final SpatialGrid grid = SpatialGrid(cellSize: 80.0);
@@ -101,7 +99,7 @@ class RaceRiderGame extends FlameGame with TapCallbacks {
     add(DebugOverlay());
     
     camera.viewfinder
-      ..zoom = 1.9 // Slightly zoomed out to appreciate the longer view-distance layouts
+      ..zoom = 1.6 // Zoomed out a bit more so you can easily see the upper and lower tiers
       ..anchor = Anchor.center;
       
     _accelSub = accelerometerEvents.listen((e) => rawTilt = e.y);
@@ -121,7 +119,6 @@ class RaceRiderGame extends FlameGame with TapCallbacks {
     super.onRemove();
   }
 
-  // UTILITY: Links procedural points sequentially to preserve physics vector tracking
   List<TrackSegment> _stitchPath(List<Vector2> points) {
     final pathSegs = <TrackSegment>[];
     for (int i = 0; i < points.length - 1; i++) {
@@ -135,42 +132,48 @@ class RaceRiderGame extends FlameGame with TapCallbacks {
     return pathSegs;
   }
 
-  // --- THE LONGER COMPREHENSIVE ROADMAP MAP ---
+  // --- CONTINUOUS MULTI-TIER MAP LAYOUT ---
   List<TrackSegment> _buildTrack() {
     final allSegs = <TrackSegment>[];
     
-    // SECTION 1: Starter Zone (Flat Strip -> Testing Ramp -> Cliff Edge Face Drop)
-    final section1Points = [
+    // TIER 1: Launch Ramp (Stitched)
+    final tier1LaunchPoints = [
       Vector2(-700.0, 38.0),
       Vector2(-400.0, 38.0),
-      Vector2(-310.0, -34.0), // The Launch Peak
-      Vector2(-310.0, 38.0),  // The vertical geometric cliff wall drop
-      Vector2(-150.0, 38.0),  // Flat landing strip
+      Vector2(-290.0, -40.0), // The Launch lip
     ];
-    allSegs.addAll(_stitchPath(section1Points));
+    allSegs.addAll(_stitchPath(tier1LaunchPoints));
     
-    // SECTION 2: Rolling Bumps (Sinusoidal Waves to test suspension/damping settings)
-    final bumpsPoints = <Vector2>[];
-    double startX = -150.0;
-    double endX = 250.0;
-    int waveSegments = 30;
-    for (int i = 0; i <= waveSegments; i++) {
-      double pct = i / waveSegments;
-      double currX = startX + pct * (endX - startX);
-      // Generate standard rolling waves using sine functions
-      double currY = 38.0 - (sin(pct * pi * 4) * 16.0); 
-      bumpsPoints.add(Vector2(currX, currY));
-    }
-    final bumpSegs = _stitchPath(bumpsPoints);
-    _connectTwoSections(allSegs, bumpSegs);
-    allSegs.addAll(bumpSegs);
+    // TIER 1 UPPER LANDING PLATFORM (If you have enough speed to clear the gap)
+    final tier1LandingPoints = [
+      Vector2(-40.0, -40.0), // High landing platform target
+      Vector2(150.0, -20.0), 
+      Vector2(260.0, 20.0),  // Leads toward the loop entrance
+    ];
+    final tier1LandingSegs = _stitchPath(tier1LandingPoints);
+    allSegs.addAll(tier1LandingSegs);
 
-    // SECTION 3: The Massive 360-Degree Loop (Smooth 64-segment structure)
-    final loopCenter = Vector2(500.0, -110.0);
+    // SAFETY NET FOR JUMP 1 (Placed directly underneath the gap)
+    // If you fail the jump, you fall down here smoothly and keep driving right!
+    final safetyNet1Points = [
+      Vector2(-290.0, 160.0), // Catches you right below the launch point
+      Vector2(-100.0, 160.0),
+      Vector2(120.0, 140.0),  // Slopes upward gently to transition back up
+      Vector2(260.0, 20.0),   // RE-CONNECTS cleanly right into the loop entrance vertex!
+    ];
+    final safetyNet1Segs = _stitchPath(safetyNet1Points);
+    
+    // Stitch the end of the safety net into the upper track loop entrance so physics flow seamlessly
+    safetyNet1Segs.last.next = tier1LandingSegs.last;
+    tier1LandingSegs.last.prev = safetyNet1Segs.last;
+    allSegs.addAll(safetyNet1Segs);
+
+    // SECTION 2: The Loop-the-Loop (Stitched smoothly)
+    final loopCenter = Vector2(460.0, -120.0);
     const loopRadius = 140.0;
-    const loopSteps = 64; // High allocation for clean tracking calculations
-    const startAngle = 1.5708; // Bottom-entry point of loop orientation
-    const endAngle = 1.5708 + (2 * pi); // 360-degree wrapping spin
+    const loopSteps = 64; 
+    const startAngle = 1.5708; 
+    const endAngle = 1.5708 + (2 * pi); 
     
     final loopPoints = <Vector2>[];
     for (int i = 0; i <= loopSteps; i++) {
@@ -179,58 +182,83 @@ class RaceRiderGame extends FlameGame with TapCallbacks {
       loopPoints.add(Vector2(loopCenter.x + cos(a) * loopRadius, loopCenter.y + sin(a) * loopRadius));
     }
     final loopSegs = _stitchPath(loopPoints);
-    _connectTwoSections(allSegs, loopSegs);
+    
+    // Connect the loop entrance vertex to BOTH the upper landing path and the safety net exit point
+    tier1LandingSegs.last.next = loopSegs.first;
+    loopSegs.first.prev = tier1LandingSegs.last;
     allSegs.addAll(loopSegs);
 
-    // SECTION 4: Wall-Climb Accelerator Arc transitioning directly into Vertical Wall
-    final wallCurveCenter = Vector2(800.0, 38.0 - 90.0);
+    // SECTION 3: Speed Wave Bumps exiting the loop
+    final postLoopPoints = [
+      Vector2(460.0, 20.0),
+      Vector2(600.0, 20.0),
+    ];
+    final postLoopSegs = _stitchPath(postLoopPoints);
+    loopSegs.last.next = postLoopSegs.first;
+    postLoopSegs.first.prev = loopSegs.last;
+    allSegs.addAll(postLoopSegs);
+
+    final bumpsPoints = <Vector2>[];
+    double startX = 600.0;
+    double endX = 1000.0;
+    int waveSegments = 24;
+    for (int i = 0; i <= waveSegments; i++) {
+      double pct = i / waveSegments;
+      double currX = startX + pct * (endX - startX);
+      double currY = 20.0 - (sin(pct * pi * 6) * 14.0); 
+      bumpsPoints.add(Vector2(currX, currY));
+    }
+    final bumpSegs = _stitchPath(bumpsPoints);
+    postLoopSegs.last.next = bumpSegs.first;
+    bumpSegs.first.prev = postLoopSegs.last;
+    allSegs.addAll(bumpSegs);
+
+    // SECTION 4: The Wall Climb Launcher Arc
+    final wallCurveCenter = Vector2(1090.0, 20.0 - 90.0);
     const wallCurveRadius = 90.0;
     const wallCurveSteps = 20;
     
     final wallCurvePoints = <Vector2>[];
     for (int i = 0; i <= wallCurveSteps; i++) {
       double t = i / wallCurveSteps;
-      double a = 1.5708 + t * (0.0 - 1.5708); // Radians sweeping down and rightward to vertical 90
+      double a = 1.5708 + t * (0.0 - 1.5708); 
       wallCurvePoints.add(Vector2(wallCurveCenter.x + cos(a) * wallCurveRadius, wallCurveCenter.y + sin(a) * wallCurveRadius));
     }
     final wallCurveSegs = _stitchPath(wallCurvePoints);
-    _connectTwoSections(allSegs, wallCurveSegs);
+    bumpSegs.last.next = wallCurveSegs.first;
+    wallCurveSegs.first.prev = bumpSegs.last;
     allSegs.addAll(wallCurveSegs);
 
-    // Vertical Wall Element (Test the absolute climbing physics capacity of the rear drive wheel)
-    final wallTop = Vector2(wallCurvePoints.last.x, wallCurvePoints.last.y - 320.0);
+    // The Vertical Wall Element
+    final wallTop = Vector2(wallCurvePoints.last.x, wallCurvePoints.last.y - 260.0);
     final verticalWallSeg = TrackSegment(wallCurvePoints.last, wallTop);
-    allSegs.last.next = verticalWallSeg;
-    verticalWallSeg.prev = allSegs.last;
+    wallCurveSegs.last.next = verticalWallSeg;
+    verticalWallSeg.prev = wallCurveSegs.last;
     allSegs.add(verticalWallSeg);
 
-    // SECTION 5: Floating Sky Platforms & Giant Leaps/Chasm Drops
+    // HIGH SKY PLATFORM (If you manage to rocket all the way up the wall)
     final skyPlatformPoints = [
-      wallTop + Vector2(10.0, 0.0), // Small micro ledge safety cap
-      wallTop + Vector2(250.0, -50.0), // Upward slope floating bridge path
-      wallTop + Vector2(500.0, -50.0), // Drop-off ledge trigger
+      wallTop,
+      wallTop + Vector2(250.0, -30.0),
+      wallTop + Vector2(450.0, -30.0), // Giant drop-off launch point
     ];
     final skySegs = _stitchPath(skyPlatformPoints);
-    // Left detached entirely in space on purpose to behave as a floating jump obstacle!
+    verticalWallSeg.next = skySegs.first;
+    skySegs.first.prev = verticalWallSeg;
     allSegs.addAll(skySegs);
 
-    // SECTION 6: The Long Return Valley Landing Catch Run out
-    final valleyLandingPoints = [
-      Vector2(1450.0, 200.0), // Deep impact landing basin entry
-      Vector2(1650.0, 150.0),
-      Vector2(1900.0, 110.0),
-      Vector2(2500.0, 110.0), // Long straight finish strip
+    // SAFETY VALLEY FLOOR FOR THE WALL CLIMB
+    // If you slide down the wall or miss the sky platform, you land down here safely to cross the finish line!
+    final lowerValleyPoints = [
+      Vector2(1180.0, 160.0), // Catches riders falling off the wall curve back area
+      Vector2(1400.0, 160.0),
+      Vector2(1700.0, 110.0), // Valley basin floor where the sky drop lands
+      Vector2(2400.0, 110.0), // Flat home-stretch run out
     ];
-    allSegs.addAll(_stitchPath(valleyLandingPoints));
+    final valleySegs = _stitchPath(lowerValleyPoints);
+    allSegs.addAll(valleySegs);
 
     return allSegs;
-  }
-
-  void _connectTwoSections(List<TrackSegment> baseList, List<TrackSegment> newList) {
-    if (baseList.isNotEmpty && newList.isNotEmpty) {
-      baseList.last.next = newList.first;
-      newList.first.prev = baseList.last;
-    }
   }
 
   @override
@@ -494,7 +522,7 @@ class Bike {
   /// Angular velocity resistance applied to free flight in empty air spaces.
   /// -> INCREASING introduces rotational drag, stopping excessive spinning when releasing controls.
   /// -> DECREASING allows clean, continuous conservation of momentum for multi-flips.
-  static double _airborneRotationDamping = 85.0;  
+  static double _airborneRotationDamping = 85.0; // Updated to 85.0 based on latest testing preferences
 
   // Gating threshold distance used by spatial engine grid query maps to optimize lookups.
   static const double _maxSurfaceDist = 12.0;
@@ -690,7 +718,6 @@ class Bike {
         Vector2 geomNormal = Vector2(s.tangent.y, -s.tangent.x);
         Vector2 geomTangent = s.tangent;
 
-        // Continuity boundaries: ignores edge endings if linked to a sequential adjacent segment
         if (rawT < -0.001 && s.prev != null) continue; 
         if (rawT > 1.001 && s.next != null) continue;
 
