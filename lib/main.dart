@@ -18,10 +18,57 @@ void main() async {
 
 Offset _off(Vector2 v) => Offset(v.x, v.y);
 
+// --- SPATIAL PARTITIONING GRID ---
+// Divides the 2D game world into manageable cells to optimize collision scanning.
+class SpatialGrid {
+  final double cellSize;
+  final Map<String, List<TrackSegment>> _buckets = {};
+
+  SpatialGrid({this.cellSize = 60.0});
+
+  String _getKey(int cx, int cy) => '$cx,$cy';
+
+  void clear() => _buckets.clear();
+
+  // Registers a segment into every grid cell its bounding box overlaps
+  void insert(TrackSegment seg) {
+    int minX = (min(seg.a.x, seg.b.x) / cellSize).floor();
+    int maxX = (max(seg.a.x, seg.b.x) / cellSize).floor();
+    int minY = (min(seg.a.y, seg.b.y) / cellSize).floor();
+    int maxY = (max(seg.a.y, seg.b.y) / cellSize).floor();
+
+    for (int cx = minX; cx <= maxX; cx++) {
+      for (int cy = minY; cy <= maxY; cy++) {
+        final key = _getKey(cx, cy);
+        _buckets.putIfAbsent(key, () => []).add(seg);
+      }
+    }
+  }
+
+  // Retrieves all distinct segments nearby a specific world position radius
+  List<TrackSegment> getNearby(Vector2 pos, double radius) {
+    final Set<TrackSegment> nearby = {};
+    int minX = ((pos.x - radius) / cellSize).floor();
+    int maxX = ((pos.x + radius) / cellSize).floor();
+    int minY = ((pos.y - radius) / cellSize).floor();
+    int maxY = ((pos.y + radius) / cellSize).floor();
+
+    for (int cx = minX; cx <= maxX; cx++) {
+      for (int cy = minY; cy <= maxY; cy++) {
+        final key = _getKey(cx, cy);
+        final cellSegs = _buckets[key];
+        if (cellSegs != null) nearby.addAll(cellSegs);
+      }
+    }
+    return nearby.toList();
+  }
+}
+
 class RaceRiderGame extends FlameGame with TapCallbacks {
-  static const buildLabel = 'physics v.214 - gemini COG gravity torque';
+  static const buildLabel = 'physics v.300 - Spatial Hash Grid Restructure';
   late Bike player;
   late List<TrackSegment> trackSegments;
+  final SpatialGrid grid = SpatialGrid(cellSize: 80.0);
   
   double rawTilt = 0.0;
   double smoothedTilt = 0.0;
@@ -50,9 +97,8 @@ class RaceRiderGame extends FlameGame with TapCallbacks {
 
   @override
   Future<void> onLoad() async {
-    trackSegments = _buildTrack();
-    player = Bike(_spawnPoint());
-    player.trackSegments = trackSegments;
+    _loadTrackData();
+    player = Bike(_spawnPoint(), grid);
     
     add(Background());
     add(DebugOverlay());
@@ -64,77 +110,98 @@ class RaceRiderGame extends FlameGame with TapCallbacks {
     _accelSub = accelerometerEvents.listen((e) => rawTilt = e.y);
   }
 
+  void _loadTrackData() {
+    grid.clear();
+    trackSegments = _buildTrack();
+    for (final seg in trackSegments) {
+      grid.insert(seg);
+    }
+  }
+
   @override
   void onRemove() {
     _accelSub.cancel();
     super.onRemove();
   }
 
+  // FACTORY METHOD: Stitches continuous paths together seamlessly
+  List<TrackSegment> _stitchPath(List<Vector2> points) {
+    final pathSegs = <TrackSegment>[];
+    for (int i = 0; i < points.length - 1; i++) {
+      final seg = TrackSegment(points[i], points[i + 1]);
+      if (pathSegs.isNotEmpty) {
+        pathSegs.last.next = seg;
+        seg.prev = pathSegs.last;
+      }
+      pathSegs.add(seg);
+    }
+    return pathSegs;
+  }
+
   List<TrackSegment> _buildTrack() {
-    final segs = <TrackSegment>[];
+    final allSegs = <TrackSegment>[];
     
-    // 1. Starting Flat
-    segs.add(TrackSegment(Vector2(-600.0, 38.0), Vector2(-400.0, 38.0)));
+    // 1. Initial Flat & Ramp & Cliff Face Sequence (Stitched)
+    final initialPoints = [
+      Vector2(-600.0, 38.0),
+      Vector2(-400.0, 38.0),
+      Vector2(-310.0, -34.0), // Ramp Top
+      Vector2(-310.0, 38.0),  // Vertical Drop
+      Vector2(-200.0, 38.0),  // Landing Flat
+    ];
+    allSegs.addAll(_stitchPath(initialPoints));
     
-    // 2. SUSPENSION TEST RAMP
-    final rampStart = Vector2(-400.0, 38.0);
-    final rampTop = Vector2(-310.0, -34.0); 
-    segs.add(TrackSegment(rampStart, rampTop));
-    
-    // NEW: Vertical Cliff Face (Closes the gap so the track is solid)
-    final landingStart = Vector2(-310.0, 38.0);
-    segs.add(TrackSegment(rampTop, landingStart));
-    
-    // 3. Drop off and Landing Flat
-    final landingEnd = Vector2(-200.0, 38.0);
-    segs.add(TrackSegment(landingStart, landingEnd));
-    
-    // 4. The Original Curve
+    // 2. Smooth Launch Arc/Curve (Procedurally Stitched)
     final curveCenter = Vector2(-200.0, 38.0 - 72.0); 
     const curveRadius = 72.0;
     const curveSteps = 24;
     const curveStartAngle = 1.5708;  
     const curveEndAngle = 0.0;       
     
-    Vector2? curvePrev;
+    final curvePoints = <Vector2>[];
     for (int i = 0; i <= curveSteps; i++) {
       final t = i / curveSteps;
       final a = curveStartAngle + t * (curveEndAngle - curveStartAngle);
-      final p = Vector2(curveCenter.x + cos(a) * curveRadius, curveCenter.y + sin(a) * curveRadius);
-      if (curvePrev != null) segs.add(TrackSegment(curvePrev, p));
-      curvePrev = p;
+      curvePoints.add(Vector2(curveCenter.x + cos(a) * curveRadius, curveCenter.y + sin(a) * curveRadius));
     }
+    final curveSegs = _stitchPath(curvePoints);
+    if (allSegs.isNotEmpty && curveSegs.isNotEmpty) {
+      allSegs.last.next = curveSegs.first;
+      curveSegs.first.prev = allSegs.last;
+    }
+    allSegs.addAll(curveSegs);
     
-    // 5. The Vertical Wall
-    final wallTop = curvePrev!;
-    final wallBottom = Vector2(wallTop.x, wallTop.y - 250.0);
-    segs.add(TrackSegment(wallTop, wallBottom));
+    // 3. Vertical Wall attached to curve endpoint
+    final wallBottom = Vector2(curvePoints.last.x, curvePoints.last.y - 250.0);
+    final wallSeg = TrackSegment(curvePoints.last, wallBottom);
+    allSegs.last.next = wallSeg;
+    wallSeg.prev = allSegs.last;
+    allSegs.add(wallSeg);
 	
-    // 6. Landing Ramps & Loop
-    final landingRamp = <Vector2>[
-      Vector2(928.0, 26.0), Vector2(1018.0, 112.0), Vector2(1090.0, 138.0),
-      Vector2(1100.0, 130.0), Vector2(1240.0, 98.0), Vector2(1390.0, 114.0),
-      Vector2(1540.0, 76.0), Vector2(1710.0, 124.0), Vector2(1910.0, 112.0),
-      Vector2(2120.0, 112.0),
-    ];
-    for (int i = 0; i < landingRamp.length - 1; i++) {
-      segs.add(TrackSegment(landingRamp[i], landingRamp[i + 1]));
-    }
-
+    // 4. Isolated/Disjoint Loops & Landing Platform Ramps
     final loopCenter = Vector2(840.0, -94.0);
     const loopRadius = 106.0;
     const loopSteps = 48;
     const startAngle = 2.62;
     const endAngle = 6.68;
-    Vector2? prev;
+    
+    final loopPoints = <Vector2>[];
     for (int i = 0; i <= loopSteps; i++) {
       final t = i / loopSteps;
       final a = startAngle + t * (endAngle - startAngle);
-      final p = Vector2(loopCenter.x + cos(a) * loopRadius, loopCenter.y + sin(a) * loopRadius);
-      if (prev != null) segs.add(TrackSegment(prev, p));
-      prev = p;
+      loopPoints.add(Vector2(loopCenter.x + cos(a) * loopRadius, loopCenter.y + sin(a) * loopRadius));
     }
-    return segs;
+    allSegs.addAll(_stitchPath(loopPoints));
+
+    final landingRampPoints = <Vector2>[
+      Vector2(928.0, 26.0), Vector2(1018.0, 112.0), Vector2(1090.0, 138.0),
+      Vector2(1100.0, 130.0), Vector2(1240.0, 98.0), Vector2(1390.0, 114.0),
+      Vector2(1540.0, 76.0), Vector2(1710.0, 124.0), Vector2(1910.0, 112.0),
+      Vector2(2120.0, 112.0),
+    ];
+    allSegs.addAll(_stitchPath(landingRampPoints));
+
+    return allSegs;
   }
 
   @override
@@ -168,8 +235,7 @@ class RaceRiderGame extends FlameGame with TapCallbacks {
   }
   
   void _restartBike() {
-    player = Bike(_spawnPoint());
-    player.trackSegments = trackSegments;
+    player = Bike(_spawnPoint(), grid);
     crashTimer = 0.0;
     isGas = false;
     isBrake = false;
@@ -285,6 +351,9 @@ class RaceRiderGame extends FlameGame with TapCallbacks {
 
 class TrackSegment {
   final Vector2 a, b;
+  TrackSegment? prev;
+  TrackSegment? next;
+
   TrackSegment(this.a, this.b);
   Vector2 get delta => b - a;
   Vector2 get tangent => delta.normalized();
@@ -308,14 +377,13 @@ class Bike {
   static double _impactCrashLimit = 950.0; 
   static double suspensionTravel = 4.5; 
   
-  // UPDATED TO USER PREFERENCES
   static double suspensionStrength = 1300.0; 
   static double suspensionDamping = 40.0; 
   static double _magnetStrength = 0.005;
 
-  static double _playerTorqueStrength = 400000.0; 
+  static double _playerTorqueStrength = 200000.0; 
   static double _cogDistanceFromRear = 8.5;
-  static double _cogHeight = 1.5;
+  static double _cogHeight = 5.0;
   static double _frontGroundedTorqueScale = 0.15;
   static double _wheelbase = 18.0;
   static double _bikeMass = 10.0;
@@ -325,9 +393,10 @@ class Bike {
   static double _wheelieRotationDamping = 65.0;   
   static double _airborneRotationDamping = 45.0;  
 
-  static const double _maxSurfaceDist = 40.0;
+  // Tightened optimization gating radius to fit the spatial hash setup
+  static const double _maxSurfaceDist = 12.0;
 
-  late List<TrackSegment> trackSegments;
+  final SpatialGrid spatialGrid;
   double tilt = 0.0;
   bool isGas = false;
   bool isBrake = false;
@@ -345,7 +414,7 @@ class Bike {
   double get _massRear => (_wheelbase - _cogDistanceFromRear) / _wheelbase;
   double get _massFront => _cogDistanceFromRear / _wheelbase;
 
-  Bike(Vector2 startPos) {
+  Bike(Vector2 startPos, this.spatialGrid) {
     rearPos = startPos + Vector2(-9.5, 6.5);
     frontPos = startPos + Vector2(8.5, 6.5);
     rearOldPos = rearPos.clone();
@@ -381,9 +450,6 @@ class Bike {
     Vector2 rVel = (rearPos - rearOldPos) / dt;
     Vector2 fVel = (frontPos - frontOldPos) / dt;
     
-    // --- FIXED AIR DRAG ---
-    // 0.999 removes 0.1% of speed per frame, capping extreme freefall 
-    // without ruining your forward momentum.
     rVel *= 0.999; 
     fVel *= 0.999;
 
@@ -397,8 +463,9 @@ class Bike {
     Vector2 rTarget = rearPos + rForkDir * suspensionTravel;
     Vector2 fTarget = frontPos + fForkDir * suspensionTravel;
 
-    _rearSurface = _nearestSurface(rTarget, trackSegments);
-    _frontSurface = _nearestSurface(fTarget, trackSegments);
+    // QUERY THE GRID INSTEAD OF SCROLLING ALL MAP SEGMENTS GLOBAL-WIDE
+    _rearSurface = _nearestSurface(rTarget);
+    _frontSurface = _nearestSurface(fTarget);
     rearOnGround = frontOnGround = false;
 
     if (_rearSurface != null && _rearSurface!.distance < _maxSurfaceDist) {
@@ -416,7 +483,6 @@ class Bike {
         }
         if (vNorm < -_impactCrashLimit) _crash();
       } 
-      // DISTANCE GATED MAGNET
       else if (sd < _wheelRadius + 5.0 && sd > 0) {
         rAccel -= _rearSurface!.normal * (_gravity * _magnetStrength * 100.0);
       }
@@ -438,58 +504,26 @@ class Bike {
       }
     }
 
-    // --- TORQUE ---
+    // --- COG AND TORQUE FIXES ---
     Vector2 axle = frontPos - rearPos;
     Vector2 tangent = Vector2(-axle.y, axle.x)..normalize();
     double angle = atan2(axle.y, axle.x);
 
-    // Player torque — full authority at all angles.
-    // angleFactor removed: it choked control to 25% at vertical, exactly
-    // where the rider needs the most authority in a big wheelie.
     double playerTorque = -tilt * _playerTorqueStrength;
     if (playerTorque < 0 && frontOnGround) playerTorque *= _frontGroundedTorqueScale;
 
-    // --- GRAVITATIONAL COG TORQUE ---
-    // The COG sits at (cogDistanceFromRear) along the axle and (cogHeight)
-    // perpendicular above it.  Its horizontal distance from the rear axle
-    // in world space is what creates a tipping torque about the contact patch.
-    //
-    //   cogHorizontalOffset = cos(angle)*cogDistanceFromRear + sin(angle)*cogHeight
-    //
-    // Sign convention: positive offset → nose-down torque (gravTorqueAccel < 0).
-    //
-    // Airborne: equivalence principle — gravity accelerates all parts equally,
-    //           so it produces zero rotation.  Pivot is the COG itself.
-    //           Current equal-gravity-on-both-points model already handles this
-    //           correctly — no change needed for airborne.
-    //
-    // Rear wheel only (wheelie): pivot is the rear contact patch.
-    //   • Bike level   → COG far in front of axle → strong nose-down torque
-    //                     (fights wheelie, good — matches real physics)
-    //   • ~60° wheelie → COG nearly above axle → torque ≈ 0, balance point
-    //   • Past ~60°    → COG behind axle → tips further back (destabilising)
-    //                     Player must use tilt to fight it — this is exactly
-    //                     the skill the original Bike Race requires.
-    //
-    // Both grounded: suspension normal forces already redistribute the load;
-    //               adding explicit COG torque here would double-count it.
     double gravTorqueAccel = 0.0;
     if (rearOnGround && !frontOnGround) {
-      double cogHorizontalOffset =
-          cos(angle) * _cogDistanceFromRear - sin(angle) * _cogHeight;
-      // Negative sign: positive offset → nose-down → negative in our convention
-      // (positive linearTorqueAccel = rear down = nose UP in this system).
-      gravTorqueAccel = -_gravity * cogHorizontalOffset / _wheelbase;
+      double cosA = cos(angle);
+      double sinA = sin(angle);
+      double cogHorizontalOffset = (cosA * _cogDistanceFromRear) - (sinA * _cogHeight);
+      gravTorqueAccel = (-_gravity * cogHorizontalOffset) / _wheelbase;
     }
 
-    // Damping — now uses all three tunable params correctly:
-    //   _landingRotationDamping : both wheels grounded (high, for stability)
-    //   _wheelieRotationDamping : one wheel grounded (moderate)
-    //   _airborneRotationDamping: airborne (low, free rotation like BR)
     double damping;
     if (!rearOnGround && !frontOnGround) {
       damping = _airborneRotationDamping;
-    } else if (rearOnGround && !frontOnGround || !rearOnGround && frontOnGround) {
+    } else if ((rearOnGround && !frontOnGround) || (!rearOnGround && frontOnGround)) {
       damping = _wheelieRotationDamping;
     } else {
       damping = _landingRotationDamping;
@@ -504,7 +538,6 @@ class Bike {
     rAccel += tangent * linearTorqueAccel;
     fAccel -= tangent * linearTorqueAccel;
 
-    // Verlet integration
     Vector2 rNext = rearPos + rVel * dt + rAccel * (dt * dt);
     Vector2 fNext = frontPos + fVel * dt + fAccel * (dt * dt);
 
@@ -520,10 +553,8 @@ class Bike {
       frontPos.sub(diff * (err * _massRear));
     }
     
-    // --- FIXED IMMORTALITY ---
-    // These lines were missing in the last snippet!
     _syncFrameAndCollision(atan2(frontPos.y - rearPos.y, frontPos.x - rearPos.x));
-    SurfaceHit? hHit = _nearestSurface(collisionHeadPos, trackSegments);
+    SurfaceHit? hHit = _nearestSurface(collisionHeadPos);
     if (hHit != null && hHit.distance < _headRadius) _crash();
   }
 
@@ -537,33 +568,43 @@ class Bike {
     headPos = center + localDown * -7.0; 
   }
 
-  SurfaceHit? _nearestSurface(Vector2 pt, List<TrackSegment> segs) {
-    SurfaceHit? best; double bDist = double.infinity;
-    for (final s in segs) {
-      final l2 = s.delta.length2; if (l2 == 0) continue;
+  // REWRITTEN NEAREST SURFACE PROJECTION FILTER
+  SurfaceHit? _nearestSurface(Vector2 pt) {
+    SurfaceHit? best; 
+    double bDist = double.infinity;
+    
+    // Retrieve only segments overlapping locally near this spatial vector cluster
+    final localSegs = spatialGrid.getNearby(pt, _maxSurfaceDist + 10.0);
+
+    for (final s in localSegs) {
+      final l2 = s.delta.length2; 
+      if (l2 == 0) continue;
       
-      final t = ((pt - s.a).dot(s.delta) / l2).clamp(0.0, 1.0);
+      final double rawT = (pt - s.a).dot(s.delta) / l2;
+      final t = rawT.clamp(0.0, 1.0);
       final close = s.a + s.delta * t;
       final dist = (pt - close).length;
       
       if (dist < bDist) {
-        bDist = dist;
         Vector2 geomNormal = Vector2(s.tangent.y, -s.tangent.x);
         Vector2 geomTangent = s.tangent;
 
-        // --- GHOST HOOK / EDGE CAP FIX ---
-        // If the wheel is past the end of the line (hitting the vertex)
-        Vector2 toPt = pt - close;
-        if ((t <= 0.001 || t >= 0.999) && toPt.length2 > 0) {
-          // And the normal is pointing AWAY from the wheel
-          if (geomNormal.dot(toPt) < 0) {
-            // Reassign the normal to point directly from the corner to the wheel
-            geomNormal = toPt.normalized();
-            geomTangent = Vector2(-geomNormal.y, geomNormal.x);
-          }
-        }
+        // Continuity check: smooth out joint transitions if vertices match
+        double effectiveDist = dist;
+        if (rawT < -0.001 && s.prev != null) continue; 
+        if (rawT > 1.001 && s.next != null) continue;
 
-        best = SurfaceHit(point: close, normal: geomNormal, tangent: geomTangent, distance: dist);
+        if (effectiveDist < bDist) {
+          bDist = effectiveDist;
+          Vector2 toPt = pt - close;
+          if ((t <= 0.001 || t >= 0.999) && toPt.length2 > 0) {
+            if (geomNormal.dot(toPt) < 0) {
+              geomNormal = toPt.normalized();
+              geomTangent = Vector2(-geomNormal.y, geomNormal.x);
+            }
+          }
+          best = SurfaceHit(point: close, normal: geomNormal, tangent: geomTangent, distance: dist);
+        }
       }
     }
     return best;
