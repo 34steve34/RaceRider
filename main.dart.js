@@ -31370,7 +31370,7 @@ d.fg()
 c=Math.atan2(s[1],s[0])
 b=-b2.b*$.vk
 if(b<0&&b2.at)b*=$.vh
-a=b2.as&&!b2.at?-300*(Math.cos(c)*$.jj+Math.sin(c)*$.vg)/18:0
+a=b2.as&&!b2.at?-300*(Math.cos(c)*$.jj-Math.sin(c)*$.vg)/18:0
 s=b2.as
 r=!s
 if(r&&!b2.at)a0=$.ve
@@ -31545,7 +31545,7 @@ r=o.f
 r===$&&A.c()
 o=o.w
 o===$&&A.c()
-o=A.M9(A.Ma(B.vm,"RaceRider physics v.214 - claude COG gravity torque\nSpeed: "+B.d.J((q+Math.sqrt(r.aa(0,o).gdJ()))/0.016666666666666666,1)),B.x)
+o=A.M9(A.Ma(B.vm,"RaceRider physics v.214 - gemini COG gravity torque\nSpeed: "+B.d.J((q+Math.sqrt(r.aa(0,o).gdJ()))/0.016666666666666666,1)),B.x)
 o.uR()
 o.bG(a,B.tM)}}
 A.qH.prototype={
@@ -34286,9 +34286,9 @@ $.cs=4.5
 $.mW=1300
 $.mV=40
 $.vj=0.005
-$.vk=2e5
+$.vk=4e5
 $.jj=8.5
-$.vg=5
+$.vg=1.5
 $.vh=0.15
 $.vf=10
 $.Ih=1
