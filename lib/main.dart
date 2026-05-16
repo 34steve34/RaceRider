@@ -19,7 +19,7 @@ void main() async {
 Offset _off(Vector2 v) => Offset(v.x, v.y);
 
 class RaceRiderGame extends FlameGame with TapCallbacks {
-  static const buildLabel = 'physics v.212 - gemini   FIX03';
+  static const buildLabel = 'physics v.214 - claude COG gravity torque';
   late Bike player;
   late List<TrackSegment> trackSegments;
   
@@ -438,19 +438,68 @@ class Bike {
       }
     }
 
-    // --- SYMMETRIC TORQUE ---
+    // --- TORQUE ---
     Vector2 axle = frontPos - rearPos;
-    Vector2 tangent = Vector2(-axle.y, axle.x)..normalize(); 
+    Vector2 tangent = Vector2(-axle.y, axle.x)..normalize();
     double angle = atan2(axle.y, axle.x);
-    double angleFactor = 0.25 + 0.75 * cos(angle).abs();
 
-    double playerTorque = -tilt * _playerTorqueStrength * angleFactor; 
+    // Player torque — full authority at all angles.
+    // angleFactor removed: it choked control to 25% at vertical, exactly
+    // where the rider needs the most authority in a big wheelie.
+    double playerTorque = -tilt * _playerTorqueStrength;
     if (playerTorque < 0 && frontOnGround) playerTorque *= _frontGroundedTorqueScale;
 
-    double damping = (rearOnGround || frontOnGround) ? _wheelieRotationDamping : _airborneRotationDamping;
+    // --- GRAVITATIONAL COG TORQUE ---
+    // The COG sits at (cogDistanceFromRear) along the axle and (cogHeight)
+    // perpendicular above it.  Its horizontal distance from the rear axle
+    // in world space is what creates a tipping torque about the contact patch.
+    //
+    //   cogHorizontalOffset = cos(angle)*cogDistanceFromRear + sin(angle)*cogHeight
+    //
+    // Sign convention: positive offset → nose-down torque (gravTorqueAccel < 0).
+    //
+    // Airborne: equivalence principle — gravity accelerates all parts equally,
+    //           so it produces zero rotation.  Pivot is the COG itself.
+    //           Current equal-gravity-on-both-points model already handles this
+    //           correctly — no change needed for airborne.
+    //
+    // Rear wheel only (wheelie): pivot is the rear contact patch.
+    //   • Bike level   → COG far in front of axle → strong nose-down torque
+    //                     (fights wheelie, good — matches real physics)
+    //   • ~60° wheelie → COG nearly above axle → torque ≈ 0, balance point
+    //   • Past ~60°    → COG behind axle → tips further back (destabilising)
+    //                     Player must use tilt to fight it — this is exactly
+    //                     the skill the original Bike Race requires.
+    //
+    // Both grounded: suspension normal forces already redistribute the load;
+    //               adding explicit COG torque here would double-count it.
+    double gravTorqueAccel = 0.0;
+    if (rearOnGround && !frontOnGround) {
+      double cogHorizontalOffset =
+          cos(angle) * _cogDistanceFromRear + sin(angle) * _cogHeight;
+      // Negative sign: positive offset → nose-down → negative in our convention
+      // (positive linearTorqueAccel = rear down = nose UP in this system).
+      gravTorqueAccel = -_gravity * cogHorizontalOffset / _wheelbase;
+    }
+
+    // Damping — now uses all three tunable params correctly:
+    //   _landingRotationDamping : both wheels grounded (high, for stability)
+    //   _wheelieRotationDamping : one wheel grounded (moderate)
+    //   _airborneRotationDamping: airborne (low, free rotation like BR)
+    double damping;
+    if (!rearOnGround && !frontOnGround) {
+      damping = _airborneRotationDamping;
+    } else if (rearOnGround && !frontOnGround || !rearOnGround && frontOnGround) {
+      damping = _wheelieRotationDamping;
+    } else {
+      damping = _landingRotationDamping;
+    }
+
     Vector2 relVel = fVel - rVel;
     double rotVel = relVel.dot(tangent) / _wheelbase;
-    double linearTorqueAccel = (playerTorque / (_wheelbase * _bikeMass)) + (rotVel * damping);
+    double linearTorqueAccel = (playerTorque / (_wheelbase * _bikeMass))
+                             + gravTorqueAccel
+                             + (rotVel * damping);
 
     rAccel += tangent * linearTorqueAccel;
     fAccel -= tangent * linearTorqueAccel;
