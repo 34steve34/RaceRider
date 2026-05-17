@@ -59,10 +59,10 @@ class SpatialGrid {
   }
 }
 
-class RaceRiderGame extends FlameGame with TapCallbacks {
-  static const buildLabel = 'physics v.320 - Continuous Multi-Tier Safety Track';
+class RaceRiderGame extends FlameGame with DragCallbacks, ScaleCallbacks, TapCallbacks {
+  static const buildLabel = 'physics v.330 - Stage 1 Canvas Editor with Pan & Zoom';
   late Bike player;
-  late List<TrackSegment> trackSegments;
+  final List<TrackSegment> trackSegments = [];
   final SpatialGrid grid = SpatialGrid(cellSize: 80.0);
   
   double rawTilt = 0.0;
@@ -75,40 +75,43 @@ class RaceRiderGame extends FlameGame with TapCallbacks {
   double dt = 0.0;
   late StreamSubscription _accelSub;
   
-  bool isTuningMode = false;
-  int currentTuningParam = 0;
-  
-  final List<String> tuningParamNames = [
-    'Torque', 'AirGrav', 'Mass', 'CogDist', 'CogHeight', 'MagStr', 'FrontTorque', 
-    'SuspStr', 'SuspDmp', 'SuspTrv', 'CrashLim', 'LandDamp', 'WhlDamp', 'AirDamp', 'BrakeStr'
-  ];
-  final List<double> tuningParamSteps = [
-    5000.0, 0.05, 1.0, 0.5, 0.5, 0.0005, 0.01, 
-    50.0, 5.0, 0.5, 50.0, 10.0, 5.0, 5.0, 50.0
-  ];
-  
   double crashTimer = 0.0;
   static const double _crashRestartDelay = 1.2;
 
+  // --- STAGE 1 DRAWING STATE ENGINE VARIABLES ---
+  Vector2? _lastDrawnPoint;
+  static const double _drawingMinDistance = 12.0; // Hand shake filter threshold (pixels)
+  TrackSegment? _lastCreatedSegment;
+
   @override
   Future<void> onLoad() async {
-    _loadTrackData();
+    _loadStarterTrack();
     player = Bike(_spawnPoint(), grid);
     
     add(Background());
     add(DebugOverlay());
     
     camera.viewfinder
-      ..zoom = 1.6 // Zoomed out a bit more so you can easily see the upper and lower tiers
-      ..anchor = Anchor.center;
+      ..zoom = 1.5
+      ..anchor = Anchor.center
+      ..position = player.position;
       
     _accelSub = accelerometerEvents.listen((e) => rawTilt = e.y);
   }
 
-  void _loadTrackData() {
+  // Pre-loads a single small platform so the bike has something to drop onto initially
+  void _loadStarterTrack() {
     grid.clear();
-    trackSegments = _buildTrack();
-    for (final seg in trackSegments) {
+    trackSegments.clear();
+    
+    final points = [
+      Vector2(-700.0, 100.0),
+      Vector2(-400.0, 100.0),
+    ];
+    
+    for (int i = 0; i < points.length - 1; i++) {
+      final seg = TrackSegment(points[i], points[i + 1]);
+      trackSegments.add(seg);
       grid.insert(seg);
     }
   }
@@ -119,146 +122,78 @@ class RaceRiderGame extends FlameGame with TapCallbacks {
     super.onRemove();
   }
 
-  List<TrackSegment> _stitchPath(List<Vector2> points) {
-    final pathSegs = <TrackSegment>[];
-    for (int i = 0; i < points.length - 1; i++) {
-      final seg = TrackSegment(points[i], points[i + 1]);
-      if (pathSegs.isNotEmpty) {
-        pathSegs.last.next = seg;
-        seg.prev = pathSegs.last;
-      }
-      pathSegs.add(seg);
-    }
-    return pathSegs;
+  // --- INTERACTION HOOK: Convert screen touches to 2D canvas coordinates ---
+  Vector2 _screenToWorld(Vector2 localPosition) {
+    return camera.viewfinder.position + 
+        (localPosition - size / 2) / camera.viewfinder.zoom;
   }
 
-  // --- CONTINUOUS MULTI-TIER MAP LAYOUT ---
-  List<TrackSegment> _buildTrack() {
-    final allSegs = <TrackSegment>[];
-    
-    // TIER 1: Launch Ramp (Stitched)
-    final tier1LaunchPoints = [
-      Vector2(-700.0, 38.0),
-      Vector2(-400.0, 38.0),
-      Vector2(-290.0, -40.0), // The Launch lip
-    ];
-    allSegs.addAll(_stitchPath(tier1LaunchPoints));
-    
-    // TIER 1 UPPER LANDING PLATFORM (If you have enough speed to clear the gap)
-    final tier1LandingPoints = [
-      Vector2(-40.0, -40.0), // High landing platform target
-      Vector2(150.0, -20.0), 
-      Vector2(260.0, 20.0),  // Leads toward the loop entrance
-    ];
-    final tier1LandingSegs = _stitchPath(tier1LandingPoints);
-    allSegs.addAll(tier1LandingSegs);
+  @override
+  void onTapDown(TapDownEvent event) {
+    final x = event.localPosition.x;
+    final y = event.localPosition.y;
 
-    // SAFETY NET FOR JUMP 1 (Placed directly underneath the gap)
-    // If you fail the jump, you fall down here smoothly and keep driving right!
-    final safetyNet1Points = [
-      Vector2(-290.0, 160.0), // Catches you right below the launch point
-      Vector2(-100.0, 160.0),
-      Vector2(120.0, 140.0),  // Slopes upward gently to transition back up
-      Vector2(260.0, 20.0),   // RE-CONNECTS cleanly right into the loop entrance vertex!
-    ];
-    final safetyNet1Segs = _stitchPath(safetyNet1Points);
-    
-    // Stitch the end of the safety net into the upper track loop entrance so physics flow seamlessly
-    safetyNet1Segs.last.next = tier1LandingSegs.last;
-    tier1LandingSegs.last.prev = safetyNet1Segs.last;
-    allSegs.addAll(safetyNet1Segs);
-
-    // SECTION 2: The Loop-the-Loop (Stitched smoothly)
-    final loopCenter = Vector2(460.0, -120.0);
-    const loopRadius = 140.0;
-    const loopSteps = 64; 
-    const startAngle = 1.5708; 
-    const endAngle = 1.5708 + (2 * pi); 
-    
-    final loopPoints = <Vector2>[];
-    for (int i = 0; i <= loopSteps; i++) {
-      double t = i / loopSteps;
-      double a = startAngle + t * (endAngle - startAngle);
-      loopPoints.add(Vector2(loopCenter.x + cos(a) * loopRadius, loopCenter.y + sin(a) * loopRadius));
+    // Trigger clear operation if top menu button area is tapped
+    if (y < 60 && x < 160) {
+      _clearCanvas();
+      return;
     }
-    final loopSegs = _stitchPath(loopPoints);
+
+    // Capture initial single finger coordinate stroke
+    final worldPos = _screenToWorld(event.localPosition);
+    _lastDrawnPoint = worldPos;
+    _lastCreatedSegment = null;
+  }
+
+  @override
+  void onDragUpdate(DragUpdateEvent event) {
+    // Only draw if one single pointer is interacting
+    final worldPos = _screenToWorld(event.localEndPosition);
     
-    // Connect the loop entrance vertex to BOTH the upper landing path and the safety net exit point
-    tier1LandingSegs.last.next = loopSegs.first;
-    loopSegs.first.prev = tier1LandingSegs.last;
-    allSegs.addAll(loopSegs);
+    if (_lastDrawnPoint != null) {
+      double dist = (worldPos - _lastDrawnPoint!).length;
+      if (dist >= _drawingMinDistance) {
+        final newSeg = TrackSegment(_lastDrawnPoint!.clone(), worldPos.clone());
+        
+        // Link boundaries together dynamically to form continuous vector chains
+        if (_lastCreatedSegment != null) {
+          _lastCreatedSegment!.next = newSeg;
+          newSeg.prev = _lastCreatedSegment;
+        }
 
-    // SECTION 3: Speed Wave Bumps exiting the loop
-    final postLoopPoints = [
-      Vector2(460.0, 20.0),
-      Vector2(600.0, 20.0),
-    ];
-    final postLoopSegs = _stitchPath(postLoopPoints);
-    loopSegs.last.next = postLoopSegs.first;
-    postLoopSegs.first.prev = loopSegs.last;
-    allSegs.addAll(postLoopSegs);
+        trackSegments.add(newSeg);
+        grid.insert(newSeg);
 
-    final bumpsPoints = <Vector2>[];
-    double startX = 600.0;
-    double endX = 1000.0;
-    int waveSegments = 24;
-    for (int i = 0; i <= waveSegments; i++) {
-      double pct = i / waveSegments;
-      double currX = startX + pct * (endX - startX);
-      double currY = 20.0 - (sin(pct * pi * 6) * 14.0); 
-      bumpsPoints.add(Vector2(currX, currY));
+        _lastCreatedSegment = newSeg;
+        _lastDrawnPoint = worldPos;
+      }
     }
-    final bumpSegs = _stitchPath(bumpsPoints);
-    postLoopSegs.last.next = bumpSegs.first;
-    bumpSegs.first.prev = postLoopSegs.last;
-    allSegs.addAll(bumpSegs);
+  }
 
-    // SECTION 4: The Wall Climb Launcher Arc
-    final wallCurveCenter = Vector2(1090.0, 20.0 - 90.0);
-    const wallCurveRadius = 90.0;
-    const wallCurveSteps = 20;
+  @override
+  void onDragEnd(DragEndEvent event) {
+    _lastDrawnPoint = null;
+    _lastCreatedSegment = null;
+  }
+
+  // --- TWO-FINGER ZOOM AND PAN SUPPORT ENGINE ---
+  @override
+  void onScaleUpdate(ScaleUpdateEvent event) {
+    // Zoom manipulation using scale factor changes
+    camera.viewfinder.zoom = (camera.viewfinder.zoom * event.scaleDelta).clamp(0.4, 4.0);
     
-    final wallCurvePoints = <Vector2>[];
-    for (int i = 0; i <= wallCurveSteps; i++) {
-      double t = i / wallCurveSteps;
-      double a = 1.5708 + t * (0.0 - 1.5708); 
-      wallCurvePoints.add(Vector2(wallCurveCenter.x + cos(a) * wallCurveRadius, wallCurveCenter.y + sin(a) * wallCurveRadius));
+    // Panning vector translation adjustment
+    if (event.pointerCount >= 2) {
+      camera.viewfinder.position -= event.delta / camera.viewfinder.zoom;
     }
-    final wallCurveSegs = _stitchPath(wallCurvePoints);
-    bumpSegs.last.next = wallCurveSegs.first;
-    wallCurveSegs.first.prev = bumpSegs.last;
-    allSegs.addAll(wallCurveSegs);
+  }
 
-    // The Vertical Wall Element
-    final wallTop = Vector2(wallCurvePoints.last.x, wallCurvePoints.last.y - 260.0);
-    final verticalWallSeg = TrackSegment(wallCurvePoints.last, wallTop);
-    wallCurveSegs.last.next = verticalWallSeg;
-    verticalWallSeg.prev = wallCurveSegs.last;
-    allSegs.add(verticalWallSeg);
-
-    // HIGH SKY PLATFORM (If you manage to rocket all the way up the wall)
-    final skyPlatformPoints = [
-      wallTop,
-      wallTop + Vector2(250.0, -30.0),
-      wallTop + Vector2(450.0, -30.0), // Giant drop-off launch point
-    ];
-    final skySegs = _stitchPath(skyPlatformPoints);
-    verticalWallSeg.next = skySegs.first;
-    skySegs.first.prev = verticalWallSeg;
-    allSegs.addAll(skySegs);
-
-    // SAFETY VALLEY FLOOR FOR THE WALL CLIMB
-    // If you slide down the wall or miss the sky platform, you land down here safely to cross the finish line!
-    final lowerValleyPoints = [
-      Vector2(1180.0, 160.0), // Catches riders falling off the wall curve back area
-      Vector2(1400.0, 160.0),
-      Vector2(1700.0, 110.0), // Valley basin floor where the sky drop lands
-      Vector2(2400.0, 110.0), // Flat home-stretch run out
-    ];
-    final valleySegs = _stitchPath(lowerValleyPoints);
-    allSegs.addAll(valleySegs);
-
-    return allSegs;
+  void _clearCanvas() {
+    grid.clear();
+    trackSegments.clear();
+    _lastDrawnPoint = null;
+    _lastCreatedSegment = null;
+    _restartBike();
   }
 
   @override
@@ -276,8 +211,10 @@ class RaceRiderGame extends FlameGame with TapCallbacks {
     if (smoothedTilt.abs() < 0.05) smoothedTilt = 0.0;
     
     player.tilt = smoothedTilt;
-    player.isGas = isGas;
-    player.isBrake = isBrake;
+    
+    // Auto-drive engine logic so you can immediately watch physics behavior interact over lines
+    player.isGas = trackSegments.isNotEmpty; 
+    player.isBrake = false;
     player.update(dt);
     
     if (player.state == BikeState.crashed) {
@@ -288,73 +225,27 @@ class RaceRiderGame extends FlameGame with TapCallbacks {
     }
     
     if (!player.hasFiniteState) _restartBike();
-    camera.viewfinder.position = player.position;
+
+    // Smoothly track bike position only if the player isn't actively panning away to edit
+    if (_lastDrawnPoint == null) {
+      camera.viewfinder.position = camera.viewfinder.position * 0.9 + player.position * 0.1;
+    }
   }
   
   void _restartBike() {
     player = Bike(_spawnPoint(), grid);
     crashTimer = 0.0;
-    isGas = false;
-    isBrake = false;
   }
 
-  @override
-  void onTapDown(TapDownEvent event) {
-    final x = event.localPosition.x;
-    final y = event.localPosition.y;
-    final width = size.x;
-    final height = size.y;
-    
-    if (y < height * 0.25) {
-      if (x < width * 0.3) {
-        isTuningMode = !isTuningMode;
-      } else if (x > width * 0.7 && isTuningMode) {
-        currentTuningParam = (currentTuningParam + 1) % tuningParamNames.length;
-      }
-      return; 
-    }
-    
-    if (isTuningMode) {
-      _adjustTuningParam(x < width * 0.5 ? -1 : 1);
-    } else {
-      isBrake = x < width / 2;
-      isGas = !isBrake;
-    }
-  }
-
-  @override
-  void onTapUp(TapUpEvent event) => isGas = isBrake = false;
-
-  void _adjustTuningParam(double direction) {
-    final step = tuningParamSteps[currentTuningParam] * direction;
-    switch (currentTuningParam) {
-      case 0: Bike._playerTorqueStrength += step; break;
-      case 1: Bike._airborneGravityFactor += step; break;
-      case 2: Bike._bikeMass += step; break;
-      case 3: Bike._cogDistanceFromRear += step; break;
-      case 4: Bike._cogHeight += step; break;
-      case 5: Bike._magnetStrength += step; break;
-      case 6: Bike._frontGroundedTorqueScale += step; break;
-      case 7: Bike.suspensionStrength += step; break;
-      case 8: Bike.suspensionDamping += step; break;
-      case 9: Bike.suspensionTravel += step; break;
-      case 10: Bike._impactCrashLimit += step; break;
-      case 11: Bike._landingRotationDamping += step; break;
-      case 12: Bike._wheelieRotationDamping += step; break;
-      case 13: Bike._airborneRotationDamping += step; break;
-      case 14: Bike._brakeStrength += step; break;
-    }
-  }
-  
   @override
   void render(Canvas canvas) {
     super.render(canvas);
     canvas.save();
     canvas.translate(size.x / 2, size.y / 2);
     canvas.scale(camera.viewfinder.zoom);
-    canvas.translate(-player.position.x, -player.position.y);
+    canvas.translate(-camera.viewfinder.position.x, -camera.viewfinder.position.y);
 
-    final trackPaint = Paint()..color = const Color(0xFF00FF88)..strokeWidth = 2.0..style = PaintingStyle.stroke;
+    final trackPaint = Paint()..color = const Color(0xFF00FF88)..strokeWidth = 2.5..style = PaintingStyle.stroke;
     for (final s in trackSegments) canvas.drawLine(_off(s.a), _off(s.b), trackPaint);
     
     player.render(canvas);
@@ -363,47 +254,14 @@ class RaceRiderGame extends FlameGame with TapCallbacks {
   }
   
   void _renderUIOverlay(Canvas canvas) {
-    final width = size.x;
-    final height = size.y;
+    // Clear Button background card block
+    canvas.drawRRect(RRect.fromRectAndRadius(const Rect.fromLTWH(12, 12, 140, 36), const Radius.circular(6)), Paint()..color = Colors.redAccent.withOpacity(0.85));
     
-    if (isTuningMode) {
-      canvas.drawRect(Rect.fromLTWH(0, 0, width, height * 0.25), Paint()..color = Colors.black.withOpacity(0.8));
-    }
-
-    void drawDebugText(String text, Offset pos, [Color color = Colors.white54]) {
-      TextPainter(text: TextSpan(text: text, style: TextStyle(color: color, fontSize: 18, fontWeight: FontWeight.bold)), textDirection: TextDirection.ltr)..layout()..paint(canvas, pos);
-    }
-
-    if (!isTuningMode) {
-      drawDebugText('[ TUNE ]', Offset(width * 0.05, height * 0.05), Colors.white);
-    } else {
-      drawDebugText('[ TUNE: ON ]', Offset(width * 0.05, height * 0.05), Colors.green);
-      drawDebugText('[ NEXT ] >', Offset(width * 0.85, height * 0.05), Colors.white);
-      
-      double val = 0.0;
-      switch (currentTuningParam) {
-        case 0: val = Bike._playerTorqueStrength; break;
-        case 1: val = Bike._airborneGravityFactor; break;
-        case 2: val = Bike._bikeMass; break;
-        case 3: val = Bike._cogDistanceFromRear; break;
-        case 4: val = Bike._cogHeight; break;
-        case 5: val = Bike._magnetStrength; break;
-        case 6: val = Bike._frontGroundedTorqueScale; break;
-        case 7: val = Bike.suspensionStrength; break;
-        case 8: val = Bike.suspensionDamping; break;
-        case 9: val = Bike.suspensionTravel; break;
-        case 10: val = Bike._impactCrashLimit; break;
-        case 11: val = Bike._landingRotationDamping; break;
-        case 12: val = Bike._wheelieRotationDamping; break;
-        case 13: val = Bike._airborneRotationDamping; break;
-        case 14: val = Bike._brakeStrength; break;
-      }
-      
-      drawDebugText('${tuningParamNames[currentTuningParam]}: ${val.toStringAsFixed(2)}', Offset(width * 0.35, height * 0.05), Colors.yellow);
-    }
+    TextPainter(text: const TextSpan(text: '[ CLEAR ALL ]', style: TextStyle(color: Colors.white, fontSize: 15, fontWeight: FontWeight.bold)), textDirection: TextDirection.ltr)
+      ..layout()..paint(canvas, const Offset(26, 20));
   }
 
-  Vector2 _spawnPoint() => Vector2(-650.0, -50.0);
+  Vector2 _spawnPoint() => Vector2(-650.0, 20.0);
 }
 
 class TrackSegment {
@@ -425,109 +283,27 @@ class SurfaceHit {
 enum BikeState { riding, crashed }
 
 class Bike {
-  // =========================================================================
-  //                       DOCUMENTED TUNING SETTINGS
-  // =========================================================================
-
-  /// Global downward environmental pull applied every fixed step (pixels/s^2).
-  /// -> INCREASING makes the bike heavy, increases fall acceleration, requires more torque/gas to climb.
-  /// -> DECREASING makes flight floaty, mimicking low gravity or moon physics.
   static const _gravity = 300.0;
-
-  /// Pure forward linear force applied to the rear wheel when pressing Gas.
-  /// -> INCREASING increases linear acceleration (shortens time to top speed).
-  /// -> DECREASING makes bike feel sluggish, struggling on steep ramps or vertical inclines.
   static const _rearDrive = 420.0;
-
-  /// Counter-acting linear braking friction force applied simultaneously to both hubs.
-  /// -> INCREASING causes instant, abrupt stopping power.
-  /// -> DECREASING yields a long, progressive slide to a halt when holding brake.
   static double _brakeStrength = 700.0; 
-
-  /// Radius size boundary checked for contact patch tracking (pixels).
-  /// -> NOTE: Changing this requires shifting structural chassis frame layout geometry sizes correspondingly.
   static const _wheelRadius = 5.0;
-
-  /// Structural hit box circle enclosing the rider's upper head.
-  /// -> INCREASING makes the crash zone bigger (easier to fail when leaning near walls).
-  /// -> DECREASING allows the player's head to get closer to track before crashing.
   static const _headRadius = 3.0;
-
-  /// The ceiling limit for maximum structural compression velocity allowed before chassis collapse.
-  /// -> INCREASING allows taking high drops and hard high-speed impacts without exploding.
-  /// -> DECREASING makes the bike fragile, requiring smooth landing angles to avoid crashing.
   static double _impactCrashLimit = 950.0; 
-
-  /// Maximum linear length extension room for the virtual suspension springs (pixels).
-  /// -> INCREASING elevates chassis ride height off ground, extending maximum absorption capacity.
-  /// -> DECREASING lowers ride height, shortening clearance room and making bottom-outs common.
   static double suspensionTravel = 4.5; 
-
-  /// Stiffness constant of the suspension springs.
-  /// -> INCREASING creates an ultra-stiff, rigid frame layout that resists bottoming out but bounces on sharp edits.
-  /// -> DECREASING softens compression, creating smooth absorption but making chassis prone to bottoming out.
   static double suspensionStrength = 1500.0; 
-
-  /// Velocity absorption rate that dampens or limits bouncing energy in springs.
-  /// -> INCREASING kills oscillation instantly, deadening landings to make the bike stick to slopes.
-  /// -> DECREASING makes the bike bouncy and springy, oscillating rapidly over bumps.
   static double suspensionDamping = 30.0; 
-
-  /// Virtual structural centripetal adhesive force keeping the wheel hubs glued over steep loop faces.
-  /// -> INCREASING generates high downforce effect, pulling tires strongly into track loops.
-  /// -> DECREASING allows centrifugal force to fly off tracking loops if speed drops below threshold.
   static double _magnetStrength = 0.005;
-
-  /// Pure rotational torque power multiplier granted via mobile screen tilt input.
-  /// -> INCREASING provides intense airborne agility; snappy flips and rapid adjustments.
-  /// -> DECREASING yields slower rotation, making recovery from bad launch angles sluggish.
   static double _playerTorqueStrength = 300000.0; 
-
-  /// Horizontal position of Center of Gravity relative to rear hub (pixels).
-  /// -> INCREASING shifts weight to front wheel, making wheelies harder to pull up but stabilizing climbs.
-  /// -> DECREASING shifts weight to rear wheel, letting front end pop up effortlessly on gas inputs.
   static double _cogDistanceFromRear = 8.5;
-
-  /// Vertical height positioning coordinate of Center of Gravity up from axle baseline.
-  /// -> INCREASING raises tipping threshold center, intensifying gravity's tipping leverage on hills.
-  /// -> DECREASING creates highly stable, low-slung, easy-to-balance center points.
   static double _cogHeight = 3.5;
-
-  /// Scalar reducing structural player tilt leverage while front tire remains grounded.
-  /// -> INCREASING allows pulling wheelies instantly from a dead stop, but can feel twitchy on flat lines.
-  /// -> DECREASING prevents the front wheel from lifting too violently under pure tilt during high-speed runs.
   static double _frontGroundedTorqueScale = 0.15;
-
-  /// Constant rigid distance spacing structural constraint separation between wheel hubs.
   static double _wheelbase = 18.0;
-
-  /// Inertial rotational mass factor of the combined chassis body structure.
-  /// -> INCREASING requires more raw torque strength to spin or rotate the vehicle frame in mid-air.
-  /// -> DECREASING makes rotation immediate and light, requiring less overall force to spin.
   static double _bikeMass = 10.0;
-
-  /// Gravity modifier scaling factor when airborne.
   static double _airborneGravityFactor = 1.0; 
-
-  /// Angular velocity resistance applied when BOTH wheels have track contact points.
-  /// -> INCREASING stabilizes bike tracking over flat sequences, fighting unwanted pitch oscillations.
-  /// -> DECREASING allows instant rotation reactions on transitions.
   static double _landingRotationDamping = 140.0;  
-
-  /// Angular velocity resistance applied when executing single contact point wheelies.
-  /// -> INCREASING makes steady balance states easy to hold at high angles without washing out.
-  /// -> DECREASING makes balance sensitive, requiring minute inputs to maintain sweet spots.
   static double _wheelieRotationDamping = 65.0;   
-
-  /// Angular velocity resistance applied to free flight in empty air spaces.
-  /// -> INCREASING introduces rotational drag, stopping excessive spinning when releasing controls.
-  /// -> DECREASING allows clean, continuous conservation of momentum for multi-flips.
-  static double _airborneRotationDamping = 85.0; // Updated to 85.0 based on latest testing preferences
-
-  // Gating threshold distance used by spatial engine grid query maps to optimize lookups.
+  static double _airborneRotationDamping = 85.0;  
   static const double _maxSurfaceDist = 12.0;
-
-  // =========================================================================
 
   final SpatialGrid spatialGrid;
   double tilt = 0.0;
@@ -627,11 +403,6 @@ class Bike {
         double penetration = _wheelRadius - sd;
         double vNorm = fVel.dot(_frontSurface!.normal);
         fAccel += _frontSurface!.normal * max(0.0, penetration * suspensionStrength - vNorm * suspensionDamping);
-        
-        if (isBrake) {
-          double vTan = fVel.dot(_frontSurface!.tangent);
-          fAccel -= _frontSurface!.tangent * (vTan.sign * _brakeStrength);
-        }
         if (vNorm < -_impactCrashLimit) _crash();
       }
     }
@@ -791,15 +562,15 @@ class Bike {
 
 class Background extends Component {
   @override
-  void render(Canvas canvas) => canvas.drawRect(const Rect.fromLTWH(-5000, -5000, 16000, 16000), Paint()..color = const Color(0xFF112233));
+  void render(Canvas canvas) => canvas.drawRect(const Rect.fromLTWH(-10000, -10000, 30000, 30000), Paint()..color = const Color(0xFF112233));
 }
 
 class DebugOverlay extends Component with HasGameRef<RaceRiderGame> {
   @override
   void render(Canvas canvas) {
     TextPainter(textDirection: TextDirection.ltr, text: TextSpan(
-      text: 'RaceRider ${RaceRiderGame.buildLabel}\nSpeed: ${gameRef.player.speed.toStringAsFixed(1)}', 
-      style: const TextStyle(color: Colors.yellow, fontSize: 12)
+      text: 'RaceRider ${RaceRiderGame.buildLabel}\nLines Active: ${gameRef.trackSegments.length}\nZoom: ${gameRef.camera.viewfinder.zoom.toStringAsFixed(2)}\nPan: ${gameRef.camera.viewfinder.position.x.toStringAsFixed(0)}, ${gameRef.camera.viewfinder.position.y.toStringAsFixed(0)}', 
+      style: const TextStyle(color: Colors.yellow, fontSize: 11, fontWeight: FontWeight.bold)
     ))..layout()..paint(canvas, const Offset(16, 60));
   }
 }
