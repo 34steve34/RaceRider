@@ -409,8 +409,16 @@ class RaceRiderGame extends FlameGame with DragCallbacks, TapCallbacks, ScaleDet
     if (currentMode == AppState.victory) {
       canvas.drawRect(Rect.fromLTWH(0, 0, size.x, size.y), Paint()..color = Colors.black.withOpacity(0.4));
       canvas.drawRRect(RRect.fromRectAndRadius(Rect.fromLTWH((size.x / 2) - 160, (size.y / 2) - 40, 320, 80), const Radius.circular(12)), Paint()..color = Colors.green[700]!);
-      TextPainter(text: const TextSpan(text: '🏁 VICTORY! 🏁\nTRACK CLEARED!', style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold, height: 1.3), textAlign: TextAlign.center), textDirection: TextDirection.ltr)
-        ..layout()..paint(canvas, Offset((size.x / 2) - 76, (size.y / 2) - 24));
+      
+      // FIXED: Moved textAlign out of TextSpan and into TextPainter
+      TextPainter(
+        text: const TextSpan(
+          text: '🏁 VICTORY! 🏁\nTRACK CLEARED!', 
+          style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold, height: 1.3),
+        ), 
+        textDirection: TextDirection.ltr,
+        textAlign: TextAlign.center,
+      )..layout(minWidth: 320, maxWidth: 320)..paint(canvas, Offset((size.x / 2) - 160, (size.y / 2) - 24));
     }
 
     // --- BOTTOM TOOLBAR CONTROLS (Design Mode Only) ---
