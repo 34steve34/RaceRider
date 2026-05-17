@@ -64,7 +64,7 @@ enum AppState { design, ride, victory }
 enum DesignTool { draw, startFlag, finishFlag, pan }
 
 class RaceRiderGame extends FlameGame with DragCallbacks, TapCallbacks, ScaleDetector {
-  static const buildLabel = 'physics v.380 - Persistent State Loop';
+  static const buildLabel = 'physics v.390 - Camera Freedom Patch';
   late Bike player;
   final List<TrackSegment> trackSegments = [];
   final SpatialGrid grid = SpatialGrid(cellSize: 80.0);
@@ -119,7 +119,6 @@ class RaceRiderGame extends FlameGame with DragCallbacks, TapCallbacks, ScaleDet
     if (currentMode == AppState.victory) {
       final centerX = size.x / 2;
       final centerY = size.y / 2;
-      // Hitbox tracking for the [ RESTART RUN ] button on overlay card
       if (x >= centerX - 80 && x <= centerX + 80 && y >= centerY + 12 && y <= centerY + 48) {
         currentMode = AppState.ride;
         _restartBike();
@@ -291,7 +290,6 @@ class RaceRiderGame extends FlameGame with DragCallbacks, TapCallbacks, ScaleDet
     player.tilt = smoothedTilt;
     
     if (currentMode == AppState.victory) {
-      // Force brakes to stop momentum at the finish gate
       player.isGas = false;
       player.isBrake = true;
     } else {
@@ -303,21 +301,17 @@ class RaceRiderGame extends FlameGame with DragCallbacks, TapCallbacks, ScaleDet
       player.update(dt);
     }
     
-    // --- RECOVERABLE SYSTEM: OUT OF BOUNDS / DEAD SPACE FLOOR CHECK ---
     if (currentMode == AppState.ride) {
-      double lowestTrackY = 200.0; // Baseline floor height fallback
+      double lowestTrackY = 200.0;
       for (final seg in trackSegments) {
         if (seg.a.y > lowestTrackY) lowestTrackY = seg.a.y;
         if (seg.b.y > lowestTrackY) lowestTrackY = seg.b.y;
       }
-      
-      // If player falls 600px below the lowest track element, trigger standard crash logic
       if (player.position.y > lowestTrackY + 600.0) {
         player.state = BikeState.crashed;
       }
     }
 
-    // Standard Crash Trigger Reset Loop
     if (player.state == BikeState.crashed && currentMode == AppState.ride) {
       crashTimer += dt;
       if (crashTimer >= _restartDelay) _restartBike();
@@ -325,7 +319,6 @@ class RaceRiderGame extends FlameGame with DragCallbacks, TapCallbacks, ScaleDet
       crashTimer = 0.0;
     }
     
-    // Check for Victory Line Intersections
     if (currentMode == AppState.ride) {
       double distToFinish = (player.position - finishLinePoint).length;
       if (distToFinish < 22.0) {
@@ -336,10 +329,13 @@ class RaceRiderGame extends FlameGame with DragCallbacks, TapCallbacks, ScaleDet
     
     if (!player.hasFiniteState) _restartBike();
 
+    // --- FIXED CAMERA CONTROL: ONLY TRACK BIKE DURING ACTIVE RUNS ---
     if (currentMode == AppState.ride || currentMode == AppState.victory) {
       camera.viewfinder.zoom = 1.6; 
       camera.viewfinder.position = camera.viewfinder.position * 0.85 + player.position * 0.15;
     } else {
+      // In Design mode, we drop all camera restrictions. 
+      // Only snap to start if they cleared everything and have a completely blank canvas.
       if (_lastDrawnPoint == null && trackSegments.isEmpty) {
         camera.viewfinder.position = camera.viewfinder.position * 0.9 + startSpawnPoint * 0.1;
       }
@@ -427,13 +423,9 @@ class RaceRiderGame extends FlameGame with DragCallbacks, TapCallbacks, ScaleDet
       final centerX = size.x / 2;
       final centerY = size.y / 2;
 
-      // Translucent Background Dimmer Shield
       canvas.drawRect(Rect.fromLTWH(0, 0, size.x, size.y), Paint()..color = Colors.black.withOpacity(0.5));
-      
-      // Card Frame Bounding Border Box
       canvas.drawRRect(RRect.fromRectAndRadius(Rect.fromLTWH(centerX - 160, centerY - 70, 320, 130), const Radius.circular(14)), Paint()..color = Colors.green[800]!);
       
-      // Header Title Label Layout
       TextPainter(
         text: const TextSpan(
           text: '🏁 VICTORY! 🏁\nTRACK CLEARED', 
@@ -443,7 +435,6 @@ class RaceRiderGame extends FlameGame with DragCallbacks, TapCallbacks, ScaleDet
         textAlign: TextAlign.center,
       )..layout(minWidth: 320, maxWidth: 320)..paint(canvas, Offset(centerX - 160, centerY - 52));
 
-      // Interactive Action Button Target Layout
       canvas.drawRRect(RRect.fromRectAndRadius(Rect.fromLTWH(centerX - 80, centerY + 12, 160, 36), const Radius.circular(8)), Paint()..color = Colors.orange[700]!);
       TextPainter(
         text: const TextSpan(
@@ -489,7 +480,7 @@ class RaceRiderGame extends FlameGame with DragCallbacks, TapCallbacks, ScaleDet
   }
 }
 
-// --- ALL REMAINING PHYSICS SCENERY ENGINE OBJECTS REMAIN UNCHANGED ---
+// --- PHYSICS ENGINE OBJECTS ---
 class TrackSegment {
   final Vector2 a, b;
   TrackSegment? prev;
