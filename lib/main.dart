@@ -64,7 +64,7 @@ enum AppState { design, ride, victory }
 enum DesignTool { draw, startFlag, finishFlag, pan }
 
 class RaceRiderGame extends FlameGame with DragCallbacks, TapCallbacks, ScaleDetector {
-  static const buildLabel = 'physics v.370 - Start/Finish Gate Matrix';
+  static const buildLabel = 'physics v.380 - Persistent State Loop';
   late Bike player;
   final List<TrackSegment> trackSegments = [];
   final SpatialGrid grid = SpatialGrid(cellSize: 80.0);
@@ -72,7 +72,6 @@ class RaceRiderGame extends FlameGame with DragCallbacks, TapCallbacks, ScaleDet
   AppState currentMode = AppState.design;
   DesignTool activeTool = DesignTool.draw;
   
-  // Dedicated Gate Coordinates
   Vector2 startSpawnPoint = Vector2(-150.0, -30.0);
   Vector2 finishLinePoint = Vector2(150.0, -30.0);
   
@@ -87,9 +86,7 @@ class RaceRiderGame extends FlameGame with DragCallbacks, TapCallbacks, ScaleDet
   StreamSubscription? _accelSub;
   
   double crashTimer = 0.0;
-  double victoryTimer = 0.0;
   static const double _restartDelay = 1.2;
-  static const double _victoryDelay = 2.5;
 
   Vector2? _lastDrawnPoint;
   static const double _drawingMinDistance = 14.0; 
@@ -117,6 +114,18 @@ class RaceRiderGame extends FlameGame with DragCallbacks, TapCallbacks, ScaleDet
   void onTapDown(TapDownEvent event) {
     final x = event.localPosition.x;
     final y = event.localPosition.y;
+
+    // INTERCEPT: Victory Screen Restart Click
+    if (currentMode == AppState.victory) {
+      final centerX = size.x / 2;
+      final centerY = size.y / 2;
+      // Hitbox tracking for the [ RESTART RUN ] button on overlay card
+      if (x >= centerX - 80 && x <= centerX + 80 && y >= centerY + 12 && y <= centerY + 48) {
+        currentMode = AppState.ride;
+        _restartBike();
+        return;
+      }
+    }
 
     // TOP BAR MENU NAVIGATION INTERCEPTS
     if (y < 60) {
@@ -280,14 +289,35 @@ class RaceRiderGame extends FlameGame with DragCallbacks, TapCallbacks, ScaleDet
     if (smoothedTilt.abs() < 0.05) smoothedTilt = 0.0;
     
     player.tilt = smoothedTilt;
-    player.isGas = isGas;
-    player.isBrake = isBrake;
+    
+    if (currentMode == AppState.victory) {
+      // Force brakes to stop momentum at the finish gate
+      player.isGas = false;
+      player.isBrake = true;
+    } else {
+      player.isGas = isGas;
+      player.isBrake = isBrake;
+    }
     
     if (currentMode == AppState.ride || currentMode == AppState.victory) {
       player.update(dt);
     }
     
-    // Check for Crash Loop Reset
+    // --- RECOVERABLE SYSTEM: OUT OF BOUNDS / DEAD SPACE FLOOR CHECK ---
+    if (currentMode == AppState.ride) {
+      double lowestTrackY = 200.0; // Baseline floor height fallback
+      for (final seg in trackSegments) {
+        if (seg.a.y > lowestTrackY) lowestTrackY = seg.a.y;
+        if (seg.b.y > lowestTrackY) lowestTrackY = seg.b.y;
+      }
+      
+      // If player falls 600px below the lowest track element, trigger standard crash logic
+      if (player.position.y > lowestTrackY + 600.0) {
+        player.state = BikeState.crashed;
+      }
+    }
+
+    // Standard Crash Trigger Reset Loop
     if (player.state == BikeState.crashed && currentMode == AppState.ride) {
       crashTimer += dt;
       if (crashTimer >= _restartDelay) _restartBike();
@@ -295,23 +325,13 @@ class RaceRiderGame extends FlameGame with DragCallbacks, TapCallbacks, ScaleDet
       crashTimer = 0.0;
     }
     
-    // Check for Victory Finish Gate Collisions
+    // Check for Victory Line Intersections
     if (currentMode == AppState.ride) {
       double distToFinish = (player.position - finishLinePoint).length;
       if (distToFinish < 22.0) {
         currentMode = AppState.victory;
         isGas = isBrake = false;
       }
-    }
-
-    if (currentMode == AppState.victory) {
-      victoryTimer += dt;
-      if (victoryTimer >= _victoryDelay) {
-        currentMode = AppState.ride;
-        _restartBike();
-      }
-    } else {
-      victoryTimer = 0.0;
     }
     
     if (!player.hasFiniteState) _restartBike();
@@ -342,11 +362,9 @@ class RaceRiderGame extends FlameGame with DragCallbacks, TapCallbacks, ScaleDet
     canvas.scale(camera.viewfinder.zoom);
     canvas.translate(-camera.viewfinder.position.x, -camera.viewfinder.position.y);
 
-    // Render Track Layout Geometry
     final trackPaint = Paint()..color = const Color(0xFF00FF88)..strokeWidth = 2.5..style = PaintingStyle.stroke;
     for (final s in trackSegments) canvas.drawLine(_off(s.a), _off(s.b), trackPaint);
     
-    // Render flags across both modes so you see targets while driving
     _drawStartFlag(canvas, startSpawnPoint);
     _drawCheckeredFlag(canvas, finishLinePoint);
     
@@ -371,7 +389,6 @@ class RaceRiderGame extends FlameGame with DragCallbacks, TapCallbacks, ScaleDet
     final flagPaint = Paint()..color = Colors.white!..strokeWidth = 2.0;
     canvas.drawLine(Offset(point.x, point.y - 25), Offset(point.x, point.y), flagPaint);
     
-    // Draw an authentic tiny checkered box block banner
     final rectPaintBlack = Paint()..color = Colors.black;
     final rectPaintWhite = Paint()..color = Colors.white;
     
@@ -405,20 +422,37 @@ class RaceRiderGame extends FlameGame with DragCallbacks, TapCallbacks, ScaleDet
     TextPainter(text: TextSpan(text: toggleLabel, style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.bold)), textDirection: TextDirection.ltr)
       ..layout()..paint(canvas, Offset(size.x - 138, 22));
 
-    // --- VICTORY CONGRATULATORY CARD ---
+    // --- INTERACTIVE PERSISTENT VICTORY CARD ---
     if (currentMode == AppState.victory) {
-      canvas.drawRect(Rect.fromLTWH(0, 0, size.x, size.y), Paint()..color = Colors.black.withOpacity(0.4));
-      canvas.drawRRect(RRect.fromRectAndRadius(Rect.fromLTWH((size.x / 2) - 160, (size.y / 2) - 40, 320, 80), const Radius.circular(12)), Paint()..color = Colors.green[700]!);
+      final centerX = size.x / 2;
+      final centerY = size.y / 2;
+
+      // Translucent Background Dimmer Shield
+      canvas.drawRect(Rect.fromLTWH(0, 0, size.x, size.y), Paint()..color = Colors.black.withOpacity(0.5));
       
-      // FIXED: Moved textAlign out of TextSpan and into TextPainter
+      // Card Frame Bounding Border Box
+      canvas.drawRRect(RRect.fromRectAndRadius(Rect.fromLTWH(centerX - 160, centerY - 70, 320, 130), const Radius.circular(14)), Paint()..color = Colors.green[800]!);
+      
+      // Header Title Label Layout
       TextPainter(
         text: const TextSpan(
-          text: '🏁 VICTORY! 🏁\nTRACK CLEARED!', 
-          style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold, height: 1.3),
+          text: '🏁 VICTORY! 🏁\nTRACK CLEARED', 
+          style: TextStyle(color: Colors.white, fontSize: 17, fontWeight: FontWeight.bold, height: 1.25),
         ), 
         textDirection: TextDirection.ltr,
         textAlign: TextAlign.center,
-      )..layout(minWidth: 320, maxWidth: 320)..paint(canvas, Offset((size.x / 2) - 160, (size.y / 2) - 24));
+      )..layout(minWidth: 320, maxWidth: 320)..paint(canvas, Offset(centerX - 160, centerY - 52));
+
+      // Interactive Action Button Target Layout
+      canvas.drawRRect(RRect.fromRectAndRadius(Rect.fromLTWH(centerX - 80, centerY + 12, 160, 36), const Radius.circular(8)), Paint()..color = Colors.orange[700]!);
+      TextPainter(
+        text: const TextSpan(
+          text: 'RESTART RUN', 
+          style: TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.bold),
+        ), 
+        textDirection: TextDirection.ltr,
+        textAlign: TextAlign.center,
+      )..layout(minWidth: 160, maxWidth: 160)..paint(canvas, Offset(centerX - 80, centerY + 23));
     }
 
     // --- BOTTOM TOOLBAR CONTROLS (Design Mode Only) ---
@@ -455,7 +489,7 @@ class RaceRiderGame extends FlameGame with DragCallbacks, TapCallbacks, ScaleDet
   }
 }
 
-// --- ALL REMAINING PHYSICS AND SCENERY ENGINE OBJECTS REMAIN UNCHANGED ---
+// --- ALL REMAINING PHYSICS SCENERY ENGINE OBJECTS REMAIN UNCHANGED ---
 class TrackSegment {
   final Vector2 a, b;
   TrackSegment? prev;
@@ -746,7 +780,7 @@ class Background extends Component {
 class DebugOverlay extends Component with HasGameRef<RaceRiderGame> {
   @override
   void render(Canvas canvas) {
-    final modeStr = gameRef.currentMode == AppState.ride ? 'RIDING MODE' : gameRef.currentMode == AppState.victory ? 'VICTORY CELEBRATION' : 'DESIGN MODE';
+    final modeStr = gameRef.currentMode == AppState.ride ? 'RIDING MODE' : gameRef.currentMode == AppState.victory ? 'VICTORY LOCKED' : 'DESIGN MODE';
     TextPainter(textDirection: TextDirection.ltr, text: TextSpan(
       text: 'RaceRider ${RaceRiderGame.buildLabel}\nState: $modeStr\nLines Active: ${gameRef.trackSegments.length}\nZoom: ${gameRef.camera.viewfinder.zoom.toStringAsFixed(2)}', 
       style: const TextStyle(color: Colors.yellow, fontSize: 11, fontWeight: FontWeight.bold)
