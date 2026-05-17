@@ -11,9 +11,8 @@ import 'package:sensors_plus/sensors_plus.dart';
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   
-  // ImmersiveSticky completely removes the top notification bar and bottom system keys
+  // Cleanly clear and set system UI controls to avoid loading freezes
   await SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
-  
   await SystemChrome.setPreferredOrientations([
     DeviceOrientation.landscapeRight,
   ]);
@@ -66,7 +65,7 @@ class SpatialGrid {
 enum AppState { design, ride }
 
 class RaceRiderGame extends FlameGame with DragCallbacks, TapCallbacks, ScaleDetector {
-  static const buildLabel = 'physics v.342 - Fully Consolidated Engine Canvas';
+  static const buildLabel = 'physics v.345 - Cache Stabilized Core';
   late Bike player;
   final List<TrackSegment> trackSegments = [];
   final SpatialGrid grid = SpatialGrid(cellSize: 80.0);
@@ -81,18 +80,23 @@ class RaceRiderGame extends FlameGame with DragCallbacks, TapCallbacks, ScaleDet
   bool isBrake = false;
   
   double dt = 0.0;
-  late StreamSubscription _accelSub;
+  StreamSubscription? _accelSub;
   
   double crashTimer = 0.0;
   static const double _crashRestartDelay = 1.2;
 
   Vector2? _lastDrawnPoint;
-  static const double _drawingMinDistance = 12.0; 
+  static const double _drawingMinDistance = 14.0; // Increased spacing slightly to stabilize touch tracking
   TrackSegment? _lastCreatedSegment;
 
   @override
   Future<void> onLoad() async {
-    _loadStarterTrack();
+    super.onLoad();
+    
+    // Explicit runtime cleanup sequence on launch to prevent frozen reloads
+    grid.clear();
+    trackSegments.clear();
+    
     player = Bike(_spawnPoint(), grid);
     
     add(Background());
@@ -101,30 +105,15 @@ class RaceRiderGame extends FlameGame with DragCallbacks, TapCallbacks, ScaleDet
     camera.viewfinder
       ..zoom = 1.5
       ..anchor = Anchor.center
-      ..position = player.position;
+      ..position = _spawnPoint();
       
+    // Safe stream binding wrapper
     _accelSub = accelerometerEvents.listen((e) => rawTilt = e.y);
-  }
-
-  void _loadStarterTrack() {
-    grid.clear();
-    trackSegments.clear();
-    
-    final points = [
-      Vector2(-700.0, 100.0),
-      Vector2(-200.0, 100.0),
-    ];
-    
-    for (int i = 0; i < points.length - 1; i++) {
-      final seg = TrackSegment(points[i], points[i + 1]);
-      trackSegments.add(seg);
-      grid.insert(seg);
-    }
   }
 
   @override
   void onRemove() {
-    _accelSub.cancel();
+    _accelSub?.cancel();
     super.onRemove();
   }
 
@@ -138,7 +127,7 @@ class RaceRiderGame extends FlameGame with DragCallbacks, TapCallbacks, ScaleDet
     final x = event.localPosition.x;
     final y = event.localPosition.y;
 
-    // UI Menu Intercept Gating Bounds
+    // Fixed Top Navigation UI Menu bounds
     if (y < 60) {
       if (x < 150) {
         _clearCanvas();
@@ -176,7 +165,6 @@ class RaceRiderGame extends FlameGame with DragCallbacks, TapCallbacks, ScaleDet
       double dist = (worldPos - _lastDrawnPoint!).length;
       
       if (dist >= _drawingMinDistance) {
-        // Stop zero-length segment allocations that trigger tire physics loops
         if ((worldPos.x - _lastDrawnPoint!.x).abs() < 1.0 && (worldPos.y - _lastDrawnPoint!.y).abs() < 1.0) {
           return;
         }
@@ -207,10 +195,12 @@ class RaceRiderGame extends FlameGame with DragCallbacks, TapCallbacks, ScaleDet
 
     double scaleDelta = info.scale.global.x; 
     if (scaleDelta != 0 && scaleDelta != 1.0) {
-      camera.viewfinder.zoom = (camera.viewfinder.zoom * (scaleDelta > 1 ? 1.03 : 0.97)).clamp(0.4, 4.0);
+      // Smoothed zoom sensitivity stepping logic
+      camera.viewfinder.zoom = (camera.viewfinder.zoom * (scaleDelta > 1 ? 1.04 : 0.96)).clamp(0.4, 4.0);
     }
     
     final delta = info.delta.global;
+    // Panning locks safely while drawing strokes to prevent canvas slipping
     if (delta.length2 > 0 && scaleDelta == 1.0 && _lastDrawnPoint == null) {
       camera.viewfinder.position -= delta / camera.viewfinder.zoom;
     }
@@ -302,12 +292,12 @@ class RaceRiderGame extends FlameGame with DragCallbacks, TapCallbacks, ScaleDet
   }
   
   void _renderUIOverlay(Canvas canvas) {
-    // Clear Button Card Block Area
+    // Clear Canvas visual button asset card
     canvas.drawRRect(RRect.fromRectAndRadius(const Rect.fromLTWH(12, 12, 130, 36), const Radius.circular(6)), Paint()..color = Colors.redAccent.withOpacity(0.85));
     TextPainter(text: const TextSpan(text: '[ CLEAR ALL ]', style: TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.bold)), textDirection: TextDirection.ltr)
       ..layout()..paint(canvas, const Offset(26, 22));
 
-    // Mode Controller Switch Panel Block Area
+    // Operational mode switch toggle card
     final isRiding = currentMode == AppState.ride;
     final toggleBg = isRiding ? Colors.green[600]! : Colors.orange[700]!;
     final toggleLabel = isRiding ? 'GO TO DESIGN' : 'START RIDING';
@@ -317,10 +307,9 @@ class RaceRiderGame extends FlameGame with DragCallbacks, TapCallbacks, ScaleDet
       ..layout()..paint(canvas, Offset(size.x - 138, 22));
   }
 
-  // Spawns the bike 60 pixels directly above where your camera is currently focused editing!
   Vector2 _spawnPoint() {
     if (trackSegments.isEmpty) {
-      return Vector2(-650.0, 20.0);
+      return Vector2(-100.0, 0.0); // Reset base spawn point near origin to center load views
     }
     return Vector2(camera.viewfinder.position.x, camera.viewfinder.position.y - 60.0);
   }
