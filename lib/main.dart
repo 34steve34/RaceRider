@@ -59,8 +59,8 @@ class SpatialGrid {
   }
 }
 
-class RaceRiderGame extends FlameGame with DragCallbacks, ScaleCallbacks, TapCallbacks {
-  static const buildLabel = 'physics v.330 - Stage 1 Canvas Editor with Pan & Zoom';
+class RaceRiderGame extends FlameGame with DragCallbacks, TapCallbacks, ScaleDetector {
+  static const buildLabel = 'physics v.331 - Canvas Editor Web Fix';
   late Bike player;
   final List<TrackSegment> trackSegments = [];
   final SpatialGrid grid = SpatialGrid(cellSize: 80.0);
@@ -78,9 +78,8 @@ class RaceRiderGame extends FlameGame with DragCallbacks, ScaleCallbacks, TapCal
   double crashTimer = 0.0;
   static const double _crashRestartDelay = 1.2;
 
-  // --- STAGE 1 DRAWING STATE ENGINE VARIABLES ---
   Vector2? _lastDrawnPoint;
-  static const double _drawingMinDistance = 12.0; // Hand shake filter threshold (pixels)
+  static const double _drawingMinDistance = 12.0; 
   TrackSegment? _lastCreatedSegment;
 
   @override
@@ -176,15 +175,19 @@ class RaceRiderGame extends FlameGame with DragCallbacks, ScaleCallbacks, TapCal
     _lastCreatedSegment = null;
   }
 
-  // --- TWO-FINGER ZOOM AND PAN SUPPORT ENGINE ---
   @override
-  void onScaleUpdate(ScaleUpdateEvent event) {
-    // Zoom manipulation using scale factor changes
-    camera.viewfinder.zoom = (camera.viewfinder.zoom * event.scaleDelta).clamp(0.4, 4.0);
+  void onScaleUpdate(ScaleUpdateInfo info) {
+    // Zoom manipulation using scale factor changes from the info object
+    double scaleDelta = info.scale.global.x; 
+    if (scaleDelta != 0 && scaleDelta != 1.0) {
+      camera.viewfinder.zoom = (camera.viewfinder.zoom * (scaleDelta > 1 ? 1.03 : 0.97)).clamp(0.4, 4.0);
+    }
     
-    // Panning vector translation adjustment
-    if (event.pointerCount >= 2) {
-      camera.viewfinder.position -= event.delta / camera.viewfinder.zoom;
+    // Panning adjustment via delta pointer translations
+    // Flame's ScaleDetector passes focalPointDelta for multi-finger panning
+    final delta = info.delta.global;
+    if (delta.length2 > 0 && scaleDelta == 1.0) {
+      camera.viewfinder.position -= delta / camera.viewfinder.zoom;
     }
   }
 
