@@ -10,6 +10,10 @@ import 'package:sensors_plus/sensors_plus.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  
+  // ImmersiveSticky completely removes the top notification bar and bottom system keys
+  await SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
+  
   await SystemChrome.setPreferredOrientations([
     DeviceOrientation.landscapeRight,
   ]);
@@ -59,16 +63,14 @@ class SpatialGrid {
   }
 }
 
-// Global Enum to govern app behavior states
 enum AppState { design, ride }
 
 class RaceRiderGame extends FlameGame with DragCallbacks, TapCallbacks, ScaleDetector {
-  static const buildLabel = 'physics v.340 - Stage 2 Mode UI Toggle Matrix';
+  static const buildLabel = 'physics v.342 - Fully Consolidated Engine Canvas';
   late Bike player;
   final List<TrackSegment> trackSegments = [];
   final SpatialGrid grid = SpatialGrid(cellSize: 80.0);
   
-  // App State configuration
   AppState currentMode = AppState.design;
   
   double rawTilt = 0.0;
@@ -131,13 +133,12 @@ class RaceRiderGame extends FlameGame with DragCallbacks, TapCallbacks, ScaleDet
         (localPosition - size / 2) / camera.viewfinder.zoom;
   }
 
-  // --- RECONCILED INTERACTION CONTROLLER ---
   @override
   void onTapDown(TapDownEvent event) {
     final x = event.localPosition.x;
     final y = event.localPosition.y;
 
-    // MENU SYSTEM GATING BOUNDS
+    // UI Menu Intercept Gating Bounds
     if (y < 60) {
       if (x < 150) {
         _clearCanvas();
@@ -149,13 +150,11 @@ class RaceRiderGame extends FlameGame with DragCallbacks, TapCallbacks, ScaleDet
       }
     }
 
-    // SPLIT SYSTEM OPERATION
     if (currentMode == AppState.design) {
       final worldPos = _screenToWorld(event.localPosition);
       _lastDrawnPoint = worldPos;
-      _lastCreatedSegment = null;
+      _lastCreatedSegment = null; 
     } else {
-      // Pure Ride Input mapping
       isBrake = x < size.x / 2;
       isGas = !isBrake;
     }
@@ -170,13 +169,18 @@ class RaceRiderGame extends FlameGame with DragCallbacks, TapCallbacks, ScaleDet
 
   @override
   void onDragUpdate(DragUpdateEvent event) {
-    // Only process drawing lines if explicitly sitting in Design Mode
     if (currentMode != AppState.design) return;
 
     final worldPos = _screenToWorld(event.localEndPosition);
     if (_lastDrawnPoint != null) {
       double dist = (worldPos - _lastDrawnPoint!).length;
+      
       if (dist >= _drawingMinDistance) {
+        // Stop zero-length segment allocations that trigger tire physics loops
+        if ((worldPos.x - _lastDrawnPoint!.x).abs() < 1.0 && (worldPos.y - _lastDrawnPoint!.y).abs() < 1.0) {
+          return;
+        }
+
         final newSeg = TrackSegment(_lastDrawnPoint!.clone(), worldPos.clone());
         if (_lastCreatedSegment != null) {
           _lastCreatedSegment!.next = newSeg;
@@ -199,7 +203,6 @@ class RaceRiderGame extends FlameGame with DragCallbacks, TapCallbacks, ScaleDet
 
   @override
   void onScaleUpdate(ScaleUpdateInfo info) {
-    // Scale and zoom configurations are dedicated exclusively to Design view spaces
     if (currentMode != AppState.design) return;
 
     double scaleDelta = info.scale.global.x; 
@@ -208,15 +211,18 @@ class RaceRiderGame extends FlameGame with DragCallbacks, TapCallbacks, ScaleDet
     }
     
     final delta = info.delta.global;
-    if (delta.length2 > 0 && scaleDelta == 1.0) {
+    if (delta.length2 > 0 && scaleDelta == 1.0 && _lastDrawnPoint == null) {
       camera.viewfinder.position -= delta / camera.viewfinder.zoom;
     }
   }
 
   void _toggleMode() {
+    _lastDrawnPoint = null;
+    _lastCreatedSegment = null;
+
     if (currentMode == AppState.design) {
       currentMode = AppState.ride;
-      _restartBike(); // Drop fresh bike down on spawn whenever entering ride mode
+      _restartBike(); 
     } else {
       currentMode = AppState.design;
       isGas = isBrake = false;
@@ -250,7 +256,6 @@ class RaceRiderGame extends FlameGame with DragCallbacks, TapCallbacks, ScaleDet
     player.isGas = isGas;
     player.isBrake = isBrake;
     
-    // Physics execution runs full loop cycle
     player.update(dt);
     
     if (player.state == BikeState.crashed) {
@@ -262,12 +267,10 @@ class RaceRiderGame extends FlameGame with DragCallbacks, TapCallbacks, ScaleDet
     
     if (!player.hasFiniteState) _restartBike();
 
-    // CAMERA LOGIC SPLIT: Dynamic target tracking vs Manual Workspace Panning
     if (currentMode == AppState.ride) {
-      camera.viewfinder.zoom = 1.6; // Standard comfort racing zoom
+      camera.viewfinder.zoom = 1.6; 
       camera.viewfinder.position = camera.viewfinder.position * 0.85 + player.position * 0.15;
     } else {
-      // In Design mode, if not dragging canvas, softly look near spawn target base
       if (_lastDrawnPoint == null && trackSegments.isEmpty) {
         camera.viewfinder.position = camera.viewfinder.position * 0.9 + _spawnPoint() * 0.1;
       }
@@ -299,12 +302,12 @@ class RaceRiderGame extends FlameGame with DragCallbacks, TapCallbacks, ScaleDet
   }
   
   void _renderUIOverlay(Canvas canvas) {
-    // Left System Element: CLEAR
+    // Clear Button Card Block Area
     canvas.drawRRect(RRect.fromRectAndRadius(const Rect.fromLTWH(12, 12, 130, 36), const Radius.circular(6)), Paint()..color = Colors.redAccent.withOpacity(0.85));
     TextPainter(text: const TextSpan(text: '[ CLEAR ALL ]', style: TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.bold)), textDirection: TextDirection.ltr)
       ..layout()..paint(canvas, const Offset(26, 22));
 
-    // Right System Element: MODE SWAP SWITCHER
+    // Mode Controller Switch Panel Block Area
     final isRiding = currentMode == AppState.ride;
     final toggleBg = isRiding ? Colors.green[600]! : Colors.orange[700]!;
     final toggleLabel = isRiding ? 'GO TO DESIGN' : 'START RIDING';
@@ -314,7 +317,13 @@ class RaceRiderGame extends FlameGame with DragCallbacks, TapCallbacks, ScaleDet
       ..layout()..paint(canvas, Offset(size.x - 138, 22));
   }
 
-  Vector2 _spawnPoint() => Vector2(-650.0, 20.0);
+  // Spawns the bike 60 pixels directly above where your camera is currently focused editing!
+  Vector2 _spawnPoint() {
+    if (trackSegments.isEmpty) {
+      return Vector2(-650.0, 20.0);
+    }
+    return Vector2(camera.viewfinder.position.x, camera.viewfinder.position.y - 60.0);
+  }
 }
 
 class TrackSegment {
