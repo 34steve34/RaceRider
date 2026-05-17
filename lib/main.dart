@@ -60,17 +60,21 @@ class SpatialGrid {
   }
 }
 
-enum AppState { design, ride }
-enum DesignTool { draw, pan }
+enum AppState { design, ride, victory }
+enum DesignTool { draw, startFlag, finishFlag, pan }
 
 class RaceRiderGame extends FlameGame with DragCallbacks, TapCallbacks, ScaleDetector {
-  static const buildLabel = 'physics v.350 - Editor UI Toolbelt';
+  static const buildLabel = 'physics v.370 - Start/Finish Gate Matrix';
   late Bike player;
   final List<TrackSegment> trackSegments = [];
   final SpatialGrid grid = SpatialGrid(cellSize: 80.0);
   
   AppState currentMode = AppState.design;
-  DesignTool activeTool = DesignTool.draw; // Default to drawing mode
+  DesignTool activeTool = DesignTool.draw;
+  
+  // Dedicated Gate Coordinates
+  Vector2 startSpawnPoint = Vector2(-150.0, -30.0);
+  Vector2 finishLinePoint = Vector2(150.0, -30.0);
   
   double rawTilt = 0.0;
   double smoothedTilt = 0.0;
@@ -83,7 +87,9 @@ class RaceRiderGame extends FlameGame with DragCallbacks, TapCallbacks, ScaleDet
   StreamSubscription? _accelSub;
   
   double crashTimer = 0.0;
-  static const double _crashRestartDelay = 1.2;
+  double victoryTimer = 0.0;
+  static const double _restartDelay = 1.2;
+  static const double _victoryDelay = 2.5;
 
   Vector2? _lastDrawnPoint;
   static const double _drawingMinDistance = 14.0; 
@@ -112,7 +118,7 @@ class RaceRiderGame extends FlameGame with DragCallbacks, TapCallbacks, ScaleDet
     final x = event.localPosition.x;
     final y = event.localPosition.y;
 
-    // TOP MENU BAR INTERCEPTS
+    // TOP BAR MENU NAVIGATION INTERCEPTS
     if (y < 60) {
       if (x < 130) {
         _clearCanvas();
@@ -130,24 +136,39 @@ class RaceRiderGame extends FlameGame with DragCallbacks, TapCallbacks, ScaleDet
 
     // BOTTOM TOOLBAR INTERCEPTS (Only in Design Mode)
     if (currentMode == AppState.design && y > size.y - 65) {
-      if (x >= (size.x / 2) - 130 && x < (size.x / 2) - 10) {
+      double barWidth = 520;
+      double startX = (size.x / 2) - (barWidth / 2);
+      
+      if (x >= startX && x < startX + 115) {
         activeTool = DesignTool.draw;
         return;
       }
-      if (x >= (size.x / 2) + 10 && x < (size.x / 2) + 130) {
+      if (x >= startX + 130 && x < startX + 245) {
+        activeTool = DesignTool.startFlag;
+        return;
+      }
+      if (x >= startX + 260 && x < startX + 375) {
+        activeTool = DesignTool.finishFlag;
+        return;
+      }
+      if (x >= startX + 390 && x < startX + 505) {
         activeTool = DesignTool.pan;
         return;
       }
     }
 
-    // WORKSPACE INTERACTION
+    // WORLD SPACE INPUT ROUTING
     if (currentMode == AppState.design) {
+      final worldPos = _screenToWorld(event.localPosition);
       if (activeTool == DesignTool.draw) {
-        final worldPos = _screenToWorld(event.localPosition);
         _lastDrawnPoint = worldPos;
         _lastCreatedSegment = null;
+      } else if (activeTool == DesignTool.startFlag) {
+        startSpawnPoint = worldPos;
+      } else if (activeTool == DesignTool.finishFlag) {
+        finishLinePoint = worldPos;
       }
-    } else {
+    } else if (currentMode == AppState.ride) {
       isBrake = x < size.x / 2;
       isGas = !isBrake;
     }
@@ -165,12 +186,12 @@ class RaceRiderGame extends FlameGame with DragCallbacks, TapCallbacks, ScaleDet
     if (currentMode != AppState.design) return;
 
     if (activeTool == DesignTool.pan) {
-      // Hand Tool: Single-finger canvas dragging
       camera.viewfinder.position -= event.localDelta / camera.viewfinder.zoom;
       return;
     }
 
-    // Pen Tool: Drawing vectors
+    if (activeTool != DesignTool.draw) return;
+
     final worldPos = _screenToWorld(event.localEndPosition);
     if (_lastDrawnPoint != null) {
       double dist = (worldPos - _lastDrawnPoint!).length;
@@ -203,8 +224,6 @@ class RaceRiderGame extends FlameGame with DragCallbacks, TapCallbacks, ScaleDet
   @override
   void onScaleUpdate(ScaleUpdateInfo info) {
     if (currentMode != AppState.design) return;
-
-    // Zooming always available in design mode via pinch
     double scaleDelta = info.scale.global.x; 
     if (scaleDelta != 0 && scaleDelta != 1.0) {
       camera.viewfinder.zoom = (camera.viewfinder.zoom * (scaleDelta > 1 ? 1.05 : 0.95)).clamp(0.3, 4.0);
@@ -213,16 +232,11 @@ class RaceRiderGame extends FlameGame with DragCallbacks, TapCallbacks, ScaleDet
 
   void _undoLastSegment() {
     if (trackSegments.isEmpty) return;
-    
-    // Remove last stroke segment from data collection arrays
     trackSegments.removeLast();
-    
-    // Re-index spatial rendering maps to clear collision data cleanly
     grid.clear();
     for (final seg in trackSegments) {
       grid.insert(seg);
     }
-    
     _lastDrawnPoint = null;
     _lastCreatedSegment = null;
   }
@@ -231,18 +245,20 @@ class RaceRiderGame extends FlameGame with DragCallbacks, TapCallbacks, ScaleDet
     _lastDrawnPoint = null;
     _lastCreatedSegment = null;
 
-    if (currentMode == AppState.design) {
-      currentMode = AppState.ride;
-      _restartBike(); 
-    } else {
+    if (currentMode == AppState.ride || currentMode == AppState.victory) {
       currentMode = AppState.design;
       isGas = isBrake = false;
+    } else {
+      currentMode = AppState.ride;
+      _restartBike(); 
     }
   }
 
   void _clearCanvas() {
     grid.clear();
     trackSegments.clear();
+    startSpawnPoint = Vector2(-150.0, -30.0);
+    finishLinePoint = Vector2(150.0, -30.0);
     _lastDrawnPoint = null;
     _lastCreatedSegment = null;
     currentMode = AppState.design;
@@ -267,29 +283,51 @@ class RaceRiderGame extends FlameGame with DragCallbacks, TapCallbacks, ScaleDet
     player.isGas = isGas;
     player.isBrake = isBrake;
     
-    player.update(dt);
+    if (currentMode == AppState.ride || currentMode == AppState.victory) {
+      player.update(dt);
+    }
     
-    if (player.state == BikeState.crashed) {
+    // Check for Crash Loop Reset
+    if (player.state == BikeState.crashed && currentMode == AppState.ride) {
       crashTimer += dt;
-      if (crashTimer >= _crashRestartDelay) _restartBike();
+      if (crashTimer >= _restartDelay) _restartBike();
     } else {
       crashTimer = 0.0;
     }
     
+    // Check for Victory Finish Gate Collisions
+    if (currentMode == AppState.ride) {
+      double distToFinish = (player.position - finishLinePoint).length;
+      if (distToFinish < 22.0) {
+        currentMode = AppState.victory;
+        isGas = isBrake = false;
+      }
+    }
+
+    if (currentMode == AppState.victory) {
+      victoryTimer += dt;
+      if (victoryTimer >= _victoryDelay) {
+        currentMode = AppState.ride;
+        _restartBike();
+      }
+    } else {
+      victoryTimer = 0.0;
+    }
+    
     if (!player.hasFiniteState) _restartBike();
 
-    if (currentMode == AppState.ride) {
+    if (currentMode == AppState.ride || currentMode == AppState.victory) {
       camera.viewfinder.zoom = 1.6; 
       camera.viewfinder.position = camera.viewfinder.position * 0.85 + player.position * 0.15;
     } else {
       if (_lastDrawnPoint == null && trackSegments.isEmpty) {
-        camera.viewfinder.position = camera.viewfinder.position * 0.9 + _spawnPoint() * 0.1;
+        camera.viewfinder.position = camera.viewfinder.position * 0.9 + startSpawnPoint * 0.1;
       }
     }
   }
   
   void _restartBike() {
-    player = Bike(_spawnPoint(), grid);
+    player = Bike(startSpawnPoint.clone(), grid);
     crashTimer = 0.0;
     if (currentMode == AppState.design) {
       isGas = isBrake = false;
@@ -304,12 +342,46 @@ class RaceRiderGame extends FlameGame with DragCallbacks, TapCallbacks, ScaleDet
     canvas.scale(camera.viewfinder.zoom);
     canvas.translate(-camera.viewfinder.position.x, -camera.viewfinder.position.y);
 
+    // Render Track Layout Geometry
     final trackPaint = Paint()..color = const Color(0xFF00FF88)..strokeWidth = 2.5..style = PaintingStyle.stroke;
     for (final s in trackSegments) canvas.drawLine(_off(s.a), _off(s.b), trackPaint);
+    
+    // Render flags across both modes so you see targets while driving
+    _drawStartFlag(canvas, startSpawnPoint);
+    _drawCheckeredFlag(canvas, finishLinePoint);
     
     player.render(canvas);
     canvas.restore();
     _renderUIOverlay(canvas);
+  }
+
+  void _drawStartFlag(Canvas canvas, Vector2 point) {
+    final flagPaint = Paint()..color = Colors.greenAccent[400]!..strokeWidth = 2.0;
+    canvas.drawLine(Offset(point.x, point.y - 25), Offset(point.x, point.y), flagPaint);
+    
+    final path = Path()
+      ..moveTo(point.x, point.y - 25)
+      ..lineTo(point.x + 14, point.y - 17)
+      ..lineTo(point.x, point.y - 9)
+      ..close();
+    canvas.drawPath(path, Paint()..color = Colors.green[600]!..style = PaintingStyle.fill);
+  }
+
+  void _drawCheckeredFlag(Canvas canvas, Vector2 point) {
+    final flagPaint = Paint()..color = Colors.white!..strokeWidth = 2.0;
+    canvas.drawLine(Offset(point.x, point.y - 25), Offset(point.x, point.y), flagPaint);
+    
+    // Draw an authentic tiny checkered box block banner
+    final rectPaintBlack = Paint()..color = Colors.black;
+    final rectPaintWhite = Paint()..color = Colors.white;
+    
+    double topY = point.y - 25;
+    for (int row = 0; row < 3; row++) {
+      for (int col = 0; col < 4; col++) {
+        final p = ((row + col) % 2 == 0) ? rectPaintBlack : rectPaintWhite;
+        canvas.drawRect(Rect.fromLTWH(point.x + (col * 4), topY + (row * 4), 4, 4), p);
+      }
+    }
   }
   
   void _renderUIOverlay(Canvas canvas) {
@@ -325,7 +397,7 @@ class RaceRiderGame extends FlameGame with DragCallbacks, TapCallbacks, ScaleDet
       ..layout()..paint(canvas, const Offset(153, 22));
 
     // --- TOP MENU ELEMENT: MODE SWAP ---
-    final isRiding = currentMode == AppState.ride;
+    final isRiding = currentMode == AppState.ride || currentMode == AppState.victory;
     final toggleBg = isRiding ? Colors.green[600]! : Colors.orange[700]!;
     final toggleLabel = isRiding ? 'GO TO DESIGN' : 'START RIDING';
 
@@ -333,34 +405,49 @@ class RaceRiderGame extends FlameGame with DragCallbacks, TapCallbacks, ScaleDet
     TextPainter(text: TextSpan(text: toggleLabel, style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.bold)), textDirection: TextDirection.ltr)
       ..layout()..paint(canvas, Offset(size.x - 138, 22));
 
+    // --- VICTORY CONGRATULATORY CARD ---
+    if (currentMode == AppState.victory) {
+      canvas.drawRect(Rect.fromLTWH(0, 0, size.x, size.y), Paint()..color = Colors.black.withOpacity(0.4));
+      canvas.drawRRect(RRect.fromRectAndRadius(Rect.fromLTWH((size.x / 2) - 160, (size.y / 2) - 40, 320, 80), const Radius.circular(12)), Paint()..color = Colors.green[700]!);
+      TextPainter(text: const TextSpan(text: '🏁 VICTORY! 🏁\nTRACK CLEARED!', style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold, height: 1.3), textAlign: TextAlign.center), textDirection: TextDirection.ltr)
+        ..layout()..paint(canvas, Offset((size.x / 2) - 76, (size.y / 2) - 24));
+    }
+
     // --- BOTTOM TOOLBAR CONTROLS (Design Mode Only) ---
     if (currentMode == AppState.design) {
       final centerX = size.x / 2;
       final bottomY = size.y - 50;
+      double barWidth = 520;
+      double startX = centerX - (barWidth / 2);
 
-      // Draw Tool Option A: PEN
+      // Tool A: PEN
       final penSelected = activeTool == DesignTool.draw;
-      canvas.drawRRect(RRect.fromRectAndRadius(Rect.fromLTWH(centerX - 130, bottomY, 120, 38), const Radius.circular(20)), Paint()..color = penSelected ? Colors.orange[600]! : Colors.grey[800]!.withOpacity(0.9));
-      TextPainter(text: const TextSpan(text: '✏️ PEN DRAW', style: TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.bold)), textDirection: TextDirection.ltr)
-        ..layout()..paint(canvas, Offset(centerX - 108, bottomY + 11));
+      canvas.drawRRect(RRect.fromRectAndRadius(Rect.fromLTWH(startX, bottomY, 115, 38), const Radius.circular(20)), Paint()..color = penSelected ? Colors.orange[600]! : Colors.grey[800]!.withOpacity(0.9));
+      TextPainter(text: const TextSpan(text: '✏️ PEN DRAW', style: TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold)), textDirection: TextDirection.ltr)
+        ..layout()..paint(canvas, Offset(startX + 20, bottomY + 11));
 
-      // Draw Tool Option B: HAND PAN
+      // Tool B: START FLAG
+      final sFlagSelected = activeTool == DesignTool.startFlag;
+      canvas.drawRRect(RRect.fromRectAndRadius(Rect.fromLTWH(startX + 130, bottomY, 115, 38), const Radius.circular(20)), Paint()..color = sFlagSelected ? Colors.orange[600]! : Colors.grey[800]!.withOpacity(0.9));
+      TextPainter(text: const TextSpan(text: '🟢 START LINE', style: TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold)), textDirection: TextDirection.ltr)
+        ..layout()..paint(canvas, Offset(startX + 148, bottomY + 11));
+
+      // Tool C: FINISH FLAG
+      final fFlagSelected = activeTool == DesignTool.finishFlag;
+      canvas.drawRRect(RRect.fromRectAndRadius(Rect.fromLTWH(startX + 260, bottomY, 115, 38), const Radius.circular(20)), Paint()..color = fFlagSelected ? Colors.orange[600]! : Colors.grey[800]!.withOpacity(0.9));
+      TextPainter(text: const TextSpan(text: '🏁 FINISH GATE', style: TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold)), textDirection: TextDirection.ltr)
+        ..layout()..paint(canvas, Offset(startX + 274, bottomY + 11));
+
+      // Tool D: HAND PAN
       final panSelected = activeTool == DesignTool.pan;
-      canvas.drawRRect(RRect.fromRectAndRadius(Rect.fromLTWH(centerX + 10, bottomY, 120, 38), const Radius.circular(20)), Paint()..color = panSelected ? Colors.orange[600]! : Colors.grey[800]!.withOpacity(0.9));
-      TextPainter(text: const TextSpan(text: '✋ HAND PAN', style: TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.bold)), textDirection: TextDirection.ltr)
-        ..layout()..paint(canvas, Offset(centerX + 32, bottomY + 11));
+      canvas.drawRRect(RRect.fromRectAndRadius(Rect.fromLTWH(startX + 390, bottomY, 115, 38), const Radius.circular(20)), Paint()..color = panSelected ? Colors.orange[600]! : Colors.grey[800]!.withOpacity(0.9));
+      TextPainter(text: const TextSpan(text: '✋ HAND PAN', style: TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold)), textDirection: TextDirection.ltr)
+        ..layout()..paint(canvas, Offset(startX + 412, bottomY + 11));
     }
-  }
-
-  Vector2 _spawnPoint() {
-    if (trackSegments.isEmpty) {
-      return Vector2(-100.0, 0.0); 
-    }
-    return Vector2(camera.viewfinder.position.x, camera.viewfinder.position.y - 60.0);
   }
 }
 
-// Keep TrackSegment, SurfaceHit, Bike, and Background classes exactly the same as the previous layout...
+// --- ALL REMAINING PHYSICS AND SCENERY ENGINE OBJECTS REMAIN UNCHANGED ---
 class TrackSegment {
   final Vector2 a, b;
   TrackSegment? prev;
@@ -651,7 +738,7 @@ class Background extends Component {
 class DebugOverlay extends Component with HasGameRef<RaceRiderGame> {
   @override
   void render(Canvas canvas) {
-    final modeStr = gameRef.currentMode == AppState.ride ? 'RIDING MODE' : 'DESIGN MODE';
+    final modeStr = gameRef.currentMode == AppState.ride ? 'RIDING MODE' : gameRef.currentMode == AppState.victory ? 'VICTORY CELEBRATION' : 'DESIGN MODE';
     TextPainter(textDirection: TextDirection.ltr, text: TextSpan(
       text: 'RaceRider ${RaceRiderGame.buildLabel}\nState: $modeStr\nLines Active: ${gameRef.trackSegments.length}\nZoom: ${gameRef.camera.viewfinder.zoom.toStringAsFixed(2)}', 
       style: const TextStyle(color: Colors.yellow, fontSize: 11, fontWeight: FontWeight.bold)
