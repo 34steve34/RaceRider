@@ -32462,7 +32462,7 @@ d.fD()
 c=Math.atan2(s[1],s[0])
 b=-b1.b*3e5
 if(b<0&&b1.at)b*=0.15
-a=b1.as&&!b1.at?-300*(Math.cos(c)*8.5-Math.sin(c)*3.5)/18:0
+a=b1.as&&!b1.at?300*Math.sin(c-Math.atan2(3.5,8.5))*8.5/18:0
 s=b1.as
 r=!s
 if(r&&!b1.at)a0=85
