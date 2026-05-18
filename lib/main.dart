@@ -64,7 +64,7 @@ enum AppState { design, ride, victory }
 enum DesignTool { draw, startFlag, finishFlag, pan }
 
 class RaceRiderGame extends FlameGame with DragCallbacks, TapCallbacks, ScaleDetector {
-  static const buildLabel = 'physics v.395 - True Symmetric Equilibrium';
+  static const buildLabel = 'physics v.395 - True Symmetric Equilibrium (Tweened)';
   late Bike player;
   final List<TrackSegment> trackSegments = [];
   final SpatialGrid grid = SpatialGrid(cellSize: 80.0);
@@ -296,8 +296,34 @@ class RaceRiderGame extends FlameGame with DragCallbacks, TapCallbacks, ScaleDet
       player.isBrake = isBrake;
     }
     
+    // --- TWEEENED FIXED-STEP PHYSICS ACCUMULATOR ---
     if (currentMode == AppState.ride || currentMode == AppState.victory) {
-      player.update(dt);
+      double timeAcc = dt;
+      const fixedDt = 1.0 / 120.0;
+
+      // Cache the baseline starting state before stepping math cycles
+      Vector2 pastRear = player.rearPos.clone();
+      Vector2 pastFront = player.frontPos.clone();
+
+      while (timeAcc >= fixedDt) {
+        // Move previous internal history pins forward before overwriting current positions
+        pastRear.setFrom(player.rearPos);
+        pastFront.setFrom(player.frontPos);
+
+        player.stepPhysics(fixedDt);
+        timeAcc -= fixedDt;
+      }
+
+      // Compute alpha allocation percentage based on remainder fraction
+      double alpha = (fixedDt > 0) ? (timeAcc / fixedDt).clamp(0.0, 1.0) : 1.0;
+
+      // Linearly interpolate positions to generate visual rendering targets
+      player.renderRearPos = pastRear + (player.rearPos - pastRear) * alpha;
+      player.renderFrontPos = pastFront + (player.frontPos - pastFront) * alpha;
+    } else {
+      // In design mode, snap the render vectors directly to physical bounds
+      player.renderRearPos.setFrom(player.rearPos);
+      player.renderFrontPos.setFrom(player.frontPos);
     }
     
     // Recoverable Out of Bounds Safety Net
@@ -329,10 +355,10 @@ class RaceRiderGame extends FlameGame with DragCallbacks, TapCallbacks, ScaleDet
     
     if (!player.hasFiniteState) _restartBike();
 
-    // Camera Isolation Patch
+    // Camera Isolation Patch (Tracks the smooth blended rendering position)
     if (currentMode == AppState.ride || currentMode == AppState.victory) {
       camera.viewfinder.zoom = 1.6; 
-      camera.viewfinder.position = camera.viewfinder.position * 0.85 + player.position * 0.15;
+      camera.viewfinder.position = camera.viewfinder.position * 0.85 + player.renderPosition * 0.15;
     } else {
       if (_lastDrawnPoint == null && trackSegments.isEmpty) {
         camera.viewfinder.position = camera.viewfinder.position * 0.9 + startSpawnPoint * 0.1;
@@ -524,6 +550,10 @@ class Bike {
   late Vector2 rearOldPos, frontOldPos;
   late Vector2 frameTopPos, headPos, collisionHeadPos;
 
+  // Visual tween interpolation tracking pins
+  late Vector2 renderRearPos;
+  late Vector2 renderFrontPos;
+
   BikeState state = BikeState.riding;
   bool rearOnGround = false;
   bool frontOnGround = false;
@@ -539,27 +569,23 @@ class Bike {
     rearOldPos = rearPos.clone();
     frontOldPos = frontPos.clone();
     
+    renderRearPos = rearPos.clone();
+    renderFrontPos = frontPos.clone();
+    
     frameTopPos = startPos.clone();
     headPos = startPos.clone();
     collisionHeadPos = startPos.clone();
     
-    _syncFrameAndCollision(0.0);
+    _syncFrameAndCollision(0.0, true);
   }
 
   Vector2 get position => (rearPos + frontPos) / 2.0;
+  Vector2 get renderPosition => (renderRearPos + renderFrontPos) / 2.0;
   double get speed => ((rearPos - rearOldPos).length + (frontPos - frontOldPos).length) / (2.0 * (1/120));
   bool get hasFiniteState => rearPos.x.isFinite && frontPos.x.isFinite;
 
-  void update(double dt) {
-    double timeAcc = dt;
-    const fixedDt = 1.0 / 120.0;
-    while (timeAcc >= fixedDt) {
-      _stepPhysics(fixedDt);
-      timeAcc -= fixedDt;
-    }
-  }
-
-  void _stepPhysics(double dt) {
+  // Extracted physics engine tick runner (invoked from game step loop)
+  void stepPhysics(double dt) {
     if (state == BikeState.crashed) {
       rearPos.add((rearPos - rearOldPos) * 0.98);
       frontPos.add((frontPos - frontOldPos) * 0.98);
@@ -662,17 +688,19 @@ class Bike {
       frontPos.sub(diff * (err * _massRear));
     }
     
-    _syncFrameAndCollision(atan2(frontPos.y - rearPos.y, frontPos.x - rearPos.x));
+    _syncFrameAndCollision(atan2(frontPos.y - rearPos.y, frontPos.x - rearPos.x), false);
     SurfaceHit? hHit = _nearestSurface(collisionHeadPos);
     if (hHit != null && hHit.distance < _headRadius) _crash();
   }
 
-  void _syncFrameAndCollision(double currAngle) {
-    Vector2 center = (rearPos + frontPos) / 2.0;
-    Vector2 fwd = (frontPos - rearPos).normalized();
+  void _syncFrameAndCollision(double currAngle, bool useRaw) {
+    Vector2 center = useRaw ? ((rearPos + frontPos) / 2.0) : ((renderRearPos + renderFrontPos) / 2.0);
+    Vector2 fwd = useRaw ? (frontPos - rearPos).normalized() : (renderFrontPos - renderRearPos).normalized();
     Vector2 localDown = Vector2(-fwd.y, fwd.x); 
     frameTopPos = center + localDown * -14.0;
-    collisionHeadPos = frameTopPos;
+    if (useRaw) {
+      collisionHeadPos = frameTopPos;
+    }
     headPos = center + localDown * -7.0; 
   }
 
@@ -717,44 +745,47 @@ class Bike {
     final wheelP = Paint()..color = Colors.black87..strokeWidth = 3..style = PaintingStyle.stroke;
     final riderP = Paint()..color = const Color(0xFF2255BB);
 
-    Vector2 fwd = (frontPos - rearPos).normalized();
+    Vector2 fwd = (renderFrontPos - renderRearPos).normalized();
     Vector2 localDown = Vector2(-fwd.y, fwd.x);
     Vector2 rForkDir = localDown.clone()..rotate(0.2); 
     Vector2 fForkDir = localDown.clone()..rotate(-0.5); 
 
-    Vector2 rWheelVis = rearPos + rForkDir * suspensionTravel;
+    // Visual synchronization for structural offsets (using interpolated targets)
+    _syncFrameAndCollision(atan2(renderFrontPos.y - renderRearPos.y, renderFrontPos.x - renderRearPos.x), false);
+
+    Vector2 rWheelVis = renderRearPos + rForkDir * suspensionTravel;
     if (_rearSurface != null && _rearSurface!.distance < _maxSurfaceDist) {
-      Vector2 targetWheel = rearPos + rForkDir * suspensionTravel;
+      Vector2 targetWheel = renderRearPos + rForkDir * suspensionTravel;
       double sd = (targetWheel - _rearSurface!.point).dot(_rearSurface!.normal);
       if (sd < _wheelRadius) {
         double normalComp = _wheelRadius - sd;
         double forkAlign = rForkDir.dot(-_rearSurface!.normal).clamp(0.1, 1.0);
         double forkComp = (normalComp / forkAlign).clamp(0.0, suspensionTravel);
-        rWheelVis = rearPos + rForkDir * (suspensionTravel - forkComp);
+        rWheelVis = renderRearPos + rForkDir * (suspensionTravel - forkComp);
       }
     }
 
-    Vector2 fWheelVis = frontPos + fForkDir * suspensionTravel;
+    Vector2 fWheelVis = renderFrontPos + fForkDir * suspensionTravel;
     if (_frontSurface != null && _frontSurface!.distance < _maxSurfaceDist) {
-      Vector2 targetWheel = frontPos + fForkDir * suspensionTravel;
+      Vector2 targetWheel = renderFrontPos + fForkDir * suspensionTravel;
       double sd = (targetWheel - _frontSurface!.point).dot(_frontSurface!.normal);
       if (sd < _wheelRadius) {
         double normalComp = _wheelRadius - sd;
         double forkAlign = fForkDir.dot(-_frontSurface!.normal).clamp(0.1, 1.0);
         double forkComp = (normalComp / forkAlign).clamp(0.0, suspensionTravel);
-        fWheelVis = frontPos + fForkDir * (suspensionTravel - forkComp);
+        fWheelVis = renderFrontPos + fForkDir * (suspensionTravel - forkComp);
       }
     }
 
     canvas.drawCircle(_off(rWheelVis), _wheelRadius, wheelP);
     canvas.drawCircle(_off(fWheelVis), _wheelRadius, wheelP);
-    canvas.drawLine(_off(rearPos), _off(frontPos), frameP);
-    canvas.drawLine(_off(rearPos), _off(frameTopPos), frameP);
-    canvas.drawLine(_off(frontPos), _off(frameTopPos), frameP);
+    canvas.drawLine(_off(renderRearPos), _off(renderFrontPos), frameP);
+    canvas.drawLine(_off(renderRearPos), _off(frameTopPos), frameP);
+    canvas.drawLine(_off(renderFrontPos), _off(frameTopPos), frameP);
     
     final shockP = Paint()..color = Colors.grey[400]!..strokeWidth = 2;
-    canvas.drawLine(_off(rearPos), _off(rWheelVis), shockP);
-    canvas.drawLine(_off(frontPos), _off(fWheelVis), shockP);
+    canvas.drawLine(_off(renderRearPos), _off(rWheelVis), shockP);
+    canvas.drawLine(_off(renderFrontPos), _off(fWheelVis), shockP);
     canvas.drawCircle(_off(headPos), _headRadius, riderP);
   }
 }
