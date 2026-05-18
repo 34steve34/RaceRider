@@ -64,7 +64,7 @@ enum AppState { design, ride, victory }
 enum DesignTool { draw, startFlag, finishFlag, pan }
 
 class RaceRiderGame extends FlameGame with DragCallbacks, TapCallbacks, ScaleDetector {
-  static const buildLabel = 'physics v.390 - Camera Freedom Patch';
+  static const buildLabel = 'physics v.395 - True Symmetric Equilibrium';
   late Bike player;
   final List<TrackSegment> trackSegments = [];
   final SpatialGrid grid = SpatialGrid(cellSize: 80.0);
@@ -115,7 +115,6 @@ class RaceRiderGame extends FlameGame with DragCallbacks, TapCallbacks, ScaleDet
     final x = event.localPosition.x;
     final y = event.localPosition.y;
 
-    // INTERCEPT: Victory Screen Restart Click
     if (currentMode == AppState.victory) {
       final centerX = size.x / 2;
       final centerY = size.y / 2;
@@ -126,7 +125,7 @@ class RaceRiderGame extends FlameGame with DragCallbacks, TapCallbacks, ScaleDet
       }
     }
 
-    // TOP BAR MENU NAVIGATION INTERCEPTS
+    // TOP BAR UI MENU INTERCEPTS
     if (y < 60) {
       if (x < 130) {
         _clearCanvas();
@@ -142,7 +141,7 @@ class RaceRiderGame extends FlameGame with DragCallbacks, TapCallbacks, ScaleDet
       }
     }
 
-    // BOTTOM TOOLBAR INTERCEPTS (Only in Design Mode)
+    // BOTTOM INTERACTIVE TOOLBAR NAVIGATION
     if (currentMode == AppState.design && y > size.y - 65) {
       double barWidth = 520;
       double startX = (size.x / 2) - (barWidth / 2);
@@ -165,7 +164,7 @@ class RaceRiderGame extends FlameGame with DragCallbacks, TapCallbacks, ScaleDet
       }
     }
 
-    // WORLD SPACE INPUT ROUTING
+    // GRAPHIC CANVAS VIEW ROUTING
     if (currentMode == AppState.design) {
       final worldPos = _screenToWorld(event.localPosition);
       if (activeTool == DesignTool.draw) {
@@ -301,6 +300,7 @@ class RaceRiderGame extends FlameGame with DragCallbacks, TapCallbacks, ScaleDet
       player.update(dt);
     }
     
+    // Recoverable Out of Bounds Safety Net
     if (currentMode == AppState.ride) {
       double lowestTrackY = 200.0;
       for (final seg in trackSegments) {
@@ -329,13 +329,11 @@ class RaceRiderGame extends FlameGame with DragCallbacks, TapCallbacks, ScaleDet
     
     if (!player.hasFiniteState) _restartBike();
 
-    // --- FIXED CAMERA CONTROL: ONLY TRACK BIKE DURING ACTIVE RUNS ---
+    // Camera Isolation Patch
     if (currentMode == AppState.ride || currentMode == AppState.victory) {
       camera.viewfinder.zoom = 1.6; 
       camera.viewfinder.position = camera.viewfinder.position * 0.85 + player.position * 0.15;
     } else {
-      // In Design mode, we drop all camera restrictions. 
-      // Only snap to start if they cleared everything and have a completely blank canvas.
       if (_lastDrawnPoint == null && trackSegments.isEmpty) {
         camera.viewfinder.position = camera.viewfinder.position * 0.9 + startSpawnPoint * 0.1;
       }
@@ -398,18 +396,18 @@ class RaceRiderGame extends FlameGame with DragCallbacks, TapCallbacks, ScaleDet
   }
   
   void _renderUIOverlay(Canvas canvas) {
-    // --- TOP MENU ELEMENT: CLEAR ---
+    // Clear Canvas Area Card
     canvas.drawRRect(RRect.fromRectAndRadius(const Rect.fromLTWH(12, 12, 115, 36), const Radius.circular(6)), Paint()..color = Colors.redAccent.withOpacity(0.85));
     TextPainter(text: const TextSpan(text: '[ CLEAR ALL ]', style: TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.bold)), textDirection: TextDirection.ltr)
       ..layout()..paint(canvas, const Offset(24, 22));
 
-    // --- TOP MENU ELEMENT: UNDO ---
+    // Undo Processing Area Card
     final undoOpacity = trackSegments.isNotEmpty ? 0.85 : 0.3;
     canvas.drawRRect(RRect.fromRectAndRadius(const Rect.fromLTWH(139, 12, 110, 36), const Radius.circular(6)), Paint()..color = Colors.blueGrey[700]!.withOpacity(undoOpacity));
     TextPainter(text: const TextSpan(text: '[ UNDO LINE ]', style: TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.bold)), textDirection: TextDirection.ltr)
       ..layout()..paint(canvas, const Offset(153, 22));
 
-    // --- TOP MENU ELEMENT: MODE SWAP ---
+    // Execution Mode Toggling Area Card
     final isRiding = currentMode == AppState.ride || currentMode == AppState.victory;
     final toggleBg = isRiding ? Colors.green[600]! : Colors.orange[700]!;
     final toggleLabel = isRiding ? 'GO TO DESIGN' : 'START RIDING';
@@ -418,7 +416,7 @@ class RaceRiderGame extends FlameGame with DragCallbacks, TapCallbacks, ScaleDet
     TextPainter(text: TextSpan(text: toggleLabel, style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.bold)), textDirection: TextDirection.ltr)
       ..layout()..paint(canvas, Offset(size.x - 138, 22));
 
-    // --- INTERACTIVE PERSISTENT VICTORY CARD ---
+    // Clean Production Web-Compliant Victory Modal Card Area
     if (currentMode == AppState.victory) {
       final centerX = size.x / 2;
       final centerY = size.y / 2;
@@ -446,32 +444,28 @@ class RaceRiderGame extends FlameGame with DragCallbacks, TapCallbacks, ScaleDet
       )..layout(minWidth: 160, maxWidth: 160)..paint(canvas, Offset(centerX - 80, centerY + 23));
     }
 
-    // --- BOTTOM TOOLBAR CONTROLS (Design Mode Only) ---
+    // Design Toolbar System Panels
     if (currentMode == AppState.design) {
       final centerX = size.x / 2;
       final bottomY = size.y - 50;
       double barWidth = 520;
       double startX = centerX - (barWidth / 2);
 
-      // Tool A: PEN
       final penSelected = activeTool == DesignTool.draw;
       canvas.drawRRect(RRect.fromRectAndRadius(Rect.fromLTWH(startX, bottomY, 115, 38), const Radius.circular(20)), Paint()..color = penSelected ? Colors.orange[600]! : Colors.grey[800]!.withOpacity(0.9));
       TextPainter(text: const TextSpan(text: '✏️ PEN DRAW', style: TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold)), textDirection: TextDirection.ltr)
         ..layout()..paint(canvas, Offset(startX + 20, bottomY + 11));
 
-      // Tool B: START FLAG
       final sFlagSelected = activeTool == DesignTool.startFlag;
       canvas.drawRRect(RRect.fromRectAndRadius(Rect.fromLTWH(startX + 130, bottomY, 115, 38), const Radius.circular(20)), Paint()..color = sFlagSelected ? Colors.orange[600]! : Colors.grey[800]!.withOpacity(0.9));
       TextPainter(text: const TextSpan(text: '🟢 START LINE', style: TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold)), textDirection: TextDirection.ltr)
         ..layout()..paint(canvas, Offset(startX + 148, bottomY + 11));
 
-      // Tool C: FINISH FLAG
       final fFlagSelected = activeTool == DesignTool.finishFlag;
       canvas.drawRRect(RRect.fromRectAndRadius(Rect.fromLTWH(startX + 260, bottomY, 115, 38), const Radius.circular(20)), Paint()..color = fFlagSelected ? Colors.orange[600]! : Colors.grey[800]!.withOpacity(0.9));
       TextPainter(text: const TextSpan(text: '🏁 FINISH GATE', style: TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold)), textDirection: TextDirection.ltr)
         ..layout()..paint(canvas, Offset(startX + 274, bottomY + 11));
 
-      // Tool D: HAND PAN
       final panSelected = activeTool == DesignTool.pan;
       canvas.drawRRect(RRect.fromRectAndRadius(Rect.fromLTWH(startX + 390, bottomY, 115, 38), const Radius.circular(20)), Paint()..color = panSelected ? Colors.orange[600]! : Colors.grey[800]!.withOpacity(0.9));
       TextPainter(text: const TextSpan(text: '✋ HAND PAN', style: TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold)), textDirection: TextDirection.ltr)
@@ -480,7 +474,7 @@ class RaceRiderGame extends FlameGame with DragCallbacks, TapCallbacks, ScaleDet
   }
 }
 
-// --- PHYSICS ENGINE OBJECTS ---
+// --- MASTER PHYSICS LOOPS STRUCTS ---
 class TrackSegment {
   final Vector2 a, b;
   TrackSegment? prev;
@@ -625,12 +619,14 @@ class Bike {
     double playerTorque = -tilt * _playerTorqueStrength;
     if (playerTorque < 0 && frontOnGround) playerTorque *= _frontGroundedTorqueScale;
 
+    // --- REBUILT SYMMETRIC WHEELIE TORQUE INTEGRATION ---
     double gravTorqueAccel = 0.0;
     if (rearOnGround && !frontOnGround) {
-      double cosA = cos(angle);
-      double sinA = sin(angle);
-      double cogHorizontalOffset = (cosA * _cogDistanceFromRear) - (sinA * _cogHeight);
-      gravTorqueAccel = (-_gravity * cogHorizontalOffset) / _wheelbase;
+      double balanceAngle = atan2(_cogHeight, _cogDistanceFromRear); 
+      double angularOffset = angle - balanceAngle;
+      
+      // Pure trigonometric wave scaling eliminates the geometry mass bias
+      gravTorqueAccel = (_gravity * sin(angularOffset) * _cogDistanceFromRear) / _wheelbase;
     }
 
     double damping;
