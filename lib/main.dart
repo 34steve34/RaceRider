@@ -64,7 +64,7 @@ enum AppState { design, ride, victory }
 enum DesignTool { draw, startFlag, finishFlag, pan }
 
 class RaceRiderGame extends FlameGame with DragCallbacks, TapCallbacks {
-  static const buildLabel = 'physics v.397 - Dynamic Touch HUD Stabilized';
+  static const buildLabel = 'physics v.398 - Raw 2012 Delta Clock Sync';
   late Bike player;
   final List<TrackSegment> trackSegments = [];
   final SpatialGrid grid = SpatialGrid(cellSize: 80.0);
@@ -82,9 +82,7 @@ class RaceRiderGame extends FlameGame with DragCallbacks, TapCallbacks {
   bool isGas = false;
   bool isBrake = false;
   
-  double dt = 0.0;
   StreamSubscription? _accelSub;
-  
   double crashTimer = 0.0;
   static const double _restartDelay = 1.2;
 
@@ -125,37 +123,31 @@ class RaceRiderGame extends FlameGame with DragCallbacks, TapCallbacks {
       }
     }
 
-    // TOP BAR UI MENU INTERCEPTS
     if (y < 60) {
-      // Clear All Button Click Bounds
       if (x < 125) {
         _clearCanvas();
         return;
       }
-      // Undo Line Button Click Bounds
       if (x >= 135 && x < 245) {
         _undoLastSegment();
         return;
       }
-      // UI Zoom Buttons (Only accessible in Design Mode)
       if (currentMode == AppState.design) {
-        if (x >= 255 && x < 345) { // Zoom In Button
+        if (x >= 255 && x < 345) {
           camera.viewfinder.zoom = (camera.viewfinder.zoom + 0.15).clamp(0.4, 3.5);
           return;
         }
-        if (x >= 355 && x < 445) { // Zoom Out Button
+        if (x >= 355 && x < 445) {
           camera.viewfinder.zoom = (camera.viewfinder.zoom - 0.15).clamp(0.4, 3.5);
           return;
         }
       }
-      // Start Riding / Go to Design Toggle Bounds
       if (x > size.x - 150) {
         _toggleMode();
         return;
       }
     }
 
-    // BOTTOM INTERACTIVE TOOLBAR NAVIGATION
     if (currentMode == AppState.design && y > size.y - 65) {
       double barWidth = 520;
       double startX = (size.x / 2) - (barWidth / 2);
@@ -178,7 +170,6 @@ class RaceRiderGame extends FlameGame with DragCallbacks, TapCallbacks {
       }
     }
 
-    // GRAPHIC CANVAS VIEW ROUTING
     if (currentMode == AppState.design) {
       final worldPos = _screenToWorld(event.localPosition);
       if (activeTool == DesignTool.draw) {
@@ -216,12 +207,10 @@ class RaceRiderGame extends FlameGame with DragCallbacks, TapCallbacks {
     final worldPos = _screenToWorld(event.localEndPosition);
     if (_lastDrawnPoint != null) {
       double dist = (worldPos - _lastDrawnPoint!).length;
-      
       if (dist >= _drawingMinDistance) {
         if ((worldPos.x - _lastDrawnPoint!.x).abs() < 1.0 && (worldPos.y - _lastDrawnPoint!.y).abs() < 1.0) {
           return;
         }
-
         final newSeg = TrackSegment(_lastDrawnPoint!.clone(), worldPos.clone());
         if (_lastCreatedSegment != null) {
           _lastCreatedSegment!.next = newSeg;
@@ -229,7 +218,6 @@ class RaceRiderGame extends FlameGame with DragCallbacks, TapCallbacks {
         }
         trackSegments.add(newSeg);
         grid.insert(newSeg);
-
         _lastCreatedSegment = newSeg;
         _lastDrawnPoint = worldPos;
       }
@@ -256,7 +244,6 @@ class RaceRiderGame extends FlameGame with DragCallbacks, TapCallbacks {
   void _toggleMode() {
     _lastDrawnPoint = null;
     _lastCreatedSegment = null;
-
     if (currentMode == AppState.ride || currentMode == AppState.victory) {
       currentMode = AppState.design;
       isGas = isBrake = false;
@@ -280,7 +267,9 @@ class RaceRiderGame extends FlameGame with DragCallbacks, TapCallbacks {
   @override
   void update(double dt) {
     super.update(dt);
-    this.dt = dt; 
+    
+    // Safety cap on dt to prevent severe system lag tunneling (Max step allowance 1/30s)
+    double cappedDt = dt.clamp(0.001, 0.033);
     
     if (!tiltCalibrated) {
       tiltZero = rawTilt;
@@ -292,43 +281,15 @@ class RaceRiderGame extends FlameGame with DragCallbacks, TapCallbacks {
     if (smoothedTilt.abs() < 0.05) smoothedTilt = 0.0;
     
     player.tilt = smoothedTilt;
+    player.isGas = (currentMode == AppState.victory) ? false : isGas;
+    player.isBrake = (currentMode == AppState.victory) ? true : isBrake;
     
-    if (currentMode == AppState.victory) {
-      player.isGas = false;
-      player.isBrake = true;
-    } else {
-      player.isGas = isGas;
-      player.isBrake = isBrake;
-    }
-    
-    // --- TWEENED FIXED-STEP PHYSICS ACCUMULATOR ---
+    // --- 2012 RAW DELTA CLOCK INTERFACE ENGINE (Rips out tweening completely) ---
     if (currentMode == AppState.ride || currentMode == AppState.victory) {
-      double timeAcc = dt;
-      const fixedDt = 1.0 / 120.0;
-
-      if (timeAcc > 0.025) timeAcc = 0.025;
-
-      Vector2 pastRear = player.rearPos.clone();
-      Vector2 pastFront = player.frontPos.clone();
-
-      while (timeAcc >= fixedDt) {
-        pastRear.setFrom(player.rearPos);
-        pastFront.setFrom(player.frontPos);
-
-        player.stepPhysics(fixedDt);
-        timeAcc -= fixedDt;
-      }
-
-      double alpha = (fixedDt > 0) ? (timeAcc / fixedDt).clamp(0.0, 1.0) : 1.0;
-
-      player.renderRearPos = pastRear + (player.rearPos - pastRear) * alpha;
-      player.renderFrontPos = pastFront + (player.frontPos - pastFront) * alpha;
-    } else {
-      player.renderRearPos.setFrom(player.rearPos);
-      player.renderFrontPos.setFrom(player.frontPos);
+      player.stepPhysics(cappedDt);
     }
     
-    // Recoverable Out of Bounds Safety Net
+    // Structural OOB Rescue System
     if (currentMode == AppState.ride) {
       double lowestTrackY = 200.0;
       for (final seg in trackSegments) {
@@ -341,15 +302,14 @@ class RaceRiderGame extends FlameGame with DragCallbacks, TapCallbacks {
     }
 
     if (player.state == BikeState.crashed && currentMode == AppState.ride) {
-      crashTimer += dt;
+      crashTimer += cappedDt;
       if (crashTimer >= _restartDelay) _restartBike();
     } else {
       crashTimer = 0.0;
     }
     
     if (currentMode == AppState.ride) {
-      double distToFinish = (player.position - finishLinePoint).length;
-      if (distToFinish < 22.0) {
+      if ((player.position - finishLinePoint).length < 22.0) {
         currentMode = AppState.victory;
         isGas = isBrake = false;
       }
@@ -357,14 +317,14 @@ class RaceRiderGame extends FlameGame with DragCallbacks, TapCallbacks {
     
     if (!player.hasFiniteState) _restartBike();
 
-    // FIXED CAMERA TRACKING MIGRATION (Explicit property mutations re-enabled)
+    // Direct Camera Frame Matching Matrix
     if (currentMode == AppState.ride || currentMode == AppState.victory) {
       camera.viewfinder.zoom = 1.6; 
-      double lerpRatio = (15.0 * dt).clamp(0.0, 1.0);
-      camera.viewfinder.position = camera.viewfinder.position + (player.renderPosition - camera.viewfinder.position) * lerpRatio;
+      double lerpRatio = (15.0 * cappedDt).clamp(0.0, 1.0);
+      camera.viewfinder.position = camera.viewfinder.position + (player.position - camera.viewfinder.position) * lerpRatio;
     } else {
       if (_lastDrawnPoint == null && trackSegments.isEmpty) {
-        double lerpRatio = (10.0 * dt).clamp(0.0, 1.0);
+        double lerpRatio = (10.0 * cappedDt).clamp(0.0, 1.0);
         camera.viewfinder.position = camera.viewfinder.position + (startSpawnPoint - camera.viewfinder.position) * lerpRatio;
       }
     }
@@ -373,9 +333,7 @@ class RaceRiderGame extends FlameGame with DragCallbacks, TapCallbacks {
   void _restartBike() {
     player = Bike(startSpawnPoint.clone(), grid);
     crashTimer = 0.0;
-    if (currentMode == AppState.design) {
-      isGas = isBrake = false;
-    }
+    if (currentMode == AppState.design) isGas = isBrake = false;
   }
 
   @override
@@ -400,7 +358,6 @@ class RaceRiderGame extends FlameGame with DragCallbacks, TapCallbacks {
   void _drawStartFlag(Canvas canvas, Vector2 point) {
     final flagPaint = Paint()..color = Colors.greenAccent[400]!..strokeWidth = 2.0;
     canvas.drawLine(Offset(point.x, point.y - 25), Offset(point.x, point.y), flagPaint);
-    
     final path = Path()
       ..moveTo(point.x, point.y - 25)
       ..lineTo(point.x + 14, point.y - 17)
@@ -412,10 +369,8 @@ class RaceRiderGame extends FlameGame with DragCallbacks, TapCallbacks {
   void _drawCheckeredFlag(Canvas canvas, Vector2 point) {
     final flagPaint = Paint()..color = Colors.white!..strokeWidth = 2.0;
     canvas.drawLine(Offset(point.x, point.y - 25), Offset(point.x, point.y), flagPaint);
-    
     final rectPaintBlack = Paint()..color = Colors.black;
     final rectPaintWhite = Paint()..color = Colors.white;
-    
     double topY = point.y - 25;
     for (int row = 0; row < 3; row++) {
       for (int col = 0; col < 4; col++) {
@@ -426,18 +381,15 @@ class RaceRiderGame extends FlameGame with DragCallbacks, TapCallbacks {
   }
   
   void _renderUIOverlay(Canvas canvas) {
-    // Clear Canvas Area Button Card
     canvas.drawRRect(RRect.fromRectAndRadius(const Rect.fromLTWH(12, 12, 115, 36), const Radius.circular(6)), Paint()..color = Colors.redAccent.withOpacity(0.85));
     TextPainter(text: const TextSpan(text: '[ CLEAR ALL ]', style: TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.bold)), textDirection: TextDirection.ltr)
       ..layout()..paint(canvas, const Offset(24, 22));
 
-    // Undo Line Button Card
     final undoOpacity = trackSegments.isNotEmpty ? 0.85 : 0.3;
     canvas.drawRRect(RRect.fromRectAndRadius(const Rect.fromLTWH(139, 12, 110, 36), const Radius.circular(6)), Paint()..color = Colors.blueGrey[700]!.withOpacity(undoOpacity));
     TextPainter(text: const TextSpan(text: '[ UNDO LINE ]', style: TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.bold)), textDirection: TextDirection.ltr)
       ..layout()..paint(canvas, const Offset(153, 22));
 
-    // Zoom Management Buttons HUD Addition (Design Mode Exclusive)
     if (currentMode == AppState.design) {
       canvas.drawRRect(RRect.fromRectAndRadius(const Rect.fromLTWH(260, 12, 85, 36), const Radius.circular(6)), Paint()..color = Colors.purple[700]!.withOpacity(0.9));
       TextPainter(text: const TextSpan(text: '[ ZOOM + ]', style: TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold)), textDirection: TextDirection.ltr)
@@ -448,7 +400,6 @@ class RaceRiderGame extends FlameGame with DragCallbacks, TapCallbacks {
         ..layout()..paint(canvas, const Offset(370, 23));
     }
 
-    // Execution Mode Toggling Area Card
     final isRiding = currentMode == AppState.ride || currentMode == AppState.victory;
     final toggleBg = isRiding ? Colors.green[600]! : Colors.orange[700]!;
     final toggleLabel = isRiding ? 'GO TO DESIGN' : 'START RIDING';
@@ -460,28 +411,11 @@ class RaceRiderGame extends FlameGame with DragCallbacks, TapCallbacks {
     if (currentMode == AppState.victory) {
       final centerX = size.x / 2;
       final centerY = size.y / 2;
-
       canvas.drawRect(Rect.fromLTWH(0, 0, size.x, size.y), Paint()..color = Colors.black.withOpacity(0.5));
       canvas.drawRRect(RRect.fromRectAndRadius(Rect.fromLTWH(centerX - 160, centerY - 70, 320, 130), const Radius.circular(14)), Paint()..color = Colors.green[800]!);
-      
-      TextPainter(
-        text: const TextSpan(
-          text: '🏁 VICTORY! 🏁\nTRACK CLEARED', 
-          style: TextStyle(color: Colors.white, fontSize: 17, fontWeight: FontWeight.bold, height: 1.25),
-        ), 
-        textDirection: TextDirection.ltr,
-        textAlign: TextAlign.center,
-      )..layout(minWidth: 320, maxWidth: 320)..paint(canvas, Offset(centerX - 160, centerY - 52));
-
+      TextPainter(text: const TextSpan(text: '🏁 VICTORY! 🏁\nTRACK CLEARED', style: TextStyle(color: Colors.white, fontSize: 17, fontWeight: FontWeight.bold, height: 1.25)), textDirection: TextDirection.ltr, textAlign: TextAlign.center)..layout(minWidth: 320, maxWidth: 320)..paint(canvas, Offset(centerX - 160, centerY - 52));
       canvas.drawRRect(RRect.fromRectAndRadius(Rect.fromLTWH(centerX - 80, centerY + 12, 160, 36), const Radius.circular(8)), Paint()..color = Colors.orange[700]!);
-      TextPainter(
-        text: const TextSpan(
-          text: 'RESTART RUN', 
-          style: TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.bold),
-        ), 
-        textDirection: TextDirection.ltr,
-        textAlign: TextAlign.center,
-      )..layout(minWidth: 160, maxWidth: 160)..paint(canvas, Offset(centerX - 80, centerY + 23));
+      TextPainter(text: const TextSpan(text: 'RESTART RUN', style: TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.bold)), textDirection: TextDirection.ltr, textAlign: TextAlign.center)..layout(minWidth: 160, maxWidth: 160)..paint(canvas, Offset(centerX - 80, centerY + 23));
     }
 
     if (currentMode == AppState.design) {
@@ -492,23 +426,19 @@ class RaceRiderGame extends FlameGame with DragCallbacks, TapCallbacks {
 
       final penSelected = activeTool == DesignTool.draw;
       canvas.drawRRect(RRect.fromRectAndRadius(Rect.fromLTWH(startX, bottomY, 115, 38), const Radius.circular(20)), Paint()..color = penSelected ? Colors.orange[600]! : Colors.grey[800]!.withOpacity(0.9));
-      TextPainter(text: const TextSpan(text: '✏️ PEN DRAW', style: TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold)), textDirection: TextDirection.ltr)
-        ..layout()..paint(canvas, Offset(startX + 20, bottomY + 11));
+      TextPainter(text: const TextSpan(text: '✏️ PEN DRAW', style: TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold)), textDirection: TextDirection.ltr)..layout()..paint(canvas, Offset(startX + 20, bottomY + 11));
 
       final sFlagSelected = activeTool == DesignTool.startFlag;
       canvas.drawRRect(RRect.fromRectAndRadius(Rect.fromLTWH(startX + 130, bottomY, 115, 38), const Radius.circular(20)), Paint()..color = sFlagSelected ? Colors.orange[600]! : Colors.grey[800]!.withOpacity(0.9));
-      TextPainter(text: const TextSpan(text: '🟢 START LINE', style: TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold)), textDirection: TextDirection.ltr)
-        ..layout()..paint(canvas, Offset(startX + 148, bottomY + 11));
+      TextPainter(text: const TextSpan(text: '🟢 START LINE', style: TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold)), textDirection: TextDirection.ltr)..layout()..paint(canvas, Offset(startX + 148, bottomY + 11));
 
       final fFlagSelected = activeTool == DesignTool.finishFlag;
       canvas.drawRRect(RRect.fromRectAndRadius(Rect.fromLTWH(startX + 260, bottomY, 115, 38), const Radius.circular(20)), Paint()..color = fFlagSelected ? Colors.orange[600]! : Colors.grey[800]!.withOpacity(0.9));
-      TextPainter(text: const TextSpan(text: '🏁 FINISH GATE', style: TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold)), textDirection: TextDirection.ltr)
-        ..layout()..paint(canvas, Offset(startX + 274, bottomY + 11));
+      TextPainter(text: const TextSpan(text: '🏁 FINISH GATE', style: TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold)), textDirection: TextDirection.ltr)..layout()..paint(canvas, Offset(startX + 274, bottomY + 11));
 
       final panSelected = activeTool == DesignTool.pan;
       canvas.drawRRect(RRect.fromRectAndRadius(Rect.fromLTWH(startX + 390, bottomY, 115, 38), const Radius.circular(20)), Paint()..color = panSelected ? Colors.orange[600]! : Colors.grey[800]!.withOpacity(0.9));
-      TextPainter(text: const TextSpan(text: '✋ HAND PAN', style: TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold)), textDirection: TextDirection.ltr)
-        ..layout()..paint(canvas, Offset(startX + 412, bottomY + 11));
+      TextPainter(text: const TextSpan(text: '✋ HAND PAN', style: TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold)), textDirection: TextDirection.ltr)..layout()..paint(canvas, Offset(startX + 412, bottomY + 11));
     }
   }
 }
@@ -518,7 +448,6 @@ class TrackSegment {
   final Vector2 a, b;
   TrackSegment? prev;
   TrackSegment? next;
-
   TrackSegment(this.a, this.b);
   Vector2 get delta => b - a;
   Vector2 get tangent => delta.normalized();
@@ -542,7 +471,6 @@ class Bike {
   static double suspensionTravel = 4.5; 
   static double suspensionStrength = 1500.0; 
   static double suspensionDamping = 30.0; 
-  static double _magnetStrength = 0.005;
   static double _playerTorqueStrength = 300000.0; 
   static double _cogDistanceFromRear = 8.5;
   static double _cogHeight = 3.5;
@@ -563,13 +491,9 @@ class Bike {
   late Vector2 rearOldPos, frontOldPos;
   late Vector2 frameTopPos, headPos, collisionHeadPos;
 
-  late Vector2 renderRearPos;
-  late Vector2 renderFrontPos;
-
-  BikeState state = BikeState.riding;
+  BikeState state = BikeState.crashed;
   bool rearOnGround = false;
   bool frontOnGround = false;
-  
   SurfaceHit? _rearSurface, _frontSurface;
 
   double get _massRear => (_wheelbase - _cogDistanceFromRear) / _wheelbase;
@@ -580,20 +504,15 @@ class Bike {
     frontPos = startPos + Vector2(8.5, 6.5);
     rearOldPos = rearPos.clone();
     frontOldPos = frontPos.clone();
-    
-    renderRearPos = rearPos.clone();
-    renderFrontPos = frontPos.clone();
-    
     frameTopPos = startPos.clone();
     headPos = startPos.clone();
     collisionHeadPos = startPos.clone();
-    
-    _syncFrameAndCollision(0.0, true);
+    state = BikeState.riding;
+    _syncFrameAndCollision(0.0);
   }
 
   Vector2 get position => (rearPos + frontPos) / 2.0;
-  Vector2 get renderPosition => (renderRearPos + renderFrontPos) / 2.0;
-  double get speed => ((rearPos - rearOldPos).length + (frontPos - frontOldPos).length) / (2.0 * (1/120));
+  double get speed => ((rearPos - rearOldPos).length + (frontPos - frontOldPos).length) / (2.0 * 0.00833);
   bool get hasFiniteState => rearPos.x.isFinite && frontPos.x.isFinite;
 
   void stepPhysics(double dt) {
@@ -605,7 +524,6 @@ class Bike {
 
     final Vector2 rVel = (rearPos - rearOldPos) / dt;
     final Vector2 fVel = (frontPos - frontOldPos) / dt;
-    
     final Vector2 rAccel = Vector2(0, _gravity);
     final Vector2 fAccel = Vector2(0, _gravity);
 
@@ -634,7 +552,6 @@ class Bike {
           if (frontOnGround && _frontSurface != null) {
             double frontTargetDist = (frontPos + fForkDir * suspensionTravel - _frontSurface!.point).dot(_frontSurface!.normal);
             double frontPenetration = _wheelRadius - frontTargetDist;
-            
             if (frontPenetration > 0) {
               double penalty = (frontPenetration / _wheelRadius).clamp(0.0, 1.0) * 0.05;
               accelerationMultiplier -= penalty;
@@ -675,20 +592,9 @@ class Bike {
       gravTorqueAccel = (_gravity * sin(angularOffset) * _cogDistanceFromRear) / _wheelbase;
     }
 
-    double damping;
-    if (!rearOnGround && !frontOnGround) {
-      damping = _airborneRotationDamping;
-    } else if ((rearOnGround && !frontOnGround) || (!rearOnGround && frontOnGround)) {
-      damping = _wheelieRotationDamping;
-    } else {
-      damping = _landingRotationDamping;
-    }
-
-    Vector2 relVel = fVel - rVel;
-    double rotVel = relVel.dot(tangent) / _wheelbase;
-    double linearTorqueAccel = (playerTorque / (_wheelbase * _bikeMass))
-                             + gravTorqueAccel
-                             + (rotVel * damping);
+    double damping = (!rearOnGround && !frontOnGround) ? _airborneRotationDamping : ((rearOnGround && !frontOnGround) || (!rearOnGround && frontOnGround)) ? _wheelieRotationDamping : _landingRotationDamping;
+    double rotVel = (fVel - rVel).dot(tangent) / _wheelbase;
+    double linearTorqueAccel = (playerTorque / (_wheelbase * _bikeMass)) + gravTorqueAccel + (rotVel * damping);
 
     rAccel.add(tangent * linearTorqueAccel);
     fAccel.sub(tangent * linearTorqueAccel);
@@ -702,25 +608,22 @@ class Bike {
     for (int i = 0; i < 8; i++) {
       final diff = frontPos - rearPos;
       final dist = diff.length;
-      if (dist < 0.0001) continue;
+      if (dist < 0.001) continue;
       final err = (dist - _wheelbase) / dist;
       rearPos.add(diff * (err * _massFront));
       frontPos.sub(diff * (err * _massRear));
     }
-    
-    _syncFrameAndCollision(atan2(frontPos.y - rearPos.y, frontPos.x - rearPos.x), false);
+    _syncFrameAndCollision(atan2(frontPos.y - rearPos.y, frontPos.x - rearPos.x));
     SurfaceHit? hHit = _nearestSurface(collisionHeadPos);
     if (hHit != null && hHit.distance < _headRadius) _crash();
   }
 
-  void _syncFrameAndCollision(double currAngle, bool useRaw) {
-    Vector2 center = useRaw ? ((rearPos + frontPos) / 2.0) : ((renderRearPos + renderFrontPos) / 2.0);
-    Vector2 fwd = useRaw ? (frontPos - rearPos).normalized() : (renderFrontPos - renderRearPos).normalized();
+  void _syncFrameAndCollision(double currAngle) {
+    Vector2 center = (rearPos + frontPos) / 2.0;
+    Vector2 fwd = (frontPos - rearPos).normalized();
     Vector2 localDown = Vector2(-fwd.y, fwd.x); 
     frameTopPos = center + localDown * -14.0;
-    if (useRaw) {
-      collisionHeadPos = frameTopPos;
-    }
+    collisionHeadPos = frameTopPos;
     headPos = center + localDown * -7.0; 
   }
 
@@ -765,46 +668,36 @@ class Bike {
     final wheelP = Paint()..color = Colors.black87..strokeWidth = 3..style = PaintingStyle.stroke;
     final riderP = Paint()..color = const Color(0xFF2255BB);
 
-    Vector2 fwd = (renderFrontPos - renderRearPos).normalized();
+    Vector2 fwd = (frontPos - rearPos).normalized();
     Vector2 localDown = Vector2(-fwd.y, fwd.x);
     Vector2 rForkDir = localDown.clone()..rotate(0.2); 
     Vector2 fForkDir = localDown.clone()..rotate(-0.5); 
 
-    _syncFrameAndCollision(atan2(renderFrontPos.y - renderRearPos.y, renderFrontPos.x - renderRearPos.x), false);
-
-    Vector2 rWheelVis = renderRearPos + rForkDir * suspensionTravel;
+    Vector2 rWheelVis = rearPos + rForkDir * suspensionTravel;
     if (_rearSurface != null && _rearSurface!.distance < _maxSurfaceDist) {
-      Vector2 targetWheel = renderRearPos + rForkDir * suspensionTravel;
-      double sd = (targetWheel - _rearSurface!.point).dot(_rearSurface!.normal);
+      double sd = (rWheelVis - _rearSurface!.point).dot(_rearSurface!.normal);
       if (sd < _wheelRadius) {
-        double normalComp = _wheelRadius - sd;
-        double forkAlign = rForkDir.dot(-_rearSurface!.normal).clamp(0.1, 1.0);
-        double forkComp = (normalComp / forkAlign).clamp(0.0, suspensionTravel);
-        rWheelVis = renderRearPos + rForkDir * (suspensionTravel - forkComp);
+        rWheelVis = rearPos + rForkDir * (suspensionTravel - ((_wheelRadius - sd) / rForkDir.dot(-_rearSurface!.normal).clamp(0.1, 1.0)).clamp(0.0, suspensionTravel));
       }
     }
 
-    Vector2 fWheelVis = renderFrontPos + fForkDir * suspensionTravel;
+    Vector2 fWheelVis = frontPos + fForkDir * suspensionTravel;
     if (_frontSurface != null && _frontSurface!.distance < _maxSurfaceDist) {
-      Vector2 targetWheel = renderFrontPos + fForkDir * suspensionTravel;
-      double sd = (targetWheel - _frontSurface!.point).dot(_frontSurface!.normal);
+      double sd = (fWheelVis - _frontSurface!.point).dot(_frontSurface!.normal);
       if (sd < _wheelRadius) {
-        double normalComp = _wheelRadius - sd;
-        double forkAlign = fForkDir.dot(-_frontSurface!.normal).clamp(0.1, 1.0);
-        double forkComp = (normalComp / forkAlign).clamp(0.0, suspensionTravel);
-        fWheelVis = renderFrontPos + fForkDir * (suspensionTravel - forkComp);
+        fWheelVis = frontPos + fForkDir * (suspensionTravel - ((_wheelRadius - sd) / fForkDir.dot(-_frontSurface!.normal).clamp(0.1, 1.0)).clamp(0.0, suspensionTravel));
       }
     }
 
     canvas.drawCircle(_off(rWheelVis), _wheelRadius, wheelP);
     canvas.drawCircle(_off(fWheelVis), _wheelRadius, wheelP);
-    canvas.drawLine(_off(renderRearPos), _off(renderFrontPos), frameP);
-    canvas.drawLine(_off(renderRearPos), _off(frameTopPos), frameP);
-    canvas.drawLine(_off(renderFrontPos), _off(frameTopPos), frameP);
+    canvas.drawLine(_off(rearPos), _off(frontPos), frameP);
+    canvas.drawLine(_off(rearPos), _off(frameTopPos), frameP);
+    canvas.drawLine(_off(frontPos), _off(frameTopPos), frameP);
     
     final shockP = Paint()..color = Colors.grey[400]!..strokeWidth = 2;
-    canvas.drawLine(_off(renderRearPos), _off(rWheelVis), shockP);
-    canvas.drawLine(_off(renderFrontPos), _off(fWheelVis), shockP);
+    canvas.drawLine(_off(rearPos), _off(rWheelVis), shockP);
+    canvas.drawLine(_off(frontPos), _off(fWheelVis), shockP);
     canvas.drawCircle(_off(headPos), _headRadius, riderP);
   }
 }
