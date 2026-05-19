@@ -64,7 +64,7 @@ enum AppState { design, ride, victory }
 enum DesignTool { draw, startFlag, finishFlag, pan }
 
 class RaceRiderGame extends FlameGame with DragCallbacks, TapCallbacks {
-  static const buildLabel = 'physics v.398 - Raw 2012 Delta Clock Sync';
+  static const buildLabel = 'physics v.399 - Dynamic Vector Matrix Normalization';
   late Bike player;
   final List<TrackSegment> trackSegments = [];
   final SpatialGrid grid = SpatialGrid(cellSize: 80.0);
@@ -268,7 +268,6 @@ class RaceRiderGame extends FlameGame with DragCallbacks, TapCallbacks {
   void update(double dt) {
     super.update(dt);
     
-    // Safety cap on dt to prevent severe system lag tunneling (Max step allowance 1/30s)
     double cappedDt = dt.clamp(0.001, 0.033);
     
     if (!tiltCalibrated) {
@@ -284,12 +283,10 @@ class RaceRiderGame extends FlameGame with DragCallbacks, TapCallbacks {
     player.isGas = (currentMode == AppState.victory) ? false : isGas;
     player.isBrake = (currentMode == AppState.victory) ? true : isBrake;
     
-    // --- 2012 RAW DELTA CLOCK INTERFACE ENGINE (Rips out tweening completely) ---
     if (currentMode == AppState.ride || currentMode == AppState.victory) {
       player.stepPhysics(cappedDt);
     }
     
-    // Structural OOB Rescue System
     if (currentMode == AppState.ride) {
       double lowestTrackY = 200.0;
       for (final seg in trackSegments) {
@@ -317,7 +314,6 @@ class RaceRiderGame extends FlameGame with DragCallbacks, TapCallbacks {
     
     if (!player.hasFiniteState) _restartBike();
 
-    // Direct Camera Frame Matching Matrix
     if (currentMode == AppState.ride || currentMode == AppState.victory) {
       camera.viewfinder.zoom = 1.6; 
       double lerpRatio = (15.0 * cappedDt).clamp(0.0, 1.0);
@@ -508,7 +504,7 @@ class Bike {
     headPos = startPos.clone();
     collisionHeadPos = startPos.clone();
     state = BikeState.riding;
-    _syncFrameAndCollision(0.0);
+    _syncFrameAndCollision();
   }
 
   Vector2 get position => (rearPos + frontPos) / 2.0;
@@ -613,12 +609,12 @@ class Bike {
       rearPos.add(diff * (err * _massFront));
       frontPos.sub(diff * (err * _massRear));
     }
-    _syncFrameAndCollision(atan2(frontPos.y - rearPos.y, frontPos.x - rearPos.x));
+    _syncFrameAndCollision();
     SurfaceHit? hHit = _nearestSurface(collisionHeadPos);
     if (hHit != null && hHit.distance < _headRadius) _crash();
   }
 
-  void _syncFrameAndCollision(double currAngle) {
+  void _syncFrameAndCollision() {
     Vector2 center = (rearPos + frontPos) / 2.0;
     Vector2 fwd = (frontPos - rearPos).normalized();
     Vector2 localDown = Vector2(-fwd.y, fwd.x); 
@@ -627,6 +623,7 @@ class Bike {
     headPos = center + localDown * -7.0; 
   }
 
+  // --- THE FIX: DYNAMIC MATRIX DIRECTION RESOLUTION ---
   SurfaceHit? _nearestSurface(Vector2 pt) {
     SurfaceHit? best; 
     double bDist = double.infinity;
@@ -641,19 +638,27 @@ class Bike {
       final dist = (pt - close).length;
       
       if (dist < bDist) {
-        Vector2 geomNormal = Vector2(s.tangent.y, -s.tangent.x);
-        Vector2 geomTangent = s.tangent;
         if (rawT < -0.001 && s.prev != null) continue; 
         if (rawT > 1.001 && s.next != null) continue;
 
         bDist = dist;
+        
+        // 1. Calculate base segment geometry characteristics
+        Vector2 geomNormal = Vector2(s.tangent.y, -s.tangent.x);
+        Vector2 geomTangent = s.tangent;
+        
+        // 2. Identify incoming side of touch point
         Vector2 toPt = pt - close;
-        if ((t <= 0.001 || t >= 0.999) && toPt.length2 > 0) {
+        
+        // 3. Dynamic Normal Adaptation Matrix Lookups
+        if (toPt.length2 > 0.0001) {
+          // If the dot product is negative, the wheel is on the underside of the segment line
           if (geomNormal.dot(toPt) < 0) {
-            geomNormal = toPt.normalized();
-            geomTangent = Vector2(-geomNormal.y, geomNormal.x);
+            geomNormal = -geomNormal; // Flip normal to face the wheel directly
+            geomTangent = -geomTangent; // Correct line alignment matching orientation flips
           }
         }
+        
         best = SurfaceHit(point: close, normal: geomNormal, tangent: geomTangent, distance: dist);
       }
     }
