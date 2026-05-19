@@ -32004,11 +32004,11 @@ r=new A.w(new Float64Array(2))
 r.a0(s)
 s=new A.vH(n.b9,B.T)
 q=new A.w(new Float64Array(2))
-q.aA(-9.5,6.5)
+q.aA(-10.2,6.5)
 q=r.Z(0,q)
 s.e=q
 p=new A.w(new Float64Array(2))
-p.aA(8.5,6.5)
+p.aA(9.3,6.5)
 p=r.Z(0,p)
 s.f=p
 o=new A.w(new Float64Array(2))
@@ -32326,32 +32326,32 @@ s=b3.ax
 if(s!=null&&s.d<12){h=j.a3(0,s.a).be(b3.ax.b)
 if(h<5){b3.as=!0
 g=q.be(b3.ax.b)
-o.n(0,b3.ax.b.a_(0,Math.max(0,(5-h)*1500-g*30)))
+o.n(0,b3.ax.b.a_(0,Math.max(0,(5-h)*1650-g*34)))
 if(b3.c){if(b3.at&&b3.ay!=null){f=5-b3.f.Z(0,k.a_(0,4.5)).a3(0,b3.ay.a).be(b3.ay.b)
 e=f>0?1-B.d.bG(f/5,0,1)*0.05:1}else e=1
 s=b3.ax.c
-o.n(0,(s.a[0]<0?s.bj(0):s).a_(0,420).a_(0,e))}if(b3.d){d=q.be(b3.ax.c)
-o.bv(b3.ax.c.a_(0,J.Qo(d)*700))}if(g<-1200)b3.Q=B.T}}s=b3.ay
+o.n(0,(s.a[0]<0?s.bj(0):s).a_(0,440).a_(0,e))}if(b3.d){d=q.be(b3.ax.c)
+o.bv(b3.ax.c.a_(0,J.Qo(d)*750))}if(g<-1600)b3.Q=B.T}}s=b3.ay
 if(s!=null&&s.d<12){h=i.a3(0,s.a).be(b3.ay.b)
 if(h<5){b3.at=!0
 g=p.be(b3.ay.b)
-n.n(0,b3.ay.b.a_(0,Math.max(0,(5-h)*1500-g*30)))
-if(g<-1200)b3.Q=B.T}}s=b3.f.a3(0,b3.e).a
+n.n(0,b3.ay.b.a_(0,Math.max(0,(5-h)*1650-g*34)))
+if(g<-1600)b3.Q=B.T}}s=b3.f.a3(0,b3.e).a
 r=s[1]
 c=s[0]
 b=new A.w(new Float64Array(2))
 b.aA(-r,c)
 b.i2()
 a=Math.atan2(s[1],s[0])
-a0=-b3.b*3e5
-if(a0<0&&b3.at)a0*=0.15
-a1=b3.as&&!b3.at?300*Math.sin(a-Math.atan2(3.5,8.5))*8.5/18:0
+a0=-b3.b*185e3
+if(a0<0&&b3.at)a0*=0.12
+a1=b3.as&&!b3.at?300*Math.sin(a-Math.atan2(3.8,9.2))*9.2/19.5:0
 s=b3.as
 r=!s
-if(r&&!b3.at)a2=85
+if(r&&!b3.at)a2=125
 else{if(!(s&&!b3.at))s=r&&b3.at
 else s=!0
-a2=s?65:140}a3=a0/180+a1+p.a3(0,q).be(b)/18*a2
+a2=s?110:185}a3=a0/273+a1+p.a3(0,q).be(b)/19.5*a2
 o.n(0,b.a_(0,a3))
 n.bv(b.a_(0,a3))
 s=b4*b4
@@ -32371,20 +32371,20 @@ a7[0]=a9[0]
 a8.bv(r)
 b0=Math.sqrt(a8.gdX())
 if(b0<0.001)continue
-b1=(b0-18)/b0
+b1=(b0-19.5)/b0
 s=b3.e
 r=new Float64Array(2)
 c=new A.w(r)
 r[1]=a7[1]
 r[0]=a7[0]
-c.cS(b1*0.4722222222222222)
+c.cS(b1*0.4717948717948718)
 s.n(0,c)
 c=b3.f
 s=new Float64Array(2)
 r=new A.w(s)
 s[1]=a7[1]
 s[0]=a7[0]
-r.cS(b1*0.5277777777777778)
+r.cS(b1*0.5282051282051282)
 c.bv(r)}b3.t0()
 s=b3.z
 s===$&&A.c()
