@@ -63,8 +63,8 @@ class SpatialGrid {
 enum AppState { design, ride, victory }
 enum DesignTool { draw, startFlag, finishFlag, pan }
 
-class RaceRiderGame extends FlameGame with DragCallbacks, TapCallbacks, ScaleDetector {
-  static const buildLabel = 'physics v.396 - Time-Stabilized Linear Interpolation';
+class RaceRiderGame extends FlameGame with DragCallbacks, TapCallbacks {
+  static const buildLabel = 'physics v.397 - Dynamic Touch HUD Stabilized';
   late Bike player;
   final List<TrackSegment> trackSegments = [];
   final SpatialGrid grid = SpatialGrid(cellSize: 80.0);
@@ -127,14 +127,28 @@ class RaceRiderGame extends FlameGame with DragCallbacks, TapCallbacks, ScaleDet
 
     // TOP BAR UI MENU INTERCEPTS
     if (y < 60) {
-      if (x < 130) {
+      // Clear All Button Click Bounds
+      if (x < 125) {
         _clearCanvas();
         return;
       }
-      if (x >= 142 && x < 252) {
+      // Undo Line Button Click Bounds
+      if (x >= 135 && x < 245) {
         _undoLastSegment();
         return;
       }
+      // UI Zoom Buttons (Only accessible in Design Mode)
+      if (currentMode == AppState.design) {
+        if (x >= 255 && x < 345) { // Zoom In Button
+          camera.viewfinder.zoom = (camera.viewfinder.zoom + 0.15).clamp(0.4, 3.5);
+          return;
+        }
+        if (x >= 355 && x < 445) { // Zoom Out Button
+          camera.viewfinder.zoom = (camera.viewfinder.zoom - 0.15).clamp(0.4, 3.5);
+          return;
+        }
+      }
+      // Start Riding / Go to Design Toggle Bounds
       if (x > size.x - 150) {
         _toggleMode();
         return;
@@ -228,15 +242,6 @@ class RaceRiderGame extends FlameGame with DragCallbacks, TapCallbacks, ScaleDet
     _lastCreatedSegment = null;
   }
 
-  @override
-  void onScaleUpdate(ScaleUpdateInfo info) {
-    if (currentMode != AppState.design) return;
-    double scaleDelta = info.scale.global.x; 
-    if (scaleDelta != 0 && scaleDelta != 1.0) {
-      camera.viewfinder.zoom = (camera.viewfinder.zoom * (scaleDelta > 1 ? 1.05 : 0.95)).clamp(0.3, 4.0);
-    }
-  }
-
   void _undoLastSegment() {
     if (trackSegments.isEmpty) return;
     trackSegments.removeLast();
@@ -301,10 +306,8 @@ class RaceRiderGame extends FlameGame with DragCallbacks, TapCallbacks, ScaleDet
       double timeAcc = dt;
       const fixedDt = 1.0 / 120.0;
 
-      // FIX 2: Clamp time accumulator to handle frame lag spikes cleanly
       if (timeAcc > 0.025) timeAcc = 0.025;
 
-      // Cache baseline starting state before stepping math cycles
       Vector2 pastRear = player.rearPos.clone();
       Vector2 pastFront = player.frontPos.clone();
 
@@ -316,10 +319,8 @@ class RaceRiderGame extends FlameGame with DragCallbacks, TapCallbacks, ScaleDet
         timeAcc -= fixedDt;
       }
 
-      // Compute alpha allocation percentage based on remainder fraction
       double alpha = (fixedDt > 0) ? (timeAcc / fixedDt).clamp(0.0, 1.0) : 1.0;
 
-      // Linearly interpolate positions to generate visual rendering targets
       player.renderRearPos = pastRear + (player.rearPos - pastRear) * alpha;
       player.renderFrontPos = pastFront + (player.frontPos - pastFront) * alpha;
     } else {
@@ -356,15 +357,15 @@ class RaceRiderGame extends FlameGame with DragCallbacks, TapCallbacks, ScaleDet
     
     if (!player.hasFiniteState) _restartBike();
 
-    // FIX 1: Time-Dependent Camera LERP (Removes screen frame fluctuation jitter)
+    // FIXED CAMERA TRACKING MIGRATION (Explicit property mutations re-enabled)
     if (currentMode == AppState.ride || currentMode == AppState.victory) {
       camera.viewfinder.zoom = 1.6; 
-      double cameraSpeedFactor = 1.0 - exp(-15.0 * dt);
-      camera.viewfinder.position.lerp(player.renderPosition, cameraSpeedFactor);
+      double lerpRatio = (15.0 * dt).clamp(0.0, 1.0);
+      camera.viewfinder.position = camera.viewfinder.position + (player.renderPosition - camera.viewfinder.position) * lerpRatio;
     } else {
       if (_lastDrawnPoint == null && trackSegments.isEmpty) {
-        double cameraSpeedFactor = 1.0 - exp(-10.0 * dt);
-        camera.viewfinder.position.lerp(startSpawnPoint, cameraSpeedFactor);
+        double lerpRatio = (10.0 * dt).clamp(0.0, 1.0);
+        camera.viewfinder.position = camera.viewfinder.position + (startSpawnPoint - camera.viewfinder.position) * lerpRatio;
       }
     }
   }
@@ -425,15 +426,29 @@ class RaceRiderGame extends FlameGame with DragCallbacks, TapCallbacks, ScaleDet
   }
   
   void _renderUIOverlay(Canvas canvas) {
+    // Clear Canvas Area Button Card
     canvas.drawRRect(RRect.fromRectAndRadius(const Rect.fromLTWH(12, 12, 115, 36), const Radius.circular(6)), Paint()..color = Colors.redAccent.withOpacity(0.85));
     TextPainter(text: const TextSpan(text: '[ CLEAR ALL ]', style: TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.bold)), textDirection: TextDirection.ltr)
       ..layout()..paint(canvas, const Offset(24, 22));
 
+    // Undo Line Button Card
     final undoOpacity = trackSegments.isNotEmpty ? 0.85 : 0.3;
     canvas.drawRRect(RRect.fromRectAndRadius(const Rect.fromLTWH(139, 12, 110, 36), const Radius.circular(6)), Paint()..color = Colors.blueGrey[700]!.withOpacity(undoOpacity));
     TextPainter(text: const TextSpan(text: '[ UNDO LINE ]', style: TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.bold)), textDirection: TextDirection.ltr)
       ..layout()..paint(canvas, const Offset(153, 22));
 
+    // Zoom Management Buttons HUD Addition (Design Mode Exclusive)
+    if (currentMode == AppState.design) {
+      canvas.drawRRect(RRect.fromRectAndRadius(const Rect.fromLTWH(260, 12, 85, 36), const Radius.circular(6)), Paint()..color = Colors.purple[700]!.withOpacity(0.9));
+      TextPainter(text: const TextSpan(text: '[ ZOOM + ]', style: TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold)), textDirection: TextDirection.ltr)
+        ..layout()..paint(canvas, const Offset(275, 23));
+
+      canvas.drawRRect(RRect.fromRectAndRadius(const Rect.fromLTWH(355, 12, 85, 36), const Radius.circular(6)), Paint()..color = Colors.purple[700]!.withOpacity(0.9));
+      TextPainter(text: const TextSpan(text: '[ ZOOM - ]', style: TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold)), textDirection: TextDirection.ltr)
+        ..layout()..paint(canvas, const Offset(370, 23));
+    }
+
+    // Execution Mode Toggling Area Card
     final isRiding = currentMode == AppState.ride || currentMode == AppState.victory;
     final toggleBg = isRiding ? Colors.green[600]! : Colors.orange[700]!;
     final toggleLabel = isRiding ? 'GO TO DESIGN' : 'START RIDING';
@@ -615,13 +630,11 @@ class Bike {
         rAccel.add(_rearSurface!.normal * max(0.0, penetration * suspensionStrength - vNorm * suspensionDamping));
         
         if (isGas) {
-          // INTERACTIVE SKILL PROFILE MODIFIER (Bike Race 2012 Load Bias emulation)
           double accelerationMultiplier = 1.0;
           if (frontOnGround && _frontSurface != null) {
             double frontTargetDist = (frontPos + fForkDir * suspensionTravel - _frontSurface!.point).dot(_frontSurface!.normal);
             double frontPenetration = _wheelRadius - frontTargetDist;
             
-            // Shaves off up to 5% power if the front end is heavily loaded/plunged into the track
             if (frontPenetration > 0) {
               double penalty = (frontPenetration / _wheelRadius).clamp(0.0, 1.0) * 0.05;
               accelerationMultiplier -= penalty;
