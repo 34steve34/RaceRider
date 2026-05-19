@@ -64,7 +64,7 @@ enum AppState { design, ride, victory }
 enum DesignTool { draw, startFlag, finishFlag, pan }
 
 class RaceRiderGame extends FlameGame with DragCallbacks, TapCallbacks, ScaleDetector {
-  static const buildLabel = 'physics v.395 - True Symmetric Equilibrium (Tweened)';
+  static const buildLabel = 'physics v.396 - Time-Stabilized Linear Interpolation';
   late Bike player;
   final List<TrackSegment> trackSegments = [];
   final SpatialGrid grid = SpatialGrid(cellSize: 80.0);
@@ -296,17 +296,19 @@ class RaceRiderGame extends FlameGame with DragCallbacks, TapCallbacks, ScaleDet
       player.isBrake = isBrake;
     }
     
-    // --- TWEEENED FIXED-STEP PHYSICS ACCUMULATOR ---
+    // --- TWEENED FIXED-STEP PHYSICS ACCUMULATOR ---
     if (currentMode == AppState.ride || currentMode == AppState.victory) {
       double timeAcc = dt;
       const fixedDt = 1.0 / 120.0;
 
-      // Cache the baseline starting state before stepping math cycles
+      // FIX 2: Clamp time accumulator to handle frame lag spikes cleanly
+      if (timeAcc > 0.025) timeAcc = 0.025;
+
+      // Cache baseline starting state before stepping math cycles
       Vector2 pastRear = player.rearPos.clone();
       Vector2 pastFront = player.frontPos.clone();
 
       while (timeAcc >= fixedDt) {
-        // Move previous internal history pins forward before overwriting current positions
         pastRear.setFrom(player.rearPos);
         pastFront.setFrom(player.frontPos);
 
@@ -321,7 +323,6 @@ class RaceRiderGame extends FlameGame with DragCallbacks, TapCallbacks, ScaleDet
       player.renderRearPos = pastRear + (player.rearPos - pastRear) * alpha;
       player.renderFrontPos = pastFront + (player.frontPos - pastFront) * alpha;
     } else {
-      // In design mode, snap the render vectors directly to physical bounds
       player.renderRearPos.setFrom(player.rearPos);
       player.renderFrontPos.setFrom(player.frontPos);
     }
@@ -355,13 +356,15 @@ class RaceRiderGame extends FlameGame with DragCallbacks, TapCallbacks, ScaleDet
     
     if (!player.hasFiniteState) _restartBike();
 
-    // Camera Isolation Patch (Tracks the smooth blended rendering position)
+    // FIX 1: Time-Dependent Camera LERP (Removes screen frame fluctuation jitter)
     if (currentMode == AppState.ride || currentMode == AppState.victory) {
       camera.viewfinder.zoom = 1.6; 
-      camera.viewfinder.position = camera.viewfinder.position * 0.85 + player.renderPosition * 0.15;
+      double cameraSpeedFactor = 1.0 - exp(-15.0 * dt);
+      camera.viewfinder.position.lerp(player.renderPosition, cameraSpeedFactor);
     } else {
       if (_lastDrawnPoint == null && trackSegments.isEmpty) {
-        camera.viewfinder.position = camera.viewfinder.position * 0.9 + startSpawnPoint * 0.1;
+        double cameraSpeedFactor = 1.0 - exp(-10.0 * dt);
+        camera.viewfinder.position.lerp(startSpawnPoint, cameraSpeedFactor);
       }
     }
   }
@@ -422,18 +425,15 @@ class RaceRiderGame extends FlameGame with DragCallbacks, TapCallbacks, ScaleDet
   }
   
   void _renderUIOverlay(Canvas canvas) {
-    // Clear Canvas Area Card
     canvas.drawRRect(RRect.fromRectAndRadius(const Rect.fromLTWH(12, 12, 115, 36), const Radius.circular(6)), Paint()..color = Colors.redAccent.withOpacity(0.85));
     TextPainter(text: const TextSpan(text: '[ CLEAR ALL ]', style: TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.bold)), textDirection: TextDirection.ltr)
       ..layout()..paint(canvas, const Offset(24, 22));
 
-    // Undo Processing Area Card
     final undoOpacity = trackSegments.isNotEmpty ? 0.85 : 0.3;
     canvas.drawRRect(RRect.fromRectAndRadius(const Rect.fromLTWH(139, 12, 110, 36), const Radius.circular(6)), Paint()..color = Colors.blueGrey[700]!.withOpacity(undoOpacity));
     TextPainter(text: const TextSpan(text: '[ UNDO LINE ]', style: TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.bold)), textDirection: TextDirection.ltr)
       ..layout()..paint(canvas, const Offset(153, 22));
 
-    // Execution Mode Toggling Area Card
     final isRiding = currentMode == AppState.ride || currentMode == AppState.victory;
     final toggleBg = isRiding ? Colors.green[600]! : Colors.orange[700]!;
     final toggleLabel = isRiding ? 'GO TO DESIGN' : 'START RIDING';
@@ -442,7 +442,6 @@ class RaceRiderGame extends FlameGame with DragCallbacks, TapCallbacks, ScaleDet
     TextPainter(text: TextSpan(text: toggleLabel, style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.bold)), textDirection: TextDirection.ltr)
       ..layout()..paint(canvas, Offset(size.x - 138, 22));
 
-    // Clean Production Web-Compliant Victory Modal Card Area
     if (currentMode == AppState.victory) {
       final centerX = size.x / 2;
       final centerY = size.y / 2;
@@ -470,7 +469,6 @@ class RaceRiderGame extends FlameGame with DragCallbacks, TapCallbacks, ScaleDet
       )..layout(minWidth: 160, maxWidth: 160)..paint(canvas, Offset(centerX - 80, centerY + 23));
     }
 
-    // Design Toolbar System Panels
     if (currentMode == AppState.design) {
       final centerX = size.x / 2;
       final bottomY = size.y - 50;
@@ -550,7 +548,6 @@ class Bike {
   late Vector2 rearOldPos, frontOldPos;
   late Vector2 frameTopPos, headPos, collisionHeadPos;
 
-  // Visual tween interpolation tracking pins
   late Vector2 renderRearPos;
   late Vector2 renderFrontPos;
 
@@ -584,7 +581,6 @@ class Bike {
   double get speed => ((rearPos - rearOldPos).length + (frontPos - frontOldPos).length) / (2.0 * (1/120));
   bool get hasFiniteState => rearPos.x.isFinite && frontPos.x.isFinite;
 
-  // Extracted physics engine tick runner (invoked from game step loop)
   void stepPhysics(double dt) {
     if (state == BikeState.crashed) {
       rearPos.add((rearPos - rearOldPos) * 0.98);
@@ -618,7 +614,21 @@ class Bike {
         double vNorm = rVel.dot(_rearSurface!.normal);
         rAccel.add(_rearSurface!.normal * max(0.0, penetration * suspensionStrength - vNorm * suspensionDamping));
         
-        if (isGas) rAccel.add(_forwardTangent(_rearSurface!.tangent) * _rearDrive);
+        if (isGas) {
+          // INTERACTIVE SKILL PROFILE MODIFIER (Bike Race 2012 Load Bias emulation)
+          double accelerationMultiplier = 1.0;
+          if (frontOnGround && _frontSurface != null) {
+            double frontTargetDist = (frontPos + fForkDir * suspensionTravel - _frontSurface!.point).dot(_frontSurface!.normal);
+            double frontPenetration = _wheelRadius - frontTargetDist;
+            
+            // Shaves off up to 5% power if the front end is heavily loaded/plunged into the track
+            if (frontPenetration > 0) {
+              double penalty = (frontPenetration / _wheelRadius).clamp(0.0, 1.0) * 0.05;
+              accelerationMultiplier -= penalty;
+            }
+          }
+          rAccel.add(_forwardTangent(_rearSurface!.tangent) * _rearDrive * accelerationMultiplier);
+        }
         if (isBrake) {
           double vTan = rVel.dot(_rearSurface!.tangent);
           rAccel.sub(_rearSurface!.tangent * (vTan.sign * _brakeStrength));
@@ -645,13 +655,10 @@ class Bike {
     double playerTorque = -tilt * _playerTorqueStrength;
     if (playerTorque < 0 && frontOnGround) playerTorque *= _frontGroundedTorqueScale;
 
-    // --- REBUILT SYMMETRIC WHEELIE TORQUE INTEGRATION ---
     double gravTorqueAccel = 0.0;
     if (rearOnGround && !frontOnGround) {
       double balanceAngle = atan2(_cogHeight, _cogDistanceFromRear); 
       double angularOffset = angle - balanceAngle;
-      
-      // Pure trigonometric wave scaling eliminates the geometry mass bias
       gravTorqueAccel = (_gravity * sin(angularOffset) * _cogDistanceFromRear) / _wheelbase;
     }
 
@@ -750,7 +757,6 @@ class Bike {
     Vector2 rForkDir = localDown.clone()..rotate(0.2); 
     Vector2 fForkDir = localDown.clone()..rotate(-0.5); 
 
-    // Visual synchronization for structural offsets (using interpolated targets)
     _syncFrameAndCollision(atan2(renderFrontPos.y - renderRearPos.y, renderFrontPos.x - renderRearPos.x), false);
 
     Vector2 rWheelVis = renderRearPos + rForkDir * suspensionTravel;
