@@ -64,7 +64,7 @@ enum AppState { design, ride, victory }
 enum DesignTool { draw, startFlag, finishFlag, pan }
 
 class RaceRiderGame extends FlameGame with DragCallbacks, TapCallbacks {
-  static const buildLabel = 'physics v.399 - Dynamic Vector Matrix Normalization';
+  static const buildLabel = 'physics v.400 - 2020s Locked 120Hz Sub-Stepping Clock';
   late Bike player;
   final List<TrackSegment> trackSegments = [];
   final SpatialGrid grid = SpatialGrid(cellSize: 80.0);
@@ -89,6 +89,11 @@ class RaceRiderGame extends FlameGame with DragCallbacks, TapCallbacks {
   Vector2? _lastDrawnPoint;
   static const double _drawingMinDistance = 14.0; 
   TrackSegment? _lastCreatedSegment;
+
+  // --- 2020s ENGINE CLOCK REGISTERS ---
+  double _timeAccumulator = 0.0;
+  static const double _fixedDt = 1.0 / 120.0; // Sharp 120Hz Deterministic Physics Sub-stepping
+  static const double _panicMaxCap = 0.10;    // Structural safety ceiling to drop calculations before lagging frame rate
 
   @override
   Future<void> onLoad() async {
@@ -283,8 +288,20 @@ class RaceRiderGame extends FlameGame with DragCallbacks, TapCallbacks {
     player.isGas = (currentMode == AppState.victory) ? false : isGas;
     player.isBrake = (currentMode == AppState.victory) ? true : isBrake;
     
+    // --- ADVANCED 2020s DETERMINISTIC ACCUMULATOR CLOCK ---
     if (currentMode == AppState.ride || currentMode == AppState.victory) {
-      player.stepPhysics(cappedDt);
+      _timeAccumulator += cappedDt;
+      
+      // Safety release valve: if phone drops severe frames, drop calculation steps instead of hardware speed
+      if (_timeAccumulator > _panicMaxCap) {
+        _timeAccumulator = _fixedDt;
+      }
+      
+      // High-frequency deterministic physics evaluation loop
+      while (_timeAccumulator >= _fixedDt) {
+        player.stepPhysics(_fixedDt);
+        _timeAccumulator -= _fixedDt;
+      }
     }
     
     if (currentMode == AppState.ride) {
@@ -327,6 +344,7 @@ class RaceRiderGame extends FlameGame with DragCallbacks, TapCallbacks {
   }
   
   void _restartBike() {
+    _timeAccumulator = 0.0; // Flash flush out old clocks
     player = Bike(startSpawnPoint.clone(), grid);
     crashTimer = 0.0;
     if (currentMode == AppState.design) isGas = isBrake = false;
@@ -463,7 +481,7 @@ class Bike {
   static double _brakeStrength = 700.0; 
   static const _wheelRadius = 5.0;
   static const _headRadius = 3.0;
-  static double _impactCrashLimit = 950.0; 
+  static double _impactCrashLimit = 1200.0; // Boosted slightly to account for high-G loop transitions
   static double suspensionTravel = 4.5; 
   static double suspensionStrength = 1500.0; 
   static double suspensionDamping = 30.0; 
@@ -623,7 +641,6 @@ class Bike {
     headPos = center + localDown * -7.0; 
   }
 
-  // --- THE FIX: DYNAMIC MATRIX DIRECTION RESOLUTION ---
   SurfaceHit? _nearestSurface(Vector2 pt) {
     SurfaceHit? best; 
     double bDist = double.infinity;
@@ -642,20 +659,14 @@ class Bike {
         if (rawT > 1.001 && s.next != null) continue;
 
         bDist = dist;
-        
-        // 1. Calculate base segment geometry characteristics
         Vector2 geomNormal = Vector2(s.tangent.y, -s.tangent.x);
         Vector2 geomTangent = s.tangent;
-        
-        // 2. Identify incoming side of touch point
         Vector2 toPt = pt - close;
         
-        // 3. Dynamic Normal Adaptation Matrix Lookups
         if (toPt.length2 > 0.0001) {
-          // If the dot product is negative, the wheel is on the underside of the segment line
           if (geomNormal.dot(toPt) < 0) {
-            geomNormal = -geomNormal; // Flip normal to face the wheel directly
-            geomTangent = -geomTangent; // Correct line alignment matching orientation flips
+            geomNormal = -geomNormal;
+            geomTangent = -geomTangent;
           }
         }
         
