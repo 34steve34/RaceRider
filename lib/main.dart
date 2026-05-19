@@ -64,7 +64,7 @@ enum AppState { design, ride, victory }
 enum DesignTool { draw, startFlag, finishFlag, pan }
 
 class RaceRiderGame extends FlameGame with DragCallbacks, TapCallbacks {
-  static const buildLabel = 'physics v.400 - 2020s Locked 120Hz Sub-Stepping Clock';
+  static const buildLabel = 'physics v.401 - 120Hz Tuned Inertia & Heavy Chassis Dynamics';
   late Bike player;
   final List<TrackSegment> trackSegments = [];
   final SpatialGrid grid = SpatialGrid(cellSize: 80.0);
@@ -90,10 +90,9 @@ class RaceRiderGame extends FlameGame with DragCallbacks, TapCallbacks {
   static const double _drawingMinDistance = 14.0; 
   TrackSegment? _lastCreatedSegment;
 
-  // --- 2020s ENGINE CLOCK REGISTERS ---
   double _timeAccumulator = 0.0;
-  static const double _fixedDt = 1.0 / 120.0; // Sharp 120Hz Deterministic Physics Sub-stepping
-  static const double _panicMaxCap = 0.10;    // Structural safety ceiling to drop calculations before lagging frame rate
+  static const double _fixedDt = 1.0 / 120.0; 
+  static const double _panicMaxCap = 0.10;    
 
   @override
   Future<void> onLoad() async {
@@ -288,16 +287,11 @@ class RaceRiderGame extends FlameGame with DragCallbacks, TapCallbacks {
     player.isGas = (currentMode == AppState.victory) ? false : isGas;
     player.isBrake = (currentMode == AppState.victory) ? true : isBrake;
     
-    // --- ADVANCED 2020s DETERMINISTIC ACCUMULATOR CLOCK ---
     if (currentMode == AppState.ride || currentMode == AppState.victory) {
       _timeAccumulator += cappedDt;
-      
-      // Safety release valve: if phone drops severe frames, drop calculation steps instead of hardware speed
       if (_timeAccumulator > _panicMaxCap) {
         _timeAccumulator = _fixedDt;
       }
-      
-      // High-frequency deterministic physics evaluation loop
       while (_timeAccumulator >= _fixedDt) {
         player.stepPhysics(_fixedDt);
         _timeAccumulator -= _fixedDt;
@@ -344,7 +338,7 @@ class RaceRiderGame extends FlameGame with DragCallbacks, TapCallbacks {
   }
   
   void _restartBike() {
-    _timeAccumulator = 0.0; // Flash flush out old clocks
+    _timeAccumulator = 0.0;
     player = Bike(startSpawnPoint.clone(), grid);
     crashTimer = 0.0;
     if (currentMode == AppState.design) isGas = isBrake = false;
@@ -457,7 +451,6 @@ class RaceRiderGame extends FlameGame with DragCallbacks, TapCallbacks {
   }
 }
 
-// --- MASTER PHYSICS LOOPS STRUCTS ---
 class TrackSegment {
   final Vector2 a, b;
   TrackSegment? prev;
@@ -477,23 +470,28 @@ enum BikeState { riding, crashed }
 
 class Bike {
   static const _gravity = 300.0;
-  static const _rearDrive = 420.0;
-  static double _brakeStrength = 700.0; 
+  static const _rearDrive = 440.0;
+  static double _brakeStrength = 750.0; 
   static const _wheelRadius = 5.0;
   static const _headRadius = 3.0;
-  static double _impactCrashLimit = 1200.0; // Boosted slightly to account for high-G loop transitions
+  
+  // --- HIGH-FREQUENCY ARCHITECTURE RECALIBRATION CONSTANTS ---
+  static double _impactCrashLimit = 1600.0;       // Enhanced structural limit for 120Hz impact sampling
   static double suspensionTravel = 4.5; 
-  static double suspensionStrength = 1500.0; 
-  static double suspensionDamping = 30.0; 
-  static double _playerTorqueStrength = 300000.0; 
-  static double _cogDistanceFromRear = 8.5;
-  static double _cogHeight = 3.5;
-  static double _frontGroundedTorqueScale = 0.15;
-  static double _wheelbase = 18.0;
-  static double _bikeMass = 10.0;
-  static double _landingRotationDamping = 140.0;  
-  static double _wheelieRotationDamping = 65.0;   
-  static double _airborneRotationDamping = 85.0;  
+  static double suspensionStrength = 1650.0;     // Kept snappy but balanced with fresh mass matrices
+  static double suspensionDamping = 34.0; 
+  
+  static double _playerTorqueStrength = 185000.0;  // Optimized input scaling to combat 120Hz stacking
+  static double _cogDistanceFromRear = 9.2;       // Moved CoG forward to stabilize high-angle wheelies
+  static double _cogHeight = 3.8;
+  static double _frontGroundedTorqueScale = 0.12;
+  static double _wheelbase = 19.5;                // Widened wheelbase to increase natural structural pitch inertia
+  static double _bikeMass = 14.0;                 // Increased mass for a heavier, mechanical feel
+
+  // Enhanced hydraulic air damping registers to absorb chaotic high-angle snap vectors
+  static double _landingRotationDamping = 185.0;  
+  static double _wheelieRotationDamping = 110.0;   
+  static double _airborneRotationDamping = 125.0;  
   static const double _maxSurfaceDist = 12.0;
 
   final SpatialGrid spatialGrid;
@@ -514,8 +512,9 @@ class Bike {
   double get _massFront => _cogDistanceFromRear / _wheelbase;
 
   Bike(Vector2 startPos, this.spatialGrid) {
-    rearPos = startPos + Vector2(-9.5, 6.5);
-    frontPos = startPos + Vector2(8.5, 6.5);
+    // Re-offset wheel positions relative to new 19.5 length structural wheelbase
+    rearPos = startPos + Vector2(-10.2, 6.5);
+    frontPos = startPos + Vector2(9.3, 6.5);
     rearOldPos = rearPos.clone();
     frontOldPos = frontPos.clone();
     frameTopPos = startPos.clone();
@@ -601,6 +600,7 @@ class Bike {
 
     double gravTorqueAccel = 0.0;
     if (rearOnGround && !frontOnGround) {
+      // Dynamic pitch balance pocket: dampens torque behavior as bike crosses vertical orientation parameters
       double balanceAngle = atan2(_cogHeight, _cogDistanceFromRear); 
       double angularOffset = angle - balanceAngle;
       gravTorqueAccel = (_gravity * sin(angularOffset) * _cogDistanceFromRear) / _wheelbase;
