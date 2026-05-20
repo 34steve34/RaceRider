@@ -64,7 +64,7 @@ enum AppState { design, ride, victory }
 enum DesignTool { draw, startFlag, finishFlag, pan }
 
 class RaceRiderGame extends FlameGame with DragCallbacks, TapCallbacks {
-  static const buildLabel = 'physics v.402 - +15% Torque, Instant Reset, Upper-Right Finish & Free-Roll Incline';
+  static const buildLabel = 'physics v.403 - Full Assembly';
   late Bike player;
   final List<TrackSegment> trackSegments = [];
   final SpatialGrid grid = SpatialGrid(cellSize: 80.0);
@@ -301,24 +301,20 @@ class RaceRiderGame extends FlameGame with DragCallbacks, TapCallbacks {
         if (seg.a.y > lowestTrackY) lowestTrackY = seg.a.y;
         if (seg.b.y > lowestTrackY) lowestTrackY = seg.b.y;
       }
-      // Instant execution boundary out-of-bounds drop check
       if (player.position.y > lowestTrackY + 600.0) {
         _restartBike();
         return;
       }
     }
 
-    // Instant reset deployment criteria
     if (player.state == BikeState.crashed && currentMode == AppState.ride) {
       _restartBike();
       return;
     }
     
     if (currentMode == AppState.ride) {
-      // BR Flag stick condition: Head inside Upper-Right quadrant relative to base coordinates
       double dx = player.headPos.x - finishLinePoint.x;
       double dy = player.headPos.y - finishLinePoint.y;
-      
       if (dx >= 0 && dy <= 0 && dx < 28.0 && dy > -32.0) {
         currentMode = AppState.victory;
         isGas = isBrake = false;
@@ -479,12 +475,12 @@ class Bike {
   static const _wheelRadius = 5.0;
   static const _headRadius = 3.0;
   
+  static double _microMagnetPull = 850.0; 
   static double _impactCrashLimit = 1600.0;       
   static double suspensionTravel = 4.5; 
   static double suspensionStrength = 1650.0;     
   static double suspensionDamping = 34.0; 
   
-  // Adjusted up by precisely 15% for advanced vertical climb profiles
   static double _playerTorqueStrength = 212750.0;  
   static double _cogDistanceFromRear = 9.2;       
   static double _cogHeight = 3.8;
@@ -527,7 +523,6 @@ class Bike {
   }
 
   Vector2 get position => (rearPos + frontPos) / 2.0;
-  double get speed => ((rearPos - rearOldPos).length + (frontPos - frontOldPos).length) / (2.0 * 0.00833);
   bool get hasFiniteState => rearPos.x.isFinite && frontPos.x.isFinite;
 
   void stepPhysics(double dt) {
@@ -560,25 +555,14 @@ class Bike {
         rearOnGround = true;
         double penetration = _wheelRadius - sd;
         double vNorm = rVel.dot(_rearSurface!.normal);
-        rAccel.add(_rearSurface!.normal * max(0.0, penetration * suspensionStrength - vNorm * suspensionDamping));
+        rAccel.add(_rearSurface!.normal * (penetration * suspensionStrength - (vNorm * suspensionDamping) + _microMagnetPull));
         
         if (isGas) {
-          double accelerationMultiplier = 1.0;
-          if (frontOnGround && _frontSurface != null) {
-            double frontTargetDist = (frontPos + fForkDir * suspensionTravel - _frontSurface!.point).dot(_frontSurface!.normal);
-            double frontPenetration = _wheelRadius - frontTargetDist;
-            if (frontPenetration > 0) {
-              double penalty = (frontPenetration / _wheelRadius).clamp(0.0, 1.0) * 0.05;
-              accelerationMultiplier -= penalty;
-            }
-          }
-          rAccel.add(_forwardTangent(_rearSurface!.tangent) * _rearDrive * accelerationMultiplier);
+          rAccel.add(_forwardTangent(_rearSurface!.tangent) * _rearDrive);
         } else {
-          // Free-Roll Relaxation Architecture: Unlatches engine braking on slopes when gas is dropped
           double vTan = rVel.dot(_rearSurface!.tangent);
-          rAccel.sub(_rearSurface!.tangent * (vTan * 0.8)); // Subtle roll rolling resistance instead of dead locking
+          rAccel.sub(_rearSurface!.tangent * (vTan * 0.8));
         }
-        
         if (isBrake) {
           double vTan = rVel.dot(_rearSurface!.tangent);
           rAccel.sub(_rearSurface!.tangent * (vTan.sign * _brakeStrength));
@@ -593,7 +577,7 @@ class Bike {
         frontOnGround = true;
         double penetration = _wheelRadius - sd;
         double vNorm = fVel.dot(_frontSurface!.normal);
-        fAccel.add(_frontSurface!.normal * max(0.0, penetration * suspensionStrength - vNorm * suspensionDamping));
+        fAccel.add(_frontSurface!.normal * (penetration * suspensionStrength - (vNorm * suspensionDamping) + _microMagnetPull));
         if (vNorm < -_impactCrashLimit) _crash();
       }
     }
@@ -721,21 +705,5 @@ class Bike {
     canvas.drawLine(_off(rearPos), _off(rWheelVis), shockP);
     canvas.drawLine(_off(frontPos), _off(fWheelVis), shockP);
     canvas.drawCircle(_off(headPos), _headRadius, riderP);
-  }
-}
-
-class Background extends Component {
-  @override
-  void render(Canvas canvas) => canvas.drawRect(const Rect.fromLTWH(-10000, -10000, 30000, 30000), Paint()..color = const Color(0xFF112233));
-}
-
-class DebugOverlay extends Component with HasGameRef<RaceRiderGame> {
-  @override
-  void render(Canvas canvas) {
-    final modeStr = gameRef.currentMode == AppState.ride ? 'RIDING MODE' : gameRef.currentMode == AppState.victory ? 'VICTORY LOCKED' : 'DESIGN MODE';
-    TextPainter(textDirection: TextDirection.ltr, text: TextSpan(
-      text: 'RaceRider ${RaceRiderGame.buildLabel}\nState: $modeStr\nLines Active: ${gameRef.trackSegments.length}\nZoom: ${gameRef.camera.viewfinder.zoom.toStringAsFixed(2)}', 
-      style: const TextStyle(color: Colors.yellow, fontSize: 11, fontWeight: FontWeight.bold)
-    ))..layout()..paint(canvas, const Offset(16, 60));
   }
 }
