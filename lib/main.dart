@@ -64,7 +64,7 @@ enum AppState { design, ride, victory }
 enum DesignTool { draw, startFlag, finishFlag, pan }
 
 class RaceRiderGame extends FlameGame with DragCallbacks, TapCallbacks {
-  static const buildLabel = 'physics v.401 - 120Hz Tuned Inertia & Heavy Chassis Dynamics';
+  static const buildLabel = 'physics v.402 - +15% Torque, Instant Reset, Upper-Right Finish & Free-Roll Incline';
   late Bike player;
   final List<TrackSegment> trackSegments = [];
   final SpatialGrid grid = SpatialGrid(cellSize: 80.0);
@@ -83,9 +83,6 @@ class RaceRiderGame extends FlameGame with DragCallbacks, TapCallbacks {
   bool isBrake = false;
   
   StreamSubscription? _accelSub;
-  double crashTimer = 0.0;
-  static const double _restartDelay = 1.2;
-
   Vector2? _lastDrawnPoint;
   static const double _drawingMinDistance = 14.0; 
   TrackSegment? _lastCreatedSegment;
@@ -304,26 +301,34 @@ class RaceRiderGame extends FlameGame with DragCallbacks, TapCallbacks {
         if (seg.a.y > lowestTrackY) lowestTrackY = seg.a.y;
         if (seg.b.y > lowestTrackY) lowestTrackY = seg.b.y;
       }
+      // Instant execution boundary out-of-bounds drop check
       if (player.position.y > lowestTrackY + 600.0) {
-        player.state = BikeState.crashed;
+        _restartBike();
+        return;
       }
     }
 
+    // Instant reset deployment criteria
     if (player.state == BikeState.crashed && currentMode == AppState.ride) {
-      crashTimer += cappedDt;
-      if (crashTimer >= _restartDelay) _restartBike();
-    } else {
-      crashTimer = 0.0;
+      _restartBike();
+      return;
     }
     
     if (currentMode == AppState.ride) {
-      if ((player.position - finishLinePoint).length < 22.0) {
+      // BR Flag stick condition: Head inside Upper-Right quadrant relative to base coordinates
+      double dx = player.headPos.x - finishLinePoint.x;
+      double dy = player.headPos.y - finishLinePoint.y;
+      
+      if (dx >= 0 && dy <= 0 && dx < 28.0 && dy > -32.0) {
         currentMode = AppState.victory;
         isGas = isBrake = false;
       }
     }
     
-    if (!player.hasFiniteState) _restartBike();
+    if (!player.hasFiniteState) {
+      _restartBike();
+      return;
+    }
 
     if (currentMode == AppState.ride || currentMode == AppState.victory) {
       camera.viewfinder.zoom = 1.6; 
@@ -340,7 +345,6 @@ class RaceRiderGame extends FlameGame with DragCallbacks, TapCallbacks {
   void _restartBike() {
     _timeAccumulator = 0.0;
     player = Bike(startSpawnPoint.clone(), grid);
-    crashTimer = 0.0;
     if (currentMode == AppState.design) isGas = isBrake = false;
   }
 
@@ -475,20 +479,19 @@ class Bike {
   static const _wheelRadius = 5.0;
   static const _headRadius = 3.0;
   
-  // --- HIGH-FREQUENCY ARCHITECTURE RECALIBRATION CONSTANTS ---
-  static double _impactCrashLimit = 1600.0;       // Enhanced structural limit for 120Hz impact sampling
+  static double _impactCrashLimit = 1600.0;       
   static double suspensionTravel = 4.5; 
-  static double suspensionStrength = 1650.0;     // Kept snappy but balanced with fresh mass matrices
+  static double suspensionStrength = 1650.0;     
   static double suspensionDamping = 34.0; 
   
-  static double _playerTorqueStrength = 185000.0;  // Optimized input scaling to combat 120Hz stacking
-  static double _cogDistanceFromRear = 9.2;       // Moved CoG forward to stabilize high-angle wheelies
+  // Adjusted up by precisely 15% for advanced vertical climb profiles
+  static double _playerTorqueStrength = 212750.0;  
+  static double _cogDistanceFromRear = 9.2;       
   static double _cogHeight = 3.8;
   static double _frontGroundedTorqueScale = 0.12;
-  static double _wheelbase = 19.5;                // Widened wheelbase to increase natural structural pitch inertia
-  static double _bikeMass = 14.0;                 // Increased mass for a heavier, mechanical feel
+  static double _wheelbase = 19.5;                
+  static double _bikeMass = 14.0;                 
 
-  // Enhanced hydraulic air damping registers to absorb chaotic high-angle snap vectors
   static double _landingRotationDamping = 185.0;  
   static double _wheelieRotationDamping = 110.0;   
   static double _airborneRotationDamping = 125.0;  
@@ -512,7 +515,6 @@ class Bike {
   double get _massFront => _cogDistanceFromRear / _wheelbase;
 
   Bike(Vector2 startPos, this.spatialGrid) {
-    // Re-offset wheel positions relative to new 19.5 length structural wheelbase
     rearPos = startPos + Vector2(-10.2, 6.5);
     frontPos = startPos + Vector2(9.3, 6.5);
     rearOldPos = rearPos.clone();
@@ -571,7 +573,12 @@ class Bike {
             }
           }
           rAccel.add(_forwardTangent(_rearSurface!.tangent) * _rearDrive * accelerationMultiplier);
+        } else {
+          // Free-Roll Relaxation Architecture: Unlatches engine braking on slopes when gas is dropped
+          double vTan = rVel.dot(_rearSurface!.tangent);
+          rAccel.sub(_rearSurface!.tangent * (vTan * 0.8)); // Subtle roll rolling resistance instead of dead locking
         }
+        
         if (isBrake) {
           double vTan = rVel.dot(_rearSurface!.tangent);
           rAccel.sub(_rearSurface!.tangent * (vTan.sign * _brakeStrength));
@@ -600,7 +607,6 @@ class Bike {
 
     double gravTorqueAccel = 0.0;
     if (rearOnGround && !frontOnGround) {
-      // Dynamic pitch balance pocket: dampens torque behavior as bike crosses vertical orientation parameters
       double balanceAngle = atan2(_cogHeight, _cogDistanceFromRear); 
       double angularOffset = angle - balanceAngle;
       gravTorqueAccel = (_gravity * sin(angularOffset) * _cogDistanceFromRear) / _wheelbase;
