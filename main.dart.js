@@ -32327,7 +32327,7 @@ s=b1.ax
 if(s!=null&&s.d<12){h=j.a7(0,s.a).be(b1.ax.b)
 if(h<5){b1.as=!0
 g=q.be(b1.ax.b)
-o.n(0,b1.ax.b.a1(0,(5-h)*1650-g*34+850))
+o.n(0,b1.ax.b.a1(0,(5-h)*1650-g*34+150))
 s=b1.c
 r=b1.ax
 if(s){s=r.c
@@ -32337,7 +32337,7 @@ o.bl(b1.ax.c.a1(0,J.Qo(f)*750))}if(g<-1600)b1.Q=B.a3}}s=b1.ay
 if(s!=null&&s.d<12){h=i.a7(0,s.a).be(b1.ay.b)
 if(h<5){b1.at=!0
 g=p.be(b1.ay.b)
-n.n(0,b1.ay.b.a1(0,(5-h)*1650-g*34+850))
+n.n(0,b1.ay.b.a1(0,(5-h)*1650-g*34+150))
 if(g<-1600)b1.Q=B.a3}}s=b1.f.a7(0,b1.e).a
 r=s[1]
 e=s[0]
