@@ -475,7 +475,7 @@ class Bike {
   static const _wheelRadius = 5.0;
   static const _headRadius = 3.0;
   
-  static double _microMagnetPull = 850.0; 
+  static double _microMagnetPull = 150.0; 
   static double _impactCrashLimit = 1600.0;       
   static double suspensionTravel = 4.5; 
   static double suspensionStrength = 1650.0;     
