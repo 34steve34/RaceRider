@@ -1,13 +1,3 @@
-You nailed it. That loss of power is absolutely a sign inversion problem. Because of how the track segments are drawn, `_rearSurface!.tangent.y` can return a positive value on a steep climb if the vector directions are flipped. That meant the engine was accidentally dividing or cutting power instead of multiplying it, making the bike feel sluggish and weak.
-
-Let's clean this up entirely:
-
-1. **The Climb Boost Fix:** I have shifted the calculation away from the track vectors entirely. The engine now looks at the bike's actual velocity vector against world gravity (`rVel.y < -20`). If you are physically moving upward with any momentum, you get the direct +20% climbing torque, completely bypassing loop coordinates or drawing directions.
-2. **The Finish Line Box Removal:** I stripped out the strict quadrant restriction and the bounding box limit. Now, the finish line acts as an **infinite vertical plane**. The exact millisecond the rider's head position crosses the $X$ coordinate of the flag (`headPos.x >= finishLinePoint.x`), it will instantly trigger a victory—even if you are flying fifty feet straight over the top of it.
-
-Here is the complete, corrected file:
-
-```dart
 import 'dart:async';
 import 'dart:math';
 
