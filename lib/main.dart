@@ -387,9 +387,8 @@ class RaceRiderGame extends FlameGame with DragCallbacks, TapCallbacks {
   }
   
   void _renderUIOverlay(Canvas canvas) {
-    // --- HOT REBOOT CONFIRMATION INDICATOR ---
     canvas.drawRRect(RRect.fromRectAndRadius(const Rect.fromLTWH(12, 110, 265, 26), const Radius.circular(4)), Paint()..color = const Color(0xFFFF007F));
-    TextPainter(text: const TextSpan(text: '[ HYSTERESIS GRAVITY ACTIVE: v.412 ]', style: TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold, letterSpacing: 1.1)), textDirection: TextDirection.ltr)
+    TextPainter(text: const TextSpan(text: '[ HYSTERESIS GRAVITY ACTIVE: v.408 ]', style: TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold, letterSpacing: 1.1)), textDirection: TextDirection.ltr)
       ..layout()..paint(canvas, const Offset(22, 116));
 
     canvas.drawRRect(RRect.fromRectAndRadius(const Rect.fromLTWH(12, 12, 115, 36), const Radius.circular(6)), Paint()..color = Colors.redAccent.withOpacity(0.85));
@@ -473,11 +472,11 @@ enum BikeState { riding, crashed }
 
 class Bike {
   // --- ENVIRONMENT CONTEXT CONSTANTS ---
-  static const _airborneGravity = 230.0;
-  static const _groundedGravity = 160.0;
-  static const int _gravityHysteresisThreshold = 12; // Frames to wait before triggering heavy gravity
+  static const _airborneGravity = 230.0; // Lower airborne gravity for loftier jumps
+  static const _groundedGravity = 180.0; 
+  static const int _gravityHysteresisThreshold = 12; 
 
-  static const _rearDrive = 800.0; // Cranked up from 440.0 for aggressive punch
+  static const _rearDrive = 820.0; // Higher forward wheel torque power
   static double _brakeStrength = 750.0; 
   static const _wheelRadius = 5.0;
   static const _headRadius = 3.0;
@@ -486,9 +485,9 @@ class Bike {
   static double _impactCrashLimit = 1600.0;       
   static double suspensionTravel = 4.5; 
   static double suspensionStrength = 1650.0;     
-  static double suspensionDamping = 72.0; // Tightened up from 34.0 to eliminate jitter
+  static double suspensionDamping = 72.0; // Cranked dampening to kill high-frequency chatter
   
-  static double _playerTorqueStrength = 250000.0;  
+  static double _playerTorqueStrength = 212750.0;  
   static double _cogDistanceFromRear = 9.2;       
   static double _cogHeight = 3.8;
   static double _frontGroundedTorqueScale = 0.12;
@@ -514,7 +513,6 @@ class Bike {
   bool frontOnGround = false;
   SurfaceHit? _rearSurface, _frontSurface;
 
-  // Hysteresis frame tracking state
   int _airborneFrames = 0;
 
   double get _massRear => (_wheelbase - _cogDistanceFromRear) / _wheelbase;
@@ -542,14 +540,12 @@ class Bike {
       return;
     }
 
-    // Evaluate ground contact from previous cycle to update time debounce loop
     if (rearOnGround || frontOnGround) {
-      _airborneFrames = 0; // Reset debounce loop instantly upon any surface interaction
+      _airborneFrames = 0; 
     } else {
-      _airborneFrames++; // Increment while floating free
+      _airborneFrames++; 
     }
 
-    // Evaluate context-stabilized gravity vector
     final double currentGravity = (_airborneFrames >= _gravityHysteresisThreshold)
         ? _airborneGravity
         : _groundedGravity;
@@ -583,7 +579,7 @@ class Bike {
           rAccel.add(_forwardTangent(_rearSurface!.tangent) * _rearDrive);
         } else {
           double vTan = rVel.dot(_rearSurface!.tangent);
-          rAccel.sub(_rearSurface!.tangent * (vTan * 0.7)); // 0.8
+          rAccel.sub(_rearSurface!.tangent * (vTan * 0.8));
         }
         if (isBrake) {
           double vTan = rVel.dot(_rearSurface!.tangent);
@@ -608,6 +604,7 @@ class Bike {
     Vector2 tangent = Vector2(-axle.y, axle.x)..normalize();
     double angle = atan2(axle.y, axle.x);
 
+    // Dynamic torque check block: evaluates forward nose diving vs backward wheelies
     double playerTorque = -tilt * _playerTorqueStrength;
     if (playerTorque > 0 && frontOnGround) playerTorque *= _frontGroundedTorqueScale;
 
@@ -615,7 +612,6 @@ class Bike {
     if (rearOnGround && !frontOnGround) {
       double balanceAngle = atan2(_cogHeight, _cogDistanceFromRear); 
       double angularOffset = angle - balanceAngle;
-      // Rotational torque balance stays dynamically grouped with the chosen linear environment gravity
       gravTorqueAccel = (currentGravity * sin(angularOffset) * _cogDistanceFromRear) / _wheelbase;
     }
 
@@ -740,9 +736,31 @@ class DebugOverlay extends Component with HasGameRef<RaceRiderGame> {
   @override
   void render(Canvas canvas) {
     final modeStr = gameRef.currentMode == AppState.ride ? 'RIDING MODE' : gameRef.currentMode == AppState.victory ? 'VICTORY LOCKED' : 'DESIGN MODE';
+    
+    // Standard debug tracking panel
     TextPainter(textDirection: TextDirection.ltr, text: TextSpan(
       text: 'RaceRider ${RaceRiderGame.buildLabel}\nState: $modeStr\nLines Active: ${gameRef.trackSegments.length}\nZoom: ${gameRef.camera.viewfinder.zoom.toStringAsFixed(2)}', 
       style: const TextStyle(color: Colors.yellow, fontSize: 11, fontWeight: FontWeight.bold)
     ))..layout()..paint(canvas, const Offset(16, 60));
+
+    // REAL-TIME FRONT WHEEL CONTACT MONITOR
+    if (gameRef.currentMode == AppState.ride || gameRef.currentMode == AppState.victory) {
+      final bool frontGrounded = gameRef.player.frontOnGround;
+      final String groundText = ' FRONT GROUNDED: ${frontGrounded ? "TRUE " : "FALSE "}';
+      final Color groundColor = frontGrounded ? const Color(0xFF00FF88) : const Color(0xFFFF3333);
+
+      TextPainter(
+        textDirection: TextDirection.ltr, 
+        text: TextSpan(
+          text: groundText, 
+          style: TextStyle(
+            color: groundColor, 
+            fontSize: 13, 
+            fontWeight: FontWeight.black, 
+            backgroundColor: Colors.black.withOpacity(0.7)
+          )
+        )
+      )..layout()..paint(canvas, const Offset(16, 148));
+    }
   }
 }
