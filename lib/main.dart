@@ -756,7 +756,7 @@ class DebugOverlay extends Component with HasGameRef<RaceRiderGame> {
           style: TextStyle(
             color: groundColor, 
             fontSize: 13, 
-            fontWeight: FontWeight.black, 
+            fontWeight: FontWeight.w900, 
             backgroundColor: Colors.black.withOpacity(0.7)
           )
         )
