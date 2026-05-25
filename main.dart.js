@@ -32302,7 +32302,7 @@ r===$&&A.c()
 s=b2.w
 s===$&&A.c()
 r.n(0,r.a7(0,s).a1(0,0.98))
-return}q=(b2.as||b2.at?b2.ch=0:++b2.ch)>=12?300:180
+return}q=(b2.as||b2.at?b2.ch=0:++b2.ch)>=12?230:180
 s=b2.e
 s===$&&A.c()
 r=b2.r
@@ -32337,17 +32337,17 @@ s=b2.ax
 if(s!=null&&s.d<12){g=i.a7(0,s.a).be(b2.ax.b)
 if(g<5){b2.as=!0
 f=p.be(b2.ax.b)
-n.n(0,b2.ax.b.a1(0,(5-g)*1650-f*50+850))
+n.n(0,b2.ax.b.a1(0,(5-g)*1650-f*72+850))
 s=b2.c
 r=b2.ax
 if(s){s=r.c
-n.n(0,(s.a[0]<0?s.bj(0):s).a1(0,700))}else{e=p.be(r.c)
+n.n(0,(s.a[0]<0?s.bj(0):s).a1(0,800))}else{e=p.be(r.c)
 n.bl(b2.ax.c.a1(0,e*0.8))}if(b2.d){e=p.be(b2.ax.c)
 n.bl(b2.ax.c.a1(0,J.Qo(e)*750))}if(f<-1600)b2.Q=B.a4}}s=b2.ay
 if(s!=null&&s.d<12){g=h.a7(0,s.a).be(b2.ay.b)
 if(g<5){b2.at=!0
 f=o.be(b2.ay.b)
-m.n(0,b2.ay.b.a1(0,(5-g)*1650-f*50+850))
+m.n(0,b2.ay.b.a1(0,(5-g)*1650-f*72+850))
 if(f<-1600)b2.Q=B.a4}}s=b2.f.a7(0,b2.e).a
 r=s[1]
 d=s[0]
@@ -35122,7 +35122,7 @@ B.vv=new A.bF("[ UNDO LINE ]",B.y,B.bk)
 B.vw=new A.bF("\u270f\ufe0f PEN DRAW",B.y,B.at)
 B.vx=new A.bF("\ud83d\udfe2 START LINE",B.y,B.at)
 B.vC=new A.eR(B.X,11,B.aW,1.1,null)
-B.vy=new A.bF("[ HYSTERESIS GRAVITY ACTIVE: v.408 ]",B.y,B.vC)
+B.vy=new A.bF("[ HYSTERESIS GRAVITY ACTIVE: v.409 ]",B.y,B.vC)
 B.vz=new A.bF("RESTART RUN",B.y,B.bk)
 B.vA=new A.bF("[ ZOOM + ]",B.y,B.at)
 B.vB=new A.bF("[ ZOOM - ]",B.y,B.at)
