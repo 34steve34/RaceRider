@@ -64,7 +64,7 @@ enum AppState { design, ride, victory }
 enum DesignTool { draw, startFlag, finishFlag, pan }
 
 class RaceRiderGame extends FlameGame with DragCallbacks, TapCallbacks {
-  static const buildLabel = 'Clean Standard Power & Infinite Plane Finish';
+  static const buildLabel = 'Hysteresis Gravity Context Loop';
   late Bike player;
   final List<TrackSegment> trackSegments = [];
   final SpatialGrid grid = SpatialGrid(cellSize: 80.0);
@@ -388,8 +388,8 @@ class RaceRiderGame extends FlameGame with DragCallbacks, TapCallbacks {
   
   void _renderUIOverlay(Canvas canvas) {
     // --- HOT REBOOT CONFIRMATION INDICATOR ---
-    canvas.drawRRect(RRect.fromRectAndRadius(const Rect.fromLTWH(12, 110, 240, 26), const Radius.circular(4)), Paint()..color = const Color(0xFFFF007F));
-    TextPainter(text: const TextSpan(text: '[ reardrive 600: v.409 ]', style: TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold, letterSpacing: 1.1)), textDirection: TextDirection.ltr)
+    canvas.drawRRect(RRect.fromRectAndRadius(const Rect.fromLTWH(12, 110, 265, 26), const Radius.circular(4)), Paint()..color = const Color(0xFFFF007F));
+    TextPainter(text: const TextSpan(text: '[ HYSTERESIS GRAVITY ACTIVE: v.408 ]', style: TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold, letterSpacing: 1.1)), textDirection: TextDirection.ltr)
       ..layout()..paint(canvas, const Offset(22, 116));
 
     canvas.drawRRect(RRect.fromRectAndRadius(const Rect.fromLTWH(12, 12, 115, 36), const Radius.circular(6)), Paint()..color = Colors.redAccent.withOpacity(0.85));
@@ -472,8 +472,12 @@ class SurfaceHit {
 enum BikeState { riding, crashed }
 
 class Bike {
-  static const _gravity = 300.0;
-  static const _rearDrive = 600.0;
+  // --- ENVIRONMENT CONTEXT CONSTANTS ---
+  static const _airborneGravity = 300.0;
+  static const _groundedGravity = 180.0;
+  static const int _gravityHysteresisThreshold = 12; // Frames to wait before triggering heavy gravity
+
+  static const _rearDrive = 700.0; // Cranked up from 440.0 for aggressive punch
   static double _brakeStrength = 750.0; 
   static const _wheelRadius = 5.0;
   static const _headRadius = 3.0;
@@ -482,7 +486,7 @@ class Bike {
   static double _impactCrashLimit = 1600.0;       
   static double suspensionTravel = 4.5; 
   static double suspensionStrength = 1650.0;     
-  static double suspensionDamping = 50.0; 
+  static double suspensionDamping = 50.0; // Tightened up from 34.0 to eliminate jitter
   
   static double _playerTorqueStrength = 212750.0;  
   static double _cogDistanceFromRear = 9.2;       
@@ -510,6 +514,9 @@ class Bike {
   bool frontOnGround = false;
   SurfaceHit? _rearSurface, _frontSurface;
 
+  // Hysteresis frame tracking state
+  int _airborneFrames = 0;
+
   double get _massRear => (_wheelbase - _cogDistanceFromRear) / _wheelbase;
   double get _massFront => _cogDistanceFromRear / _wheelbase;
 
@@ -535,10 +542,22 @@ class Bike {
       return;
     }
 
+    // Evaluate ground contact from previous cycle to update time debounce loop
+    if (rearOnGround || frontOnGround) {
+      _airborneFrames = 0; // Reset debounce loop instantly upon any surface interaction
+    } else {
+      _airborneFrames++; // Increment while floating free
+    }
+
+    // Evaluate context-stabilized gravity vector
+    final double currentGravity = (_airborneFrames >= _gravityHysteresisThreshold)
+        ? _airborneGravity
+        : _groundedGravity;
+
     final Vector2 rVel = (rearPos - rearOldPos) / dt;
     final Vector2 fVel = (frontPos - frontOldPos) / dt;
-    final Vector2 rAccel = Vector2(0, _gravity);
-    final Vector2 fAccel = Vector2(0, _gravity);
+    final Vector2 rAccel = Vector2(0, currentGravity);
+    final Vector2 fAccel = Vector2(0, currentGravity);
 
     final Vector2 fwd = (frontPos - rearPos).normalized();
     final Vector2 localDown = Vector2(-fwd.y, fwd.x); 
@@ -561,7 +580,6 @@ class Bike {
         rAccel.add(_rearSurface!.normal * (penetration * suspensionStrength - (vNorm * suspensionDamping) + _microMagnetPull));
         
         if (isGas) {
-          // Uniform Power Mechanics: Pure, consistent drive force across all track coordinates.
           rAccel.add(_forwardTangent(_rearSurface!.tangent) * _rearDrive);
         } else {
           double vTan = rVel.dot(_rearSurface!.tangent);
@@ -597,7 +615,8 @@ class Bike {
     if (rearOnGround && !frontOnGround) {
       double balanceAngle = atan2(_cogHeight, _cogDistanceFromRear); 
       double angularOffset = angle - balanceAngle;
-      gravTorqueAccel = (_gravity * sin(angularOffset) * _cogDistanceFromRear) / _wheelbase;
+      // Rotational torque balance stays dynamically grouped with the chosen linear environment gravity
+      gravTorqueAccel = (currentGravity * sin(angularOffset) * _cogDistanceFromRear) / _wheelbase;
     }
 
     double damping = (!rearOnGround && !frontOnGround) ? _airborneRotationDamping : ((rearOnGround && !frontOnGround) || (!rearOnGround && frontOnGround)) ? _wheelieRotationDamping : _landingRotationDamping;
