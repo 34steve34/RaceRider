@@ -64,7 +64,7 @@ enum AppState { design, ride, victory }
 enum DesignTool { draw, startFlag, finishFlag, pan }
 
 class RaceRiderGame extends FlameGame with DragCallbacks, TapCallbacks {
-  static const buildLabel = 'physics v.403 - Full Assembly';
+  static const buildLabel = 'physics v.404 - Dynamic Climbing Boost & Exact Upper-Right Completion';
   late Bike player;
   final List<TrackSegment> trackSegments = [];
   final SpatialGrid grid = SpatialGrid(cellSize: 80.0);
@@ -315,7 +315,10 @@ class RaceRiderGame extends FlameGame with DragCallbacks, TapCallbacks {
     if (currentMode == AppState.ride) {
       double dx = player.headPos.x - finishLinePoint.x;
       double dy = player.headPos.y - finishLinePoint.y;
-      if (dx >= 0 && dy <= 0 && dx < 28.0 && dy > -32.0) {
+      
+      // Strict Upper-Right Quadrant Condition relative to base of the flag stick
+      // x >= 0 (Right), y <= 0 (Upper zone in world coordinates), capped within a bounding zone box.
+      if (dx >= 0 && dy <= 0 && dx < 45.0 && dy > -45.0) {
         currentMode = AppState.victory;
         isGas = isBrake = false;
       }
@@ -475,7 +478,7 @@ class Bike {
   static const _wheelRadius = 5.0;
   static const _headRadius = 3.0;
   
-  static double _microMagnetPull = 150.0; 
+  static double _microMagnetPull = 850.0; 
   static double _impactCrashLimit = 1600.0;       
   static double suspensionTravel = 4.5; 
   static double suspensionStrength = 1650.0;     
@@ -558,7 +561,16 @@ class Bike {
         rAccel.add(_rearSurface!.normal * (penetration * suspensionStrength - (vNorm * suspensionDamping) + _microMagnetPull));
         
         if (isGas) {
-          rAccel.add(_forwardTangent(_rearSurface!.tangent) * _rearDrive);
+          // Dynamic Incline Climb Engine: Scales up +20% extra drive only proportional to vertical track pitch.
+          // Leaves flat ground speed, acceleration, top speeds, and air physics perfectly stock.
+          double climbBonus = 1.0;
+          if (_rearSurface!.tangent.y < 0) { 
+            // Incline steepness scalar from 0.0 to 1.0 based on tangent projection slope
+            double inclineSteepness = _rearSurface!.tangent.y.abs().clamp(0.0, 1.0);
+            climbBonus += (0.20 * inclineSteepness); 
+          }
+          
+          rAccel.add(_forwardTangent(_rearSurface!.tangent) * (_rearDrive * climbBonus));
         } else {
           double vTan = rVel.dot(_rearSurface!.tangent);
           rAccel.sub(_rearSurface!.tangent * (vTan * 0.8));
@@ -705,5 +717,21 @@ class Bike {
     canvas.drawLine(_off(rearPos), _off(rWheelVis), shockP);
     canvas.drawLine(_off(frontPos), _off(fWheelVis), shockP);
     canvas.drawCircle(_off(headPos), _headRadius, riderP);
+  }
+}
+
+class Background extends Component {
+  @override
+  void render(Canvas canvas) => canvas.drawRect(const Rect.fromLTWH(-10000, -10000, 30000, 30000), Paint()..color = const Color(0xFF112233));
+}
+
+class DebugOverlay extends Component with HasGameRef<RaceRiderGame> {
+  @override
+  void render(Canvas canvas) {
+    final modeStr = gameRef.currentMode == AppState.ride ? 'RIDING MODE' : gameRef.currentMode == AppState.victory ? 'VICTORY LOCKED' : 'DESIGN MODE';
+    TextPainter(textDirection: TextDirection.ltr, text: TextSpan(
+      text: 'RaceRider ${RaceRiderGame.buildLabel}\nState: $modeStr\nLines Active: ${gameRef.trackSegments.length}\nZoom: ${gameRef.camera.viewfinder.zoom.toStringAsFixed(2)}', 
+      style: const TextStyle(color: Colors.yellow, fontSize: 11, fontWeight: FontWeight.bold)
+    ))..layout()..paint(canvas, const Offset(16, 60));
   }
 }
