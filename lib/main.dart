@@ -389,7 +389,7 @@ class RaceRiderGame extends FlameGame with DragCallbacks, TapCallbacks {
   void _renderUIOverlay(Canvas canvas) {
     // --- HOT REBOOT CONFIRMATION INDICATOR ---
     canvas.drawRRect(RRect.fromRectAndRadius(const Rect.fromLTWH(12, 110, 240, 26), const Radius.circular(4)), Paint()..color = const Color(0xFFFF007F));
-    TextPainter(text: const TextSpan(text: '[ reardrive 600: v.408 ]', style: TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold, letterSpacing: 1.1)), textDirection: TextDirection.ltr)
+    TextPainter(text: const TextSpan(text: '[ reardrive 600: v.409 ]', style: TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold, letterSpacing: 1.1)), textDirection: TextDirection.ltr)
       ..layout()..paint(canvas, const Offset(22, 116));
 
     canvas.drawRRect(RRect.fromRectAndRadius(const Rect.fromLTWH(12, 12, 115, 36), const Radius.circular(6)), Paint()..color = Colors.redAccent.withOpacity(0.85));
@@ -482,7 +482,7 @@ class Bike {
   static double _impactCrashLimit = 1600.0;       
   static double suspensionTravel = 4.5; 
   static double suspensionStrength = 1650.0;     
-  static double suspensionDamping = 34.0; 
+  static double suspensionDamping = 50.0; 
   
   static double _playerTorqueStrength = 212750.0;  
   static double _cogDistanceFromRear = 9.2;       
