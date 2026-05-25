@@ -64,7 +64,7 @@ enum AppState { design, ride, victory }
 enum DesignTool { draw, startFlag, finishFlag, pan }
 
 class RaceRiderGame extends FlameGame with DragCallbacks, TapCallbacks {
-  static const buildLabel = 'physics v.405 - Velocity Climb & Infinite Plane Finish';
+  static const buildLabel = 'Clean Standard Power & Infinite Plane Finish';
   late Bike player;
   final List<TrackSegment> trackSegments = [];
   final SpatialGrid grid = SpatialGrid(cellSize: 80.0);
@@ -313,8 +313,6 @@ class RaceRiderGame extends FlameGame with DragCallbacks, TapCallbacks {
     }
     
     if (currentMode == AppState.ride) {
-      // Infinite Plane Boundary Rule: Instantly triggers victory once the rider's 
-      // head passes the flag's vertical line, anywhere above the lower terrain base plane.
       if (player.headPos.x >= finishLinePoint.x) {
         currentMode = AppState.victory;
         isGas = isBrake = false;
@@ -389,6 +387,11 @@ class RaceRiderGame extends FlameGame with DragCallbacks, TapCallbacks {
   }
   
   void _renderUIOverlay(Canvas canvas) {
+    // --- HOT REBOOT CONFIRMATION INDICATOR ---
+    canvas.drawRRect(RRect.fromRectAndRadius(const Rect.fromLTWH(12, 110, 240, 26), const Radius.circular(4)), Paint()..color = const Color(0xFFFF007F));
+    TextPainter(text: const TextSpan(text: '[ CLIMB BOOST STRIPPED: v.407 ]', style: TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold, letterSpacing: 1.1)), textDirection: TextDirection.ltr)
+      ..layout()..paint(canvas, const Offset(22, 116));
+
     canvas.drawRRect(RRect.fromRectAndRadius(const Rect.fromLTWH(12, 12, 115, 36), const Radius.circular(6)), Paint()..color = Colors.redAccent.withOpacity(0.85));
     TextPainter(text: const TextSpan(text: '[ CLEAR ALL ]', style: TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.bold)), textDirection: TextDirection.ltr)
       ..layout()..paint(canvas, const Offset(24, 22));
@@ -558,16 +561,8 @@ class Bike {
         rAccel.add(_rearSurface!.normal * (penetration * suspensionStrength - (vNorm * suspensionDamping) + _microMagnetPull));
         
         if (isGas) {
-          // Robust Velocity Ascent Engine: Calculates vertical momentum vectors directly.
-          // If the bike is physically tracking upward on the screen (rVel.y is negative),
-          // it scales up the drive cleanly up to +20%, making loop physics completely stable.
-          double climbBonus = 1.0;
-          if (rVel.y < -20.0) {
-            double upFactor = (rVel.y.abs() / 400.0).clamp(0.0, 1.0);
-            climbBonus += (0.20 * upFactor);
-          }
-          
-          rAccel.add(_forwardTangent(_rearSurface!.tangent) * (_rearDrive * climbBonus));
+          // Uniform Power Mechanics: Pure, consistent drive force across all track coordinates.
+          rAccel.add(_forwardTangent(_rearSurface!.tangent) * _rearDrive);
         } else {
           double vTan = rVel.dot(_rearSurface!.tangent);
           rAccel.sub(_rearSurface!.tangent * (vTan * 0.8));
