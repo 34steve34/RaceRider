@@ -389,7 +389,7 @@ class RaceRiderGame extends FlameGame with DragCallbacks, TapCallbacks {
   void _renderUIOverlay(Canvas canvas) {
     // --- HOT REBOOT CONFIRMATION INDICATOR ---
     canvas.drawRRect(RRect.fromRectAndRadius(const Rect.fromLTWH(12, 110, 265, 26), const Radius.circular(4)), Paint()..color = const Color(0xFFFF007F));
-    TextPainter(text: const TextSpan(text: '[ HYSTERESIS GRAVITY ACTIVE: v.409 ]', style: TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold, letterSpacing: 1.1)), textDirection: TextDirection.ltr)
+    TextPainter(text: const TextSpan(text: '[ HYSTERESIS GRAVITY ACTIVE: v.411 ]', style: TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold, letterSpacing: 1.1)), textDirection: TextDirection.ltr)
       ..layout()..paint(canvas, const Offset(22, 116));
 
     canvas.drawRRect(RRect.fromRectAndRadius(const Rect.fromLTWH(12, 12, 115, 36), const Radius.circular(6)), Paint()..color = Colors.redAccent.withOpacity(0.85));
@@ -474,7 +474,7 @@ enum BikeState { riding, crashed }
 class Bike {
   // --- ENVIRONMENT CONTEXT CONSTANTS ---
   static const _airborneGravity = 230.0;
-  static const _groundedGravity = 180.0;
+  static const _groundedGravity = 160.0;
   static const int _gravityHysteresisThreshold = 12; // Frames to wait before triggering heavy gravity
 
   static const _rearDrive = 800.0; // Cranked up from 440.0 for aggressive punch
@@ -488,7 +488,7 @@ class Bike {
   static double suspensionStrength = 1650.0;     
   static double suspensionDamping = 72.0; // Tightened up from 34.0 to eliminate jitter
   
-  static double _playerTorqueStrength = 212750.0;  
+  static double _playerTorqueStrength = 250000.0;  
   static double _cogDistanceFromRear = 9.2;       
   static double _cogHeight = 3.8;
   static double _frontGroundedTorqueScale = 0.12;
@@ -583,7 +583,7 @@ class Bike {
           rAccel.add(_forwardTangent(_rearSurface!.tangent) * _rearDrive);
         } else {
           double vTan = rVel.dot(_rearSurface!.tangent);
-          rAccel.sub(_rearSurface!.tangent * (vTan * 0.8));
+          rAccel.sub(_rearSurface!.tangent * (vTan * 0.7)); // 0.8
         }
         if (isBrake) {
           double vTan = rVel.dot(_rearSurface!.tangent);
