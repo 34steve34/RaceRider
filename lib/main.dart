@@ -389,7 +389,7 @@ class RaceRiderGame extends FlameGame with DragCallbacks, TapCallbacks {
   void _renderUIOverlay(Canvas canvas) {
     // --- HOT REBOOT CONFIRMATION INDICATOR ---
     canvas.drawRRect(RRect.fromRectAndRadius(const Rect.fromLTWH(12, 110, 265, 26), const Radius.circular(4)), Paint()..color = const Color(0xFFFF007F));
-    TextPainter(text: const TextSpan(text: '[ HYSTERESIS GRAVITY ACTIVE: v.408 ]', style: TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold, letterSpacing: 1.1)), textDirection: TextDirection.ltr)
+    TextPainter(text: const TextSpan(text: '[ HYSTERESIS GRAVITY ACTIVE: v.409 ]', style: TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold, letterSpacing: 1.1)), textDirection: TextDirection.ltr)
       ..layout()..paint(canvas, const Offset(22, 116));
 
     canvas.drawRRect(RRect.fromRectAndRadius(const Rect.fromLTWH(12, 12, 115, 36), const Radius.circular(6)), Paint()..color = Colors.redAccent.withOpacity(0.85));
@@ -473,11 +473,11 @@ enum BikeState { riding, crashed }
 
 class Bike {
   // --- ENVIRONMENT CONTEXT CONSTANTS ---
-  static const _airborneGravity = 300.0;
+  static const _airborneGravity = 230.0;
   static const _groundedGravity = 180.0;
   static const int _gravityHysteresisThreshold = 12; // Frames to wait before triggering heavy gravity
 
-  static const _rearDrive = 700.0; // Cranked up from 440.0 for aggressive punch
+  static const _rearDrive = 800.0; // Cranked up from 440.0 for aggressive punch
   static double _brakeStrength = 750.0; 
   static const _wheelRadius = 5.0;
   static const _headRadius = 3.0;
@@ -486,7 +486,7 @@ class Bike {
   static double _impactCrashLimit = 1600.0;       
   static double suspensionTravel = 4.5; 
   static double suspensionStrength = 1650.0;     
-  static double suspensionDamping = 50.0; // Tightened up from 34.0 to eliminate jitter
+  static double suspensionDamping = 72.0; // Tightened up from 34.0 to eliminate jitter
   
   static double _playerTorqueStrength = 212750.0;  
   static double _cogDistanceFromRear = 9.2;       
