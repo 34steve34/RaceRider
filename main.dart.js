@@ -32302,7 +32302,7 @@ r===$&&A.c()
 s=b2.w
 s===$&&A.c()
 r.n(0,r.a7(0,s).a1(0,0.98))
-return}q=(b2.as||b2.at?b2.ch=0:++b2.ch)>=12?230:180
+return}q=(b2.as||b2.at?b2.ch=0:++b2.ch)>=12?230:160
 s=b2.e
 s===$&&A.c()
 r=b2.r
@@ -32342,7 +32342,7 @@ s=b2.c
 r=b2.ax
 if(s){s=r.c
 n.n(0,(s.a[0]<0?s.bj(0):s).a1(0,800))}else{e=p.be(r.c)
-n.bl(b2.ax.c.a1(0,e*0.8))}if(b2.d){e=p.be(b2.ax.c)
+n.bl(b2.ax.c.a1(0,e*0.7))}if(b2.d){e=p.be(b2.ax.c)
 n.bl(b2.ax.c.a1(0,J.Qo(e)*750))}if(f<-1600)b2.Q=B.a4}}s=b2.ay
 if(s!=null&&s.d<12){g=h.a7(0,s.a).be(b2.ay.b)
 if(g<5){b2.at=!0
@@ -32355,7 +32355,7 @@ c=new A.w(new Float64Array(2))
 c.aA(-r,d)
 c.i1()
 b=Math.atan2(s[1],s[0])
-a=-b2.b*212750
+a=-b2.b*25e4
 if(a<0&&b2.at)a*=0.12
 a0=b2.as&&!b2.at?q*Math.sin(b-Math.atan2(3.8,9.2))*9.2/19.5:0
 s=b2.as
@@ -35122,7 +35122,7 @@ B.vv=new A.bF("[ UNDO LINE ]",B.y,B.bk)
 B.vw=new A.bF("\u270f\ufe0f PEN DRAW",B.y,B.at)
 B.vx=new A.bF("\ud83d\udfe2 START LINE",B.y,B.at)
 B.vC=new A.eR(B.X,11,B.aW,1.1,null)
-B.vy=new A.bF("[ HYSTERESIS GRAVITY ACTIVE: v.409 ]",B.y,B.vC)
+B.vy=new A.bF("[ HYSTERESIS GRAVITY ACTIVE: v.411 ]",B.y,B.vC)
 B.vz=new A.bF("RESTART RUN",B.y,B.bk)
 B.vA=new A.bF("[ ZOOM + ]",B.y,B.at)
 B.vB=new A.bF("[ ZOOM - ]",B.y,B.at)
