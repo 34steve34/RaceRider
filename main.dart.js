@@ -32335,7 +32335,7 @@ s=b1.ax
 if(s!=null&&s.d<12){h=j.a7(0,s.a).be(b1.ax.b)
 if(h<5){b1.as=!0
 g=q.be(b1.ax.b)
-o.n(0,b1.ax.b.a1(0,(5-h)*1650-g*34+850))
+o.n(0,b1.ax.b.a1(0,(5-h)*1650-g*50+850))
 s=b1.c
 r=b1.ax
 if(s){s=r.c
@@ -32345,7 +32345,7 @@ o.bl(b1.ax.c.a1(0,J.Qo(f)*750))}if(g<-1600)b1.Q=B.a4}}s=b1.ay
 if(s!=null&&s.d<12){h=i.a7(0,s.a).be(b1.ay.b)
 if(h<5){b1.at=!0
 g=p.be(b1.ay.b)
-n.n(0,b1.ay.b.a1(0,(5-h)*1650-g*34+850))
+n.n(0,b1.ay.b.a1(0,(5-h)*1650-g*50+850))
 if(g<-1600)b1.Q=B.a4}}s=b1.f.a7(0,b1.e).a
 r=s[1]
 e=s[0]
@@ -35112,7 +35112,7 @@ B.aW=new A.o8(700)
 B.bk=new A.eR(B.X,12,B.aW,null,null)
 B.vr=new A.bF("[ CLEAR ALL ]",B.y,B.bk)
 B.vC=new A.eR(B.X,11,B.aW,1.1,null)
-B.vs=new A.bF("[ reardrive 600: v.408 ]",B.y,B.vC)
+B.vs=new A.bF("[ reardrive 600: v.409 ]",B.y,B.vC)
 B.at=new A.eR(B.X,11,B.aW,null,null)
 B.vt=new A.bF("\u270b HAND PAN",B.y,B.at)
 B.vE=new A.eR(B.X,17,B.aW,null,1.25)
