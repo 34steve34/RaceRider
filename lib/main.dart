@@ -389,7 +389,7 @@ class RaceRiderGame extends FlameGame with DragCallbacks, TapCallbacks {
   void _renderUIOverlay(Canvas canvas) {
     // --- HOT REBOOT CONFIRMATION INDICATOR ---
     canvas.drawRRect(RRect.fromRectAndRadius(const Rect.fromLTWH(12, 110, 265, 26), const Radius.circular(4)), Paint()..color = const Color(0xFFFF007F));
-    TextPainter(text: const TextSpan(text: '[ HYSTERESIS GRAVITY ACTIVE: v.411 ]', style: TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold, letterSpacing: 1.1)), textDirection: TextDirection.ltr)
+    TextPainter(text: const TextSpan(text: '[ HYSTERESIS GRAVITY ACTIVE: v.412 ]', style: TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold, letterSpacing: 1.1)), textDirection: TextDirection.ltr)
       ..layout()..paint(canvas, const Offset(22, 116));
 
     canvas.drawRRect(RRect.fromRectAndRadius(const Rect.fromLTWH(12, 12, 115, 36), const Radius.circular(6)), Paint()..color = Colors.redAccent.withOpacity(0.85));
@@ -609,7 +609,7 @@ class Bike {
     double angle = atan2(axle.y, axle.x);
 
     double playerTorque = -tilt * _playerTorqueStrength;
-    if (playerTorque < 0 && frontOnGround) playerTorque *= _frontGroundedTorqueScale;
+    if (playerTorque > 0 && frontOnGround) playerTorque *= _frontGroundedTorqueScale;
 
     double gravTorqueAccel = 0.0;
     if (rearOnGround && !frontOnGround) {
