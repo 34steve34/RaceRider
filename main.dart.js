@@ -32356,7 +32356,7 @@ c.aA(-r,d)
 c.i1()
 b=Math.atan2(s[1],s[0])
 a=-b2.b*25e4
-if(a<0&&b2.at)a*=0.12
+if(a>0&&b2.at)a*=0.12
 a0=b2.as&&!b2.at?q*Math.sin(b-Math.atan2(3.8,9.2))*9.2/19.5:0
 s=b2.as
 r=!s
@@ -35122,7 +35122,7 @@ B.vv=new A.bF("[ UNDO LINE ]",B.y,B.bk)
 B.vw=new A.bF("\u270f\ufe0f PEN DRAW",B.y,B.at)
 B.vx=new A.bF("\ud83d\udfe2 START LINE",B.y,B.at)
 B.vC=new A.eR(B.X,11,B.aW,1.1,null)
-B.vy=new A.bF("[ HYSTERESIS GRAVITY ACTIVE: v.411 ]",B.y,B.vC)
+B.vy=new A.bF("[ HYSTERESIS GRAVITY ACTIVE: v.412 ]",B.y,B.vC)
 B.vz=new A.bF("RESTART RUN",B.y,B.bk)
 B.vA=new A.bF("[ ZOOM + ]",B.y,B.at)
 B.vB=new A.bF("[ ZOOM - ]",B.y,B.at)
