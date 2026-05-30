@@ -31942,64 +31942,67 @@ r.T=s
 r.cJ=r.bA=null
 r.ag=B.I
 r.f1()},
-aq(a){var s,r,q,p,o,n,m,l,k,j,i,h=this
-h.xq(a)
+aq(a){var s,r,q,p,o,n,m,l,k,j,i,h,g=this
+g.xq(a)
 s=B.d.c_(a,0.001,0.033)
-if(!h.bz){h.jY=h.hH
-h.bz=!0}r=B.d.c_((h.hH-h.jY)/8,-1,1)
-q=h.fj=h.fj*0.15+r*0.85
-if(Math.abs(q)<0.05)q=h.fj=0
-p=h.aQ
+if(!g.bz){g.jY=g.hH
+g.bz=!0}r=B.d.c_((g.hH-g.jY)/8,-1,1)
+q=g.fj=g.fj*0.15+r*0.85
+if(Math.abs(q)<0.05)q=g.fj=0
+p=g.aQ
 p===$&&A.c()
 p.b=q
-q=h.ag
+q=g.ag
 o=q===B.R
-p.c=o?!1:h.de
-p.d=o?!0:h.P
-if(q===B.E||o){q=h.hI+=s
-if(q>0.1){h.hI=0.008333333333333333
-q=0.008333333333333333}while(q>=0.008333333333333333){h.aQ.x0(0.008333333333333333)
-q=h.hI-=0.008333333333333333}}if(h.ag===B.E){for(q=h.aV,p=q.length,n=200,m=0;m<p;++m){l=q[m]
+p.c=o?!1:g.de
+p.d=o?!0:g.P
+if(q===B.E||o){q=g.hI+=s
+if(q>0.1){g.hI=0.008333333333333333
+q=0.008333333333333333}while(q>=0.008333333333333333){g.aQ.x0(0.008333333333333333)
+q=g.hI-=0.008333333333333333}}if(g.ag===B.E){for(q=g.aV,p=q.length,n=200,m=0;m<p;++m){l=q[m]
 k=l.a.a[1]
 if(k>n)n=k
 k=l.b.a[1]
-if(k>n)n=k}q=h.aQ
+if(k>n)n=k}q=g.aQ
 p=q.e
 p===$&&A.c()
 q=q.f
 q===$&&A.c()
-if(p.a0(0,q).b0(0,2).a[1]>n+600){h.f1()
-return}}q=h.aQ
-if(q.Q===B.a4&&h.ag===B.E){h.f1()
-return}p=h.ag
+if(p.a0(0,q).b0(0,2).a[1]>n+600){g.f1()
+return}}q=g.aQ
+if(q.Q===B.a4&&g.ag===B.E){g.f1()
+return}p=g.ag
 if(p===B.E){o=q.y
 o===$&&A.c()
-if(o.a[0]>=h.T.a[0]){h.ag=B.R
-h.de=h.P=!1
+o=o.a
+j=o[0]
+i=g.T.a
+if(j>=i[0]&&o[1]<=i[1]){g.ag=B.R
+g.de=g.P=!1
 p=B.R}}o=q.e
 o===$&&A.c()
 if(isFinite(o.a[0])){q=q.f
 q===$&&A.c()
 q=isFinite(q.a[0])}else q=!1
-if(!q){h.f1()
-return}if(p===B.E||p===B.R){q=h.k4.ax.at
+if(!q){g.f1()
+return}if(p===B.E||p===B.R){q=g.k4.ax.at
 p=new A.w(new Float64Array(2))
 p.iF(1.6)
 o=q.e
 o.eS(p)
 o.aR()
-j=B.d.c_(15*s,0,1)
+h=B.d.c_(15*s,0,1)
 q=q.f
 o=q.bj(0)
-p=h.aQ
-i=p.e
-i===$&&A.c()
+p=g.aQ
+j=p.e
+j===$&&A.c()
 p=p.f
 p===$&&A.c()
-q.eS(o.a0(0,i.a0(0,p).b0(0,2).a7(0,q.bj(0)).a1(0,j)).bj(0))
-q.aR()}else if(h.bA==null&&h.aV.length===0){j=B.d.c_(10*s,0,1)
-q=h.k4.ax.at.f
-q.eS(q.bj(0).a0(0,h.ab.a7(0,q.bj(0)).a1(0,j)).bj(0))
+q.eS(o.a0(0,j.a0(0,p).b0(0,2).a7(0,q.bj(0)).a1(0,h)).bj(0))
+q.aR()}else if(g.bA==null&&g.aV.length===0){h=B.d.c_(10*s,0,1)
+q=g.k4.ax.at.f
+q.eS(q.bj(0).a0(0,g.ab.a7(0,q.bj(0)).a1(0,h)).bj(0))
 q.aR()}},
 f1(){var s,r,q,p,o,n=this
 n.hI=0
@@ -32155,7 +32158,7 @@ s=A.d2(B.uO,B.uM)
 p=A.aF()
 p.r=B.oM.I()
 b5.c3(s,p)
-p=A.d9(B.vy,B.z,B.m)
+p=A.d9(B.vs,B.z,B.m)
 p.cM()
 p.aS(b5,B.tP)
 p=A.d2(B.uP,B.aL)
@@ -32170,7 +32173,7 @@ s=A.d2(B.uQ,B.aL)
 r=A.aF()
 r.r=A.dN(B.d.bP(255*a6),B.bz.I()>>>16&255,B.bz.I()>>>8&255,B.bz.I()&255).I()
 b5.c3(s,r)
-r=A.d9(B.vv,B.z,B.m)
+r=A.d9(B.vw,B.z,B.m)
 r.cM()
 r.aS(b5,B.tO)
 if(b4.ag===B.I){s=A.d2(B.uR,B.aL)
@@ -32213,7 +32216,7 @@ r=A.d2(new A.S(l,r,l+320,r+130),B.uL)
 s=A.aF()
 s.r=B.oK.I()
 b5.c3(r,s)
-s=A.d9(B.vt,B.as,B.m)
+s=A.d9(B.vu,B.as,B.m)
 s.nU(320,320)
 s.aS(b5,new A.F(l,b1-52))
 l=b0-80
@@ -32233,7 +32236,7 @@ r=A.d2(new A.S(b3,b2,b3+115,q),B.bf)
 l=A.aF()
 l.r=(s===B.aB?B.aT:A.dN(p,B.B.I()>>>16&255,B.B.I()>>>8&255,B.B.I()&255)).I()
 b5.c3(r,l)
-r=A.d9(B.vw,B.z,B.m)
+r=A.d9(B.vx,B.z,B.m)
 r.cM()
 l=b2+11
 r.aS(b5,new A.F(b3+20,l))
@@ -32243,7 +32246,7 @@ k=A.d2(new A.S(k,b2,k+115,q),B.bf)
 j=A.aF()
 j.r=(r===B.bA?B.aT:A.dN(p,B.B.I()>>>16&255,B.B.I()>>>8&255,B.B.I()&255)).I()
 b5.c3(k,j)
-s=A.d9(B.vx,B.z,B.m)
+s=A.d9(B.vy,B.z,B.m)
 s.cM()
 s.aS(b5,new A.F(b3+148,l))
 s=b4.aY
@@ -32252,7 +32255,7 @@ k=A.d2(new A.S(k,b2,k+115,q),B.bf)
 j=A.aF()
 j.r=(s===B.bB?B.aT:A.dN(p,B.B.I()>>>16&255,B.B.I()>>>8&255,B.B.I()&255)).I()
 b5.c3(k,j)
-r=A.d9(B.vu,B.z,B.m)
+r=A.d9(B.vv,B.z,B.m)
 r.cM()
 r.aS(b5,new A.F(b3+274,l))
 r=b4.aY
@@ -32261,7 +32264,7 @@ q=A.d2(new A.S(k,b2,k+115,q),B.bf)
 k=A.aF()
 k.r=(r===B.bC?B.aT:A.dN(p,B.B.I()>>>16&255,B.B.I()>>>8&255,B.B.I()&255)).I()
 b5.c3(q,k)
-s=A.d9(B.vs,B.z,B.m)
+s=A.d9(B.vt,B.z,B.m)
 s.cM()
 s.aS(b5,new A.F(b3+412,l))}},
 Ac(a,b){var s,r,q,p,o,n,m,l,k,j,i,h,g
@@ -35113,16 +35116,16 @@ B.vq=new A.bP(-1,-1)
 B.aW=new A.o8(700)
 B.bk=new A.eR(B.X,12,B.aW,null,null)
 B.vr=new A.bF("[ CLEAR ALL ]",B.y,B.bk)
-B.at=new A.eR(B.X,11,B.aW,null,null)
-B.vs=new A.bF("\u270b HAND PAN",B.y,B.at)
-B.vE=new A.eR(B.X,17,B.aW,null,1.25)
-B.vt=new A.bF("\ud83c\udfc1 VICTORY! \ud83c\udfc1\nTRACK CLEARED",B.y,B.vE)
-B.vu=new A.bF("\ud83c\udfc1 FINISH GATE",B.y,B.at)
-B.vv=new A.bF("[ UNDO LINE ]",B.y,B.bk)
-B.vw=new A.bF("\u270f\ufe0f PEN DRAW",B.y,B.at)
-B.vx=new A.bF("\ud83d\udfe2 START LINE",B.y,B.at)
 B.vC=new A.eR(B.X,11,B.aW,1.1,null)
-B.vy=new A.bF("[ HYSTERESIS GRAVITY ACTIVE: v.408 ]",B.y,B.vC)
+B.vs=new A.bF("[ : v.409 ]",B.y,B.vC)
+B.at=new A.eR(B.X,11,B.aW,null,null)
+B.vt=new A.bF("\u270b HAND PAN",B.y,B.at)
+B.vE=new A.eR(B.X,17,B.aW,null,1.25)
+B.vu=new A.bF("\ud83c\udfc1 VICTORY! \ud83c\udfc1\nTRACK CLEARED",B.y,B.vE)
+B.vv=new A.bF("\ud83c\udfc1 FINISH GATE",B.y,B.at)
+B.vw=new A.bF("[ UNDO LINE ]",B.y,B.bk)
+B.vx=new A.bF("\u270f\ufe0f PEN DRAW",B.y,B.at)
+B.vy=new A.bF("\ud83d\udfe2 START LINE",B.y,B.at)
 B.vz=new A.bF("RESTART RUN",B.y,B.bk)
 B.vA=new A.bF("[ ZOOM + ]",B.y,B.at)
 B.vB=new A.bF("[ ZOOM - ]",B.y,B.at)
