@@ -313,9 +313,10 @@ class RaceRiderGame extends FlameGame with DragCallbacks, TapCallbacks {
     }
     
     if (currentMode == AppState.ride) {
-      if (player.headPos.x >= finishLinePoint.x) {
-        currentMode = AppState.victory;
-        isGas = isBrake = false;
+     // Evaluates if the rider's head is in the upper right quadrant relative to the flag base
+    if (player.headPos.x >= finishLinePoint.x && player.headPos.y <= finishLinePoint.y) {
+      currentMode = AppState.victory;
+      isGas = isBrake = false;
       }
     }
     
@@ -388,7 +389,7 @@ class RaceRiderGame extends FlameGame with DragCallbacks, TapCallbacks {
   
   void _renderUIOverlay(Canvas canvas) {
     canvas.drawRRect(RRect.fromRectAndRadius(const Rect.fromLTWH(12, 110, 265, 26), const Radius.circular(4)), Paint()..color = const Color(0xFFFF007F));
-    TextPainter(text: const TextSpan(text: '[ HYSTERESIS GRAVITY ACTIVE: v.408 ]', style: TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold, letterSpacing: 1.1)), textDirection: TextDirection.ltr)
+    TextPainter(text: const TextSpan(text: '[ : v.409 ]', style: TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold, letterSpacing: 1.1)), textDirection: TextDirection.ltr)
       ..layout()..paint(canvas, const Offset(22, 116));
 
     canvas.drawRRect(RRect.fromRectAndRadius(const Rect.fromLTWH(12, 12, 115, 36), const Radius.circular(6)), Paint()..color = Colors.redAccent.withOpacity(0.85));
