@@ -77,10 +77,14 @@ class RaceRiderGame extends FlameGame with DragCallbacks, TapCallbacks {
   
   double rawTilt = 0.0;
   double smoothedTilt = 0.0;
+  double lastSmoothedTilt = 0.0; // Tracked to calculate angular tilt velocity
   double tiltZero = 0.0;
   bool tiltCalibrated = false;
   bool isGas = false;
   bool isBrake = false;
+
+  // TOGGLE CONTROLLER FOR TESTING MECHANICS
+  bool useVelocityFlickMechanic = true; 
   
   StreamSubscription? _accelSub;
   Vector2? _lastDrawnPoint;
@@ -147,6 +151,12 @@ class RaceRiderGame extends FlameGame with DragCallbacks, TapCallbacks {
         _toggleMode();
         return;
       }
+    }
+
+    // Toggle Box Mechanic Switch Interaction (Below Context Bar)
+    if (y >= 110 && y <= 136 && x >= 290 && x <= 480) {
+      useVelocityFlickMechanic = !useVelocityFlickMechanic;
+      return;
     }
 
     if (currentMode == AppState.design && y > size.y - 65) {
@@ -276,11 +286,16 @@ class RaceRiderGame extends FlameGame with DragCallbacks, TapCallbacks {
       tiltCalibrated = true;
     }
     
+    lastSmoothedTilt = smoothedTilt;
     final normalized = ((rawTilt - tiltZero) / 8.0).clamp(-1.0, 1.0);
     smoothedTilt = smoothedTilt * 0.15 + normalized * 0.85;
     if (smoothedTilt.abs() < 0.05) smoothedTilt = 0.0;
     
+    double tiltVelocity = (smoothedTilt - lastSmoothedTilt) / cappedDt;
+
     player.tilt = smoothedTilt;
+    player.tiltVelocity = tiltVelocity;
+    player.useVelocityFlickMechanic = useVelocityFlickMechanic;
     player.isGas = (currentMode == AppState.victory) ? false : isGas;
     player.isBrake = (currentMode == AppState.victory) ? true : isBrake;
     
@@ -313,10 +328,10 @@ class RaceRiderGame extends FlameGame with DragCallbacks, TapCallbacks {
     }
     
     if (currentMode == AppState.ride) {
-     // Evaluates if the rider's head is in the upper right quadrant relative to the flag base
-    if (player.headPos.x >= finishLinePoint.x && player.headPos.y <= finishLinePoint.y) {
-      currentMode = AppState.victory;
-      isGas = isBrake = false;
+      // FIX: Head must be in upper-right quadrant of space defined by flag base
+      if (player.headPos.x >= finishLinePoint.x && player.headPos.y <= finishLinePoint.y) {
+        currentMode = AppState.victory;
+        isGas = isBrake = false;
       }
     }
     
@@ -389,8 +404,15 @@ class RaceRiderGame extends FlameGame with DragCallbacks, TapCallbacks {
   
   void _renderUIOverlay(Canvas canvas) {
     canvas.drawRRect(RRect.fromRectAndRadius(const Rect.fromLTWH(12, 110, 265, 26), const Radius.circular(4)), Paint()..color = const Color(0xFFFF007F));
-    TextPainter(text: const TextSpan(text: '[ : v.409 ]', style: TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold, letterSpacing: 1.1)), textDirection: TextDirection.ltr)
+    TextPainter(text: const TextSpan(text: '[ HYSTERESIS GRAVITY ACTIVE: v.408 ]', style: TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold, letterSpacing: 1.1)), textDirection: TextDirection.ltr)
       ..layout()..paint(canvas, const Offset(22, 116));
+
+    // DYNAMIC INTERACTIVE SWITCH PANEL FOR TESTING THE TORQUE MODES
+    final toggleColor = useVelocityFlickMechanic ? Colors.indigo[700]! : Colors.teal[700]!;
+    final toggleText = useVelocityFlickMechanic ? '[ TORQUE: FLICK-BASED ]' : '[ TORQUE: STANDARD ]';
+    canvas.drawRRect(RRect.fromRectAndRadius(const Rect.fromLTWH(290, 110, 190, 26), const Radius.circular(4)), Paint()..color = toggleColor);
+    TextPainter(text: TextSpan(text: toggleText, style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold, letterSpacing: 0.8)), textDirection: TextDirection.ltr)
+      ..layout()..paint(canvas, const Offset(302, 116));
 
     canvas.drawRRect(RRect.fromRectAndRadius(const Rect.fromLTWH(12, 12, 115, 36), const Radius.circular(6)), Paint()..color = Colors.redAccent.withOpacity(0.85));
     TextPainter(text: const TextSpan(text: '[ CLEAR ALL ]', style: TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.bold)), textDirection: TextDirection.ltr)
@@ -502,6 +524,8 @@ class Bike {
 
   final SpatialGrid spatialGrid;
   double tilt = 0.0;
+  double tiltVelocity = 0.0; // Injected frame-by-frame velocity context
+  bool useVelocityFlickMechanic = true;
   bool isGas = false;
   bool isBrake = false;
 
@@ -515,6 +539,7 @@ class Bike {
   SurfaceHit? _rearSurface, _frontSurface;
 
   int _airborneFrames = 0;
+  int _frontAirborneFrames = 0; // Hysteresis frames dedicated to front axle state
 
   double get _massRear => (_wheelbase - _cogDistanceFromRear) / _wheelbase;
   double get _massFront => _cogDistanceFromRear / _wheelbase;
@@ -545,6 +570,13 @@ class Bike {
       _airborneFrames = 0; 
     } else {
       _airborneFrames++; 
+    }
+
+    // Track true context airtime for front tire to eliminate micro-lift chatter
+    if (frontOnGround) {
+      _frontAirborneFrames = 0;
+    } else {
+      _frontAirborneFrames++;
     }
 
     final double currentGravity = (_airborneFrames >= _gravityHysteresisThreshold)
@@ -605,9 +637,42 @@ class Bike {
     Vector2 tangent = Vector2(-axle.y, axle.x)..normalize();
     double angle = atan2(axle.y, axle.x);
 
-    // Dynamic torque check block: evaluates forward nose diving vs backward wheelies
-    double playerTorque = -tilt * _playerTorqueStrength;
-    if (playerTorque > 0 && frontOnGround) playerTorque *= _frontGroundedTorqueScale;
+    // --- EXPERIMENTAL ROTATION DUAL DRIVER HANDLER ---
+    double playerTorque = 0.0;
+
+    if (!useVelocityFlickMechanic) {
+      // STANDARD CALCULATION MODE (Old implementation for safe baseline referencing)
+      playerTorque = -tilt * _playerTorqueStrength;
+      if (playerTorque > 0 && frontOnGround) playerTorque *= _frontGroundedTorqueScale;
+    } else {
+      // DUAL-DRIVER FLICK MODE: Absolute positions mixed with derivative snapshot vectors
+      double positionTorque = -tilt * _playerTorqueStrength;
+      double snapTorque = -tiltVelocity * (_playerTorqueStrength * 0.15);
+      playerTorque = positionTorque + snapTorque;
+
+      bool isReliablyInWheelie = _frontAirborneFrames > 5 && rearOnGround;
+
+      if (rearOnGround && frontOnGround) {
+        // BOTH WHEELS GROUNDED
+        if (tilt > 0) {
+          // Leaning forward: Lock out standard position torque to keep rear wheel down.
+          // Requires quick snap velocity actions to pop a transient stoppie run.
+          playerTorque = snapTorque.clamp(double.negativeInfinity, 0.0);
+          if (playerTorque.abs() < _playerTorqueStrength * 0.40) {
+            playerTorque = 0.0; 
+          }
+        } else {
+          // Leaning backward: Allows baseline wheelie pop maneuvers
+          playerTorque *= _frontGroundedTorqueScale;
+        }
+      } else if (isReliablyInWheelie) {
+        // WHEELIE REAR BALANCE STATE
+        // Protected balance state loop bypass. Returns raw positional logic for micro balancing.
+        if (playerTorque > 0) {
+          playerTorque *= _frontGroundedTorqueScale;
+        }
+      }
+    }
 
     double gravTorqueAccel = 0.0;
     if (rearOnGround && !frontOnGround) {
