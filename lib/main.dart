@@ -77,7 +77,7 @@ class RaceRiderGame extends FlameGame with DragCallbacks, TapCallbacks {
   
   double rawTilt = 0.0;
   double smoothedTilt = 0.0;
-  double lastSmoothedTilt = 0.0; // Tracked to calculate angular tilt velocity
+  double lastSmoothedTilt = 0.0; 
   double tiltZero = 0.0;
   bool tiltCalibrated = false;
   bool isGas = false;
@@ -291,10 +291,11 @@ class RaceRiderGame extends FlameGame with DragCallbacks, TapCallbacks {
     smoothedTilt = smoothedTilt * 0.15 + normalized * 0.85;
     if (smoothedTilt.abs() < 0.05) smoothedTilt = 0.0;
     
-    double tiltVelocity = (smoothedTilt - lastSmoothedTilt) / cappedDt;
-
+    // Smooth the raw tilt velocity frame-to-frame to eliminate high-frequency jitter
+    double rawVelocity = (smoothedTilt - lastSmoothedTilt);
+    player.tiltVelocity = (player.tiltVelocity * 0.70) + (rawVelocity * 0.30);
+    
     player.tilt = smoothedTilt;
-    player.tiltVelocity = tiltVelocity;
     player.useVelocityFlickMechanic = useVelocityFlickMechanic;
     player.isGas = (currentMode == AppState.victory) ? false : isGas;
     player.isBrake = (currentMode == AppState.victory) ? true : isBrake;
@@ -328,7 +329,7 @@ class RaceRiderGame extends FlameGame with DragCallbacks, TapCallbacks {
     }
     
     if (currentMode == AppState.ride) {
-      // FIX: Head must be in upper-right quadrant of space defined by flag base
+      // Victory Evaluator: Rider's head must be in upper-right quadrant of flag base point
       if (player.headPos.x >= finishLinePoint.x && player.headPos.y <= finishLinePoint.y) {
         currentMode = AppState.victory;
         isGas = isBrake = false;
@@ -495,11 +496,11 @@ enum BikeState { riding, crashed }
 
 class Bike {
   // --- ENVIRONMENT CONTEXT CONSTANTS ---
-  static const _airborneGravity = 230.0; // Lower airborne gravity for loftier jumps
+  static const _airborneGravity = 230.0; 
   static const _groundedGravity = 180.0; 
   static const int _gravityHysteresisThreshold = 12; 
 
-  static const _rearDrive = 820.0; // Higher forward wheel torque power
+  static const _rearDrive = 820.0; 
   static double _brakeStrength = 750.0; 
   static const _wheelRadius = 5.0;
   static const _headRadius = 3.0;
@@ -508,7 +509,7 @@ class Bike {
   static double _impactCrashLimit = 1600.0;       
   static double suspensionTravel = 4.5; 
   static double suspensionStrength = 1650.0;     
-  static double suspensionDamping = 72.0; // Cranked dampening to kill high-frequency chatter
+  static double suspensionDamping = 72.0; 
   
   static double _playerTorqueStrength = 212750.0;  
   static double _cogDistanceFromRear = 9.2;       
@@ -524,7 +525,7 @@ class Bike {
 
   final SpatialGrid spatialGrid;
   double tilt = 0.0;
-  double tiltVelocity = 0.0; // Injected frame-by-frame velocity context
+  double tiltVelocity = 0.0; 
   bool useVelocityFlickMechanic = true;
   bool isGas = false;
   bool isBrake = false;
@@ -539,7 +540,7 @@ class Bike {
   SurfaceHit? _rearSurface, _frontSurface;
 
   int _airborneFrames = 0;
-  int _frontAirborneFrames = 0; // Hysteresis frames dedicated to front axle state
+  int _frontAirborneFrames = 0; 
 
   double get _massRear => (_wheelbase - _cogDistanceFromRear) / _wheelbase;
   double get _massFront => _cogDistanceFromRear / _wheelbase;
@@ -556,8 +557,8 @@ class Bike {
     _syncFrameAndCollision();
   }
 
-  Vector2 get position => (rearPos + frontPos) / 2.0;
   bool get hasFiniteState => rearPos.x.isFinite && frontPos.x.isFinite;
+  Vector2 get position => (rearPos + frontPos) / 2.0;
 
   void stepPhysics(double dt) {
     if (state == BikeState.crashed) {
@@ -572,7 +573,7 @@ class Bike {
       _airborneFrames++; 
     }
 
-    // Track true context airtime for front tire to eliminate micro-lift chatter
+    // Track front axle hysteresis frame context to block micro-lift exploits
     if (frontOnGround) {
       _frontAirborneFrames = 0;
     } else {
@@ -637,17 +638,19 @@ class Bike {
     Vector2 tangent = Vector2(-axle.y, axle.x)..normalize();
     double angle = atan2(axle.y, axle.x);
 
-    // --- EXPERIMENTAL ROTATION DUAL DRIVER HANDLER ---
+    // --- ENHANCED ROTATION DRIVER CONTROLLER ---
     double playerTorque = 0.0;
 
     if (!useVelocityFlickMechanic) {
-      // STANDARD CALCULATION MODE (Old implementation for safe baseline referencing)
+      // STANDARD MODE (Baseline referencing)
       playerTorque = -tilt * _playerTorqueStrength;
       if (playerTorque > 0 && frontOnGround) playerTorque *= _frontGroundedTorqueScale;
     } else {
-      // DUAL-DRIVER FLICK MODE: Absolute positions mixed with derivative snapshot vectors
+      // DUAL-DRIVER SMOOTH FLICK MODE
       double positionTorque = -tilt * _playerTorqueStrength;
-      double snapTorque = -tiltVelocity * (_playerTorqueStrength * 0.15);
+      
+      // Integrated safely with time step to prevent solver injection shock waves
+      double snapTorque = -(tiltVelocity / dt) * (_playerTorqueStrength * 0.04);
       playerTorque = positionTorque + snapTorque;
 
       bool isReliablyInWheelie = _frontAirborneFrames > 5 && rearOnGround;
@@ -655,19 +658,19 @@ class Bike {
       if (rearOnGround && frontOnGround) {
         // BOTH WHEELS GROUNDED
         if (tilt > 0) {
-          // Leaning forward: Lock out standard position torque to keep rear wheel down.
-          // Requires quick snap velocity actions to pop a transient stoppie run.
+          // Leaning forward: Lock out position torque completely to keep the rear tire glued.
+          // Requires deliberate, smooth swift flick velocity updates to kick a stoppie.
           playerTorque = snapTorque.clamp(double.negativeInfinity, 0.0);
           if (playerTorque.abs() < _playerTorqueStrength * 0.40) {
             playerTorque = 0.0; 
           }
         } else {
-          // Leaning backward: Allows baseline wheelie pop maneuvers
+          // Leaning backward: Standard baseline pop is scaled correctly
           playerTorque *= _frontGroundedTorqueScale;
         }
       } else if (isReliablyInWheelie) {
-        // WHEELIE REAR BALANCE STATE
-        // Protected balance state loop bypass. Returns raw positional logic for micro balancing.
+        // ACTIVE WHEELIE DRIVER BYPASS
+        // Safely returns full positional micro adjustments so your weeks of wheelie balancing remain pristine
         if (playerTorque > 0) {
           playerTorque *= _frontGroundedTorqueScale;
         }
@@ -803,13 +806,11 @@ class DebugOverlay extends Component with HasGameRef<RaceRiderGame> {
   void render(Canvas canvas) {
     final modeStr = gameRef.currentMode == AppState.ride ? 'RIDING MODE' : gameRef.currentMode == AppState.victory ? 'VICTORY LOCKED' : 'DESIGN MODE';
     
-    // Standard debug tracking panel
     TextPainter(textDirection: TextDirection.ltr, text: TextSpan(
       text: 'RaceRider ${RaceRiderGame.buildLabel}\nState: $modeStr\nLines Active: ${gameRef.trackSegments.length}\nZoom: ${gameRef.camera.viewfinder.zoom.toStringAsFixed(2)}', 
       style: const TextStyle(color: Colors.yellow, fontSize: 11, fontWeight: FontWeight.bold)
     ))..layout()..paint(canvas, const Offset(16, 60));
 
-    // REAL-TIME FRONT WHEEL CONTACT MONITOR
     if (gameRef.currentMode == AppState.ride || gameRef.currentMode == AppState.victory) {
       final bool frontGrounded = gameRef.player.frontOnGround;
       final String groundText = ' FRONT GROUNDED: ${frontGrounded ? "TRUE " : "FALSE "}';
