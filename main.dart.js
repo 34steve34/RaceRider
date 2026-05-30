@@ -31957,8 +31957,8 @@ if(Math.abs(q)<0.05)q=g.ez=0
 p=g.jZ
 o=g.aR
 o===$&&A.c()
+o.c=o.c*0.7+(q-p)*0.3
 o.b=q
-o.c=(q-p)/s
 o.d=g.dR
 q=g.ag
 p=q===B.R
@@ -32383,7 +32383,7 @@ s=b4.d
 r=b4.b
 d=-r
 if(!s){a=d*212750
-if(a>0&&b4.ay)a*=0.12}else{a0=-b4.c*31912.5
+if(a>0&&b4.ay)a*=0.12}else{a0=-(b4.c/b5)*8510
 a=d*212750+a0
 a1=b4.cy>5&&b4.ax
 if(b4.ax&&b4.ay)if(r>0){a=B.d.bH(a0,-1/0,0)
