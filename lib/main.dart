@@ -531,7 +531,7 @@ class Bike {
   static double _cogDistanceFromRear = 9.2;       
   static double _cogHeight = 3.8;
   static double _frontGroundedTorqueScale = 0.12;
-  static const double _frontWheelieTorqueScale = 0.38; 
+  static const double _frontWheelieTorqueScale = 0.78; 
 
   static double _wheelbase = 19.5;                
   static double _bikeMass = 14.0;                 
@@ -670,25 +670,24 @@ class Bike {
     Vector2 tangent = Vector2(-axle.y, axle.x)..normalize();
     double angle = atan2(axle.y, axle.x);
 
-   // 1. Calculate the raw, uninhibited player torque based on device tilt
+   // 1. Calculate the raw player torque based on device tilt
     double playerTorque = -tilt * _playerTorqueStrength;
     
-    // 2. ONLY dampen the torque if a wheel is restricting that specific movement on the ground
+    // 2. Apply localized ground/wheelie dampening
     if (playerTorque > 0) {
-      // LEANING FORWARD: Only weaken it if the front wheel is glued to the track
-      // This prevents nose-diving into the dirt while riding flat
+      // LEANING FORWARD: Only weaken it if the front wheel is flat on the track
       if (frontOnGround) {
         playerTorque *= _frontGroundedTorqueScale; // 0.12
       }
     } else if (playerTorque < 0) {
-      // LEANING BACKWARD (Wheelie): Only weaken it if BOTH wheels are firmly on the ground
-      // This prevents the bike from instantly flipping over backwards from a dead stop
-      if (rearOnGround && frontOnGround) {
+      // NOSE UP (Wheelie): Keep it at 0.38 as long as the rear wheel is on the ground!
+      // This means during the initiation AND while riding a wheelie, it stays smooth.
+      if (rearOnGround) {
         playerTorque *= _frontWheelieTorqueScale; // 0.38
       }
     }
-    // NOTE: If you are airborne, both 'if' conditions are skipped! 
-    // You get 100% raw, snappy power pulling up and pushing down.
+    // NOTE: If you jump off a ramp and BOTH wheels leave the ground, 
+    // rearOnGround becomes false, giving you full 1.00 control in mid-air.
 
     telemetryCalculatedTorque = playerTorque;
 
