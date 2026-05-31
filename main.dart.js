@@ -32326,7 +32326,7 @@ r.n(0,r.a7(0,s).a1(0,0.98))
 return}s=b5.ax||b5.ay?b5.cx=0:++b5.cx
 if(b5.ay)b5.cy=0
 else ++b5.cy
-q=s>=12?230:180
+q=s>=12?195:150
 s=b5.r
 s===$&&A.c()
 r=b5.x
@@ -32365,9 +32365,9 @@ n.n(0,b5.ch.b.a1(0,(5-g)*1650-f*72+850))
 s=b5.e
 r=b5.ch
 if(s){s=r.c
-n.n(0,(s.a[0]<0?s.bk(0):s).a1(0,820))}else{e=p.be(r.c)
+n.n(0,(s.a[0]<0?s.bk(0):s).a1(0,1450))}else{e=p.be(r.c)
 n.bm(b5.ch.c.a1(0,e*0.8))}if(b5.f){e=p.be(b5.ch.c)
-n.bm(b5.ch.c.a1(0,J.Qp(e)*750))}if(f<-1600)b5.at=B.a4}}s=b5.CW
+n.bm(b5.ch.c.a1(0,J.Qp(e)*1100))}if(f<-1600)b5.at=B.a4}}s=b5.CW
 if(s!=null&&s.d<12){g=h.a7(0,s.a).be(b5.CW.b)
 if(g<5){b5.ay=!0
 f=o.be(b5.CW.b)
