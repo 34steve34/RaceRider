@@ -85,7 +85,8 @@ class RaceRiderGame extends FlameGame with DragCallbacks, TapCallbacks {
   bool isGas = false;
   bool isBrake = false;
   
-  StreamSubscription? _sensorSub;
+  StreamSubscription? _accelSub;
+  StreamSubscription? _gyroSub;
   Vector2? _lastDrawnPoint;
   static const double _drawingMinDistance = 14.0; 
   TrackSegment? _lastCreatedSegment;
