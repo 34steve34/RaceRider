@@ -670,24 +670,27 @@ class Bike {
     Vector2 tangent = Vector2(-axle.y, axle.x)..normalize();
     double angle = atan2(axle.y, axle.x);
 
-   // 1. Calculate the raw player torque based on device tilt
+// 1. Calculate the raw player torque based on device tilt
     double playerTorque = -tilt * _playerTorqueStrength;
     
-    // 2. Apply localized ground/wheelie dampening
+    // 2. Apply localized ground / wheelie dampening
     if (playerTorque > 0) {
       // LEANING FORWARD: Only weaken it if the front wheel is flat on the track
       if (frontOnGround) {
         playerTorque *= _frontGroundedTorqueScale; // 0.12
       }
     } else if (playerTorque < 0) {
-      // NOSE UP (Wheelie): Keep it at 0.38 as long as the rear wheel is on the ground!
-      // This means during the initiation AND while riding a wheelie, it stays smooth.
-      if (rearOnGround) {
-        playerTorque *= _frontWheelieTorqueScale; // 0.38
+      // NOSE UP (Wheelie Control):
+      if (rearOnGround && frontOnGround) {
+        // BOTH WHEELS ON GROUND: Give it a powerful breakaway multiplier (e.g., 1.4)
+        // This easily overpowers the rear suspension's suction so the front wheel lifts instantly!
+        playerTorque *= 1.4; 
+      } else if (rearOnGround && !frontOnGround) {
+        // ACTIVE WHEELIE: The front wheel is successfully up! 
+        // Now catch it and damp it using your variable so it floats smoothly without looping.
+        playerTorque *= _frontWheelieTorqueScale; // This will now actively use your 0.78!
       }
     }
-    // NOTE: If you jump off a ramp and BOTH wheels leave the ground, 
-    // rearOnGround becomes false, giving you full 1.00 control in mid-air.
 
     telemetryCalculatedTorque = playerTorque;
 
