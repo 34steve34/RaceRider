@@ -546,7 +546,7 @@ class Bike {
   static double _airborneRotationDamping = 125.0;  
   static const double _maxSurfaceDist = 12.0;
 
-  static const int _maxContactHysteresisFrames = 6;
+  static const int _maxContactHysteresisFrames = 15;
 
   final SpatialGrid spatialGrid;
   double tilt = 0.0;
