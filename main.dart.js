@@ -32433,11 +32433,11 @@ c=g<5
 if(c){e=o.b9(b5.cy.b)
 m.n(0,b5.cy.b.a1(0,(5-g)*1650-e*72+850))
 if(e<-1600)b5.CW=B.a6}}else c=!1
-if(f)s=b5.x=6
+if(f)s=b5.x=15
 else{s=b5.x
 if(s>0){--s
 b5.x=s}}b5.r=s>0
-if(c)s=b5.y=6
+if(c)s=b5.y=15
 else{s=b5.y
 if(s>0){--s
 b5.y=s}}b5.w=s>0
