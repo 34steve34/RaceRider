@@ -677,7 +677,7 @@ class Bike {
     double angle = atan2(axle.y, axle.x);
 
     // 1. Calculate the base torque (inverted so positive tilt equals nose-up torque)
-    double playerTorque = tilt * _playerTorqueStrength;
+    double playerTorque = -tilt * _playerTorqueStrength;
 
     // 2. Apply scaling based on intended direction and wheel states
     if (playerTorque > 0) {
