@@ -32452,8 +32452,9 @@ a.aB(-r,b)
 a.i2()
 a0=Math.atan2(s[1],s[0])
 a1=-b5.b*212750
-if(a1>0){if(b5.w)a1*=0.12}else if(a1<0)a1=b5.r?a1*0.78:a1
-b5.e=a1
+if(a1>0){if(b5.w)a1*=0.12}else if(a1<0){s=b5.r
+if(s&&b5.w)a1*=1.4
+else if(s&&!b5.w)a1*=0.78}b5.e=a1
 a2=b5.r&&!b5.w?q*Math.sin(a0-Math.atan2(3.8,9.2))*9.2/19.5:0
 s=b5.r
 r=!s
