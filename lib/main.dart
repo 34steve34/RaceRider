@@ -64,7 +64,7 @@ enum AppState { design, ride, victory }
 enum DesignTool { draw, startFlag, finishFlag, pan, delete }
 
 class RaceRiderGame extends FlameGame with DragCallbacks, TapCallbacks {
-  static const buildLabel = 'Hysteresis & Victory Master Engine';
+  static const buildLabel = 'Hybrid Sensor & State Logic Engine';
   late Bike player;
   final List<TrackSegment> trackSegments = [];
   final SpatialGrid grid = SpatialGrid(cellSize: 80.0);
@@ -75,14 +75,17 @@ class RaceRiderGame extends FlameGame with DragCallbacks, TapCallbacks {
   Vector2 startSpawnPoint = Vector2(-150.0, -30.0);
   Vector2 finishLinePoint = Vector2(150.0, -30.0);
   
+  // Hybrid Sensor Pipeline States
   double rawTilt = 0.0;
+  double rawGyro = 0.0;
   double smoothedTilt = 0.0;
   double tiltZero = 0.0;
   bool tiltCalibrated = false;
+  
   bool isGas = false;
   bool isBrake = false;
   
-  StreamSubscription? _accelSub;
+  StreamSubscription? _sensorSub;
   Vector2? _lastDrawnPoint;
   static const double _drawingMinDistance = 14.0; 
   TrackSegment? _lastCreatedSegment;
@@ -95,13 +98,23 @@ class RaceRiderGame extends FlameGame with DragCallbacks, TapCallbacks {
   Future<void> onLoad() async {
     super.onLoad();
     _clearCanvas();
-    _accelSub = accelerometerEvents.listen((e) => rawTilt = e.y);
+    
+    // Combined sensor stream to keep Accelerometer and Gyroscope frames strictly synchronized
+    _sensorSub = sensorEvents.listen((SensorEvent event) {
+      if (event.type == SensorType.accelerometer) {
+        rawTilt = event.y;
+      } else if (event.type == SensorType.gyroscope) {
+        // Z-Axis measures the rotation velocity in landscape mode
+        rawGyro = event.z;
+      }
+    });
+    
     add(DebugOverlay());
   }
 
   @override
   void onRemove() {
-    _accelSub?.cancel();
+    _sensorSub?.cancel();
     super.onRemove();
   }
 
@@ -309,11 +322,15 @@ class RaceRiderGame extends FlameGame with DragCallbacks, TapCallbacks {
       tiltCalibrated = true;
     }
     
-    final normalized = ((rawTilt - tiltZero) / 8.0).clamp(-1.0, 1.0);
-    smoothedTilt = smoothedTilt * 0.15 + normalized * 0.85;
-    if (smoothedTilt.abs() < 0.05) smoothedTilt = 0.0;
+    // Process absolute position from accelerometer
+    final normalizedAccel = ((rawTilt - tiltZero) / 8.0).clamp(-1.0, 1.0);
+    smoothedTilt = smoothedTilt * 0.15 + normalizedAccel * 0.85;
+    if (smoothedTilt.abs() < 0.04) smoothedTilt = 0.0;
     
+    // Feed both absolute tilt and raw gyro velocity down to the bike physics engine
     player.tilt = smoothedTilt;
+    player.gyroVelocity = rawGyro;
+    
     player.isGas = (currentMode == AppState.victory) ? false : isGas;
     player.isBrake = (currentMode == AppState.victory) ? true : isBrake;
     
@@ -345,7 +362,6 @@ class RaceRiderGame extends FlameGame with DragCallbacks, TapCallbacks {
       return;
     }
     
-    // --- INTEGRATED RE-FIXED VICTORY GATE CHECK ---
     if (currentMode == AppState.ride) {
       if (player.headPos.x >= finishLinePoint.x && player.headPos.y <= finishLinePoint.y) {
         currentMode = AppState.victory;
@@ -422,7 +438,7 @@ class RaceRiderGame extends FlameGame with DragCallbacks, TapCallbacks {
   
   void _renderUIOverlay(Canvas canvas) {
     canvas.drawRRect(RRect.fromRectAndRadius(const Rect.fromLTWH(12, 54, 255, 24), const Radius.circular(4)), Paint()..color = const Color(0xFFFF007F));
-    TextPainter(text: const TextSpan(text: '[ ENGINE: HYSTERESIS BALANCED ]', style: TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold, letterSpacing: 0.8)), textDirection: TextDirection.ltr)
+    TextPainter(text: const TextSpan(text: '[ ENGINE: HYBRID MULTI-STATE ]', style: TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold, letterSpacing: 0.8)), textDirection: TextDirection.ltr)
       ..layout()..paint(canvas, const Offset(20, 60));
 
     canvas.drawRRect(RRect.fromRectAndRadius(const Rect.fromLTWH(274, 54, 185, 24), const Radius.circular(4)), Paint()..color = Colors.indigo[800]!);
@@ -527,11 +543,16 @@ class Bike {
   static double suspensionStrength = 1650.0;     
   static double suspensionDamping = 72.0; 
   
+  // Base Physics Tuning Variables
   static double _playerTorqueStrength = 212750.0;  
   static double _cogDistanceFromRear = 9.2;       
   static double _cogHeight = 3.8;
   static double _frontGroundedTorqueScale = 0.12;
-  static const double _frontWheelieTorqueScale = 0.78; 
+
+  // --- THE GYROSCOPE TUNING COEFFECIENT ---
+  // Adjust this scale to fine-tune your wrist snap leverage
+  static double _gyroVelocityScale = 0.12;
+  static const double _gyroNoiseDeadzone = 0.08;
 
   static double _wheelbase = 19.5;                
   static double _bikeMass = 14.0;                 
@@ -544,12 +565,17 @@ class Bike {
   static const int _maxContactHysteresisFrames = 15;
 
   final SpatialGrid spatialGrid;
+  
+  // Pipeline sensor properties
   double tilt = 0.0;
+  double gyroVelocity = 0.0;
+  
   bool isGas = false;
   bool isBrake = false;
 
   double telemetryCalculatedTorque = 0.0;
   double telemetryAngularVelocity = 0.0;
+  String telemetryActiveStateLabel = 'AIRBORNE';
 
   bool rearOnGround = false;
   bool frontOnGround = false;
@@ -652,6 +678,7 @@ class Bike {
       }
     }
 
+    // Process Hysteresis contact buffers cleanly
     if (rawRearIntersection) {
       _rearGroundedBuffer = _maxContactHysteresisFrames;
     } else if (_rearGroundedBuffer > 0) {
@@ -670,26 +697,45 @@ class Bike {
     Vector2 tangent = Vector2(-axle.y, axle.x)..normalize();
     double angle = atan2(axle.y, axle.x);
 
-// 1. Calculate the raw player torque based on device tilt
-    double playerTorque = -tilt * _playerTorqueStrength;
+    // --- INTEGRATED HYBRID SENSOR INPUT PIPELINE ---
+    double filteredGyro = 0.0;
+    if (gyroVelocity.abs() > _gyroNoiseDeadzone) {
+      filteredGyro = gyroVelocity;
+    }
     
-    // 2. Apply localized ground / wheelie dampening
-    if (playerTorque > 0) {
-      // LEANING FORWARD: Only weaken it if the front wheel is flat on the track
-      if (frontOnGround) {
+    // Combine absolute angle with relative physical velocity change
+    double totalCombinedTilt = tilt + (filteredGyro * _gyroVelocityScale);
+    totalCombinedTilt = totalCombinedTilt.clamp(-1.2, 1.2);
+
+    double playerTorque = -totalCombinedTilt * _playerTorqueStrength;
+
+    // --- STRATEGIC EXPLICIT THREE-STATE GROUND LOGIC ---
+    if (rearOnGround && frontOnGround) {
+      telemetryActiveStateLabel = 'DUAL GROUNDED';
+      if (playerTorque < 0) {
+        // NOSE UP: Provide strong breakaway torque to instantly pop a wheelie cleanly
+        playerTorque *= 1.45;
+      } else if (playerTorque > 0) {
+        // NOSE DOWN: Suppress heavily so leaning forward never lifts rear tire on flat ground
         playerTorque *= _frontGroundedTorqueScale; // 0.12
       }
-    } else if (playerTorque < 0) {
-      // NOSE UP (Wheelie Control):
-      if (rearOnGround && frontOnGround) {
-        // BOTH WHEELS ON GROUND: Give it a powerful breakaway multiplier (e.g., 1.4)
-        // This easily overpowers the rear suspension's suction so the front wheel lifts instantly!
-        playerTorque *= 1.4; 
-      } else if (rearOnGround && !frontOnGround) {
-        // ACTIVE WHEELIE: The front wheel is successfully up! 
-        // Now catch it and damp it using your variable so it floats smoothly without looping.
-        playerTorque *= _frontWheelieTorqueScale; // This will now actively use your 0.78!
+    } 
+    else if (rearOnGround && !frontOnGround) {
+      telemetryActiveStateLabel = 'ACTIVE WHEELIE (REAR WHEEL ONLY)';
+      // AGILITY ZONE: Remove torque dampers entirely. Gives player full physical authority
+      // to rapidly pull the wheel up or slam it down flat at any angle.
+      playerTorque *= 1.0; 
+    } 
+    else if (!rearOnGround && frontOnGround) {
+      telemetryActiveStateLabel = 'PRO-LEAN TRIPPED (FRONT WHEEL ONLY)';
+      if (playerTorque > 0) {
+        // Throttle torque input so professional end-of-ramp weight slams don't swap out into loops
+        playerTorque *= 0.15;
       }
+    } 
+    else {
+      telemetryActiveStateLabel = 'AIRBORNE PITCH ADJUSTMENT';
+      playerTorque *= 1.0;
     }
 
     telemetryCalculatedTorque = playerTorque;
@@ -701,7 +747,12 @@ class Bike {
       gravTorqueAccel = (currentGravity * sin(angularOffset) * _cogDistanceFromRear) / _wheelbase;
     }
 
-    double damping = (!rearOnGround && !frontOnGround) ? _airborneRotationDamping : ((rearOnGround && !frontOnGround) || (!rearOnGround && frontOnGround)) ? _wheelieRotationDamping : _landingRotationDamping;
+    double damping = (!rearOnGround && !frontOnGround) 
+        ? _airborneRotationDamping 
+        : ((rearOnGround && !frontOnGround) || (!rearOnGround && frontOnGround)) 
+            ? _wheelieRotationDamping 
+            : _landingRotationDamping;
+            
     double rotVel = (fVel - rVel).dot(tangent) / _wheelbase;
     telemetryAngularVelocity = rotVel;
 
@@ -828,7 +879,8 @@ class DebugOverlay extends Component with HasGameRef<RaceRiderGame> {
     
     String telemetryText = 'RaceRider ${RaceRiderGame.buildLabel}\n'
         'Mode Context: $modeStr   |   Lines drawn: ${gameRef.trackSegments.length}\n'
-        'Device Tilt Input: ${gameRef.player.tilt.toStringAsFixed(3)}\n'
+        'Spatial Matrix State: ${gameRef.player.telemetryActiveStateLabel}\n'
+        'Device Tilt Input: ${gameRef.player.tilt.toStringAsFixed(3)}   |   Gyro Input: ${gameRef.player.gyroVelocity.toStringAsFixed(3)}\n'
         'Calculated Torque: ${gameRef.player.telemetryCalculatedTorque.toStringAsFixed(1)}\n'
         'Angular Velocity: ${gameRef.player.telemetryAngularVelocity.toStringAsFixed(3)}\n'
         'Contacts -> Rear: ${gameRef.player.rearOnGround.toString().toUpperCase()} | Front: ${gameRef.player.frontOnGround.toString().toUpperCase()}';
