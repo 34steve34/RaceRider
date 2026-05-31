@@ -32451,7 +32451,7 @@ a=new A.v(new Float64Array(2))
 a.aB(-r,b)
 a.i2()
 a0=Math.atan2(s[1],s[0])
-a1=b5.b*212750
+a1=-b5.b*212750
 if(!(a1>0))if(a1<0)a1*=0.15
 b5.e=a1
 a2=b5.r&&!b5.w?q*Math.sin(a0-Math.atan2(3.8,9.2))*9.2/19.5:0
