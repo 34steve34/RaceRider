@@ -10418,11 +10418,12 @@ _.a=a
 _.b=0
 _.d=_.c=!1
 _.f=_.e=0
-_.as=_.Q=_.z=_.y=_.x=_.w=_.r=$
-_.at=b
-_.ay=_.ax=!1
-_.CW=_.ch=null
-_.cx=0},
+_.w=_.r=!1
+_.y=_.x=0
+_.ch=_.ay=_.ax=_.at=_.as=_.Q=_.z=$
+_.CW=b
+_.cy=_.cx=null
+_.db=0},
 nD:function nD(a,b,c,d,e){var _=this
 _.ny$=a
 _.a=0
@@ -31991,21 +31992,21 @@ k=l.a.a[1]
 if(k>n)n=k
 k=l.b.a[1]
 if(k>n)n=k}q=h.aw
-p=q.r
+p=q.z
 p===$&&A.c()
-q=q.w
+q=q.Q
 q===$&&A.c()
 if(p.a0(0,q).b0(0,2).a[1]>n+600){h.f3()
 return}}q=h.aw
-if(q.at===B.a4&&h.ab===B.C){h.f3()
+if(q.CW===B.a4&&h.ab===B.C){h.f3()
 return}p=h.ab
-if(p===B.C){o=q.Q
+if(p===B.C){o=q.ay
 o===$&&A.c()
 if(o.a[0]>=h.T.a[0]){h.ab=B.M
 h.dg=h.P=!1
-p=B.M}}o=q.r
+p=B.M}}o=q.z
 o===$&&A.c()
-if(isFinite(o.a[0])){q=q.w
+if(isFinite(o.a[0])){q=q.Q
 q===$&&A.c()
 q=isFinite(q.a[0])}else q=!1
 if(!q){h.f3()
@@ -32019,9 +32020,9 @@ j=B.d.c0(15*s,0,1)
 q=q.f
 o=q.bj(0)
 p=h.aw
-i=p.r
+i=p.z
 i===$&&A.c()
-p=p.w
+p=p.Q
 p===$&&A.c()
 q.eU(o.a0(0,i.a0(0,p).b0(0,2).a7(0,q.bj(0)).a1(0,j)).bj(0))
 q.aT()}else if(h.bA==null&&h.aS.length===0){j=B.d.c0(10*s,0,1)
@@ -32037,27 +32038,27 @@ s=new A.vL(n.b9,B.a4)
 q=new A.w(new Float64Array(2))
 q.aB(-10.2,6.5)
 q=r.a0(0,q)
-s.r=q
+s.z=q
 p=new A.w(new Float64Array(2))
 p.aB(9.3,6.5)
 p=r.a0(0,p)
-s.w=p
+s.Q=p
 o=new A.w(new Float64Array(2))
 o.Z(q)
-s.x=o
+s.as=o
 q=new A.w(new Float64Array(2))
 q.Z(p)
-s.y=q
+s.at=q
 q=new A.w(new Float64Array(2))
 q.Z(r)
-s.z=q
+s.ax=q
 q=new A.w(new Float64Array(2))
 q.Z(r)
-s.Q=q
+s.ay=q
 q=new A.w(new Float64Array(2))
 q.Z(r)
-s.as=q
-s.at=B.nZ
+s.ch=q
+s.CW=B.nZ
 s.t2()
 n.aw=s
 if(n.ab===B.I)n.dg=n.P=!1},
@@ -32124,9 +32125,9 @@ d.c=3
 d.b=B.cP
 c=A.aE()
 c.r=B.oZ.I()
-l=p.w
+l=p.Q
 l===$&&A.c()
-j=p.r
+j=p.z
 j===$&&A.c()
 j=l.a7(0,j).o0().a
 l=j[1]
@@ -32139,41 +32140,41 @@ A.EO(a,0.2)
 a0=new A.w(new Float64Array(2))
 a0.Z(b)
 A.EO(a0,-0.5)
-a1=p.r.a0(0,a.a1(0,4.5))
-l=p.ch
-if(l!=null&&l.d<12){a2=a1.a7(0,l.a).be(p.ch.b)
-if(a2<5)a1=p.r.a0(0,a.a1(0,4.5-B.d.c0((5-a2)/B.d.c0(a.be(p.ch.b.bj(0)),0.1,1),0,4.5)))}a3=p.w.a0(0,a0.a1(0,4.5))
-l=p.CW
-if(l!=null&&l.d<12){a2=a3.a7(0,l.a).be(p.CW.b)
-if(a2<5)a3=p.w.a0(0,a0.a1(0,4.5-B.d.c0((5-a2)/B.d.c0(a0.be(p.CW.b.bj(0)),0.1,1),0,4.5)))}l=a1.a
+a1=p.z.a0(0,a.a1(0,4.5))
+l=p.cx
+if(l!=null&&l.d<12){a2=a1.a7(0,l.a).be(p.cx.b)
+if(a2<5)a1=p.z.a0(0,a.a1(0,4.5-B.d.c0((5-a2)/B.d.c0(a.be(p.cx.b.bj(0)),0.1,1),0,4.5)))}a3=p.Q.a0(0,a0.a1(0,4.5))
+l=p.cy
+if(l!=null&&l.d<12){a2=a3.a7(0,l.a).be(p.cy.b)
+if(a2<5)a3=p.Q.a0(0,a0.a1(0,4.5-B.d.c0((5-a2)/B.d.c0(a0.be(p.cy.b.bj(0)),0.1,1),0,4.5)))}l=a1.a
 b5.nl(new A.F(l[0],l[1]),5,d)
 k=a3.a
 b5.nl(new A.F(k[0],k[1]),5,d)
-j=p.r.a
+j=p.z.a
 i=j[0]
 j=j[1]
-a4=p.w.a
+a4=p.Q.a
 b5.ev(new A.F(i,j),new A.F(a4[0],a4[1]),e)
-a4=p.r.a
+a4=p.z.a
 j=a4[0]
 a4=a4[1]
-i=p.z
+i=p.ax
 i===$&&A.c()
 i=i.a
 b5.ev(new A.F(j,a4),new A.F(i[0],i[1]),e)
-i=p.w.a
+i=p.Q.a
 a4=i[0]
 i=i[1]
-j=p.z.a
+j=p.ax.a
 b5.ev(new A.F(a4,i),new A.F(j[0],j[1]),e)
 a5=A.aE()
 a5.r=B.oJ.I()
 a5.c=2
-j=p.r.a
+j=p.z.a
 b5.ev(new A.F(j[0],j[1]),new A.F(l[0],l[1]),a5)
-l=p.w.a
+l=p.Q.a
 b5.ev(new A.F(l[0],l[1]),new A.F(k[0],k[1]),a5)
-p=p.Q
+p=p.ay
 p===$&&A.c()
 p=p.a
 b5.nl(new A.F(p[0],p[1]),3,c)
@@ -32182,21 +32183,21 @@ s=A.cM(B.v3,B.nf)
 p=A.aE()
 p.r=B.oU.I()
 b5.bK(s,p)
-p=A.ct(B.vO,B.y,B.m)
+p=A.ct(B.vH,B.y,B.m)
 p.c8()
 p.aK(b5,B.u3)
 p=A.cM(B.v6,B.nf)
 s=A.aE()
 s.r=B.oR.I()
 b5.bK(p,s)
-s=A.ct(B.vI,B.y,B.m)
+s=A.ct(B.vJ,B.y,B.m)
 s.c8()
 s.aK(b5,B.u6)
 s=A.cM(B.v2,B.aM)
 p=A.aE()
 p.r=A.dO(217,B.cI.I()>>>16&255,B.cI.I()>>>8&255,B.cI.I()&255).I()
 b5.bK(s,p)
-p=A.ct(B.vH,B.y,B.m)
+p=A.ct(B.vI,B.y,B.m)
 p.c8()
 p.aK(b5,B.u4)
 a6=r.length!==0?0.85:0.3
@@ -32204,7 +32205,7 @@ s=A.cM(B.v4,B.aM)
 r=A.aE()
 r.r=A.dO(B.d.bQ(255*a6),B.bz.I()>>>16&255,B.bz.I()>>>8&255,B.bz.I()&255).I()
 b5.bK(s,r)
-r=A.ct(B.vM,B.y,B.m)
+r=A.ct(B.vN,B.y,B.m)
 r.c8()
 r.aK(b5,B.u2)
 if(b4.ab===B.I){s=A.cM(B.v5,B.aM)
@@ -32247,7 +32248,7 @@ r=A.cM(new A.R(l,r,l+320,r+130),B.v0)
 s=A.aE()
 s.r=B.oP.I()
 b5.bK(r,s)
-s=A.ct(B.vK,B.as,B.m)
+s=A.ct(B.vL,B.as,B.m)
 s.nW(320,320)
 s.aK(b5,new A.F(l,b1-52))
 l=b0-80
@@ -32267,7 +32268,7 @@ r=A.cM(new A.R(b3,b2,b3+115,q),B.bf)
 l=A.aE()
 l.r=(s===B.aB?B.aU:A.dO(p,B.B.I()>>>16&255,B.B.I()>>>8&255,B.B.I()&255)).I()
 b5.bK(r,l)
-r=A.ct(B.vN,B.y,B.m)
+r=A.ct(B.vO,B.y,B.m)
 r.c8()
 l=b2+11
 r.aK(b5,new A.F(b3+20,l))
@@ -32286,7 +32287,7 @@ k=A.cM(new A.R(k,b2,k+115,q),B.bf)
 j=A.aE()
 j.r=(s===B.bB?B.aU:A.dO(p,B.B.I()>>>16&255,B.B.I()>>>8&255,B.B.I()&255)).I()
 b5.bK(k,j)
-r=A.ct(B.vL,B.y,B.m)
+r=A.ct(B.vM,B.y,B.m)
 r.c8()
 r.aK(b5,new A.F(b3+274,l))
 r=b4.aY
@@ -32295,7 +32296,7 @@ q=A.cM(new A.R(k,b2,k+115,q),B.bf)
 k=A.aE()
 k.r=(r===B.bC?B.aU:A.dO(p,B.B.I()>>>16&255,B.B.I()>>>8&255,B.B.I()&255)).I()
 b5.bK(q,k)
-s=A.ct(B.vJ,B.y,B.m)
+s=A.ct(B.vK,B.y,B.m)
 s.c8()
 s.aK(b5,new A.F(b3+412,l))}},
 Ae(a,b){var s,r,q,p,o,n,m,l,k,j,i,h,g
@@ -32325,33 +32326,33 @@ A.E3.prototype={}
 A.nd.prototype={
 D(){return"BikeState."+this.b}}
 A.vL.prototype={
-x3(b4){var s,r,q,p,o,n,m,l,k,j,i,h,g,f,e,d,c,b,a,a0,a1,a2,a3,a4,a5,a6,a7,a8,a9,b0,b1,b2,b3=this
-if(b3.at===B.a4){s=b3.r
+x3(b6){var s,r,q,p,o,n,m,l,k,j,i,h,g,f,e,d,c,b,a,a0,a1,a2,a3,a4,a5,a6,a7,a8,a9,b0,b1,b2,b3,b4,b5=this
+if(b5.CW===B.a4){s=b5.z
 s===$&&A.c()
-r=b3.x
+r=b5.as
 r===$&&A.c()
 s.n(0,s.a7(0,r).a1(0,0.98))
-r=b3.w
+r=b5.Q
 r===$&&A.c()
-s=b3.y
+s=b5.at
 s===$&&A.c()
 r.n(0,r.a7(0,s).a1(0,0.98))
-return}q=(b3.ax||b3.ay?b3.cx=0:++b3.cx)>=12?230:180
-s=b3.r
+return}q=(b5.r||b5.w?b5.db=0:++b5.db)>=12?230:180
+s=b5.z
 s===$&&A.c()
-r=b3.x
+r=b5.as
 r===$&&A.c()
-p=s.a7(0,r).b0(0,b4)
-r=b3.w
+p=s.a7(0,r).b0(0,b6)
+r=b5.Q
 r===$&&A.c()
-s=b3.y
+s=b5.at
 s===$&&A.c()
-o=r.a7(0,s).b0(0,b4)
+o=r.a7(0,s).b0(0,b6)
 n=new A.w(new Float64Array(2))
 n.aB(0,q)
 m=new A.w(new Float64Array(2))
 m.aB(0,q)
-s=b3.w.a7(0,b3.r).o0().a
+s=b5.Q.a7(0,b5.z).o0().a
 r=s[1]
 s=s[0]
 l=new A.w(new Float64Array(2))
@@ -32362,95 +32363,104 @@ A.EO(k,0.2)
 j=new A.w(new Float64Array(2))
 j.Z(l)
 A.EO(j,-0.5)
-i=b3.r.a0(0,k.a1(0,4.5))
-h=b3.w.a0(0,j.a1(0,4.5))
-b3.ch=b3.mm(i)
-b3.CW=b3.mm(h)
-b3.ax=b3.ay=!1
-s=b3.ch
-if(s!=null&&s.d<12){g=i.a7(0,s.a).be(b3.ch.b)
-if(g<5){b3.ax=!0
-f=p.be(b3.ch.b)
-n.n(0,b3.ch.b.a1(0,(5-g)*1650-f*72+850))
-s=b3.c
-r=b3.ch
+i=b5.z.a0(0,k.a1(0,4.5))
+h=b5.Q.a0(0,j.a1(0,4.5))
+b5.cx=b5.mm(i)
+b5.cy=b5.mm(h)
+s=b5.cx
+if(s!=null&&s.d<12){g=i.a7(0,s.a).be(b5.cx.b)
+f=g<5
+if(f){e=p.be(b5.cx.b)
+n.n(0,b5.cx.b.a1(0,(5-g)*1650-e*72+850))
+s=b5.c
+r=b5.cx
 if(s){s=r.c
-n.n(0,(s.a[0]<0?s.bj(0):s).a1(0,820))}else{e=p.be(r.c)
-n.bl(b3.ch.c.a1(0,e*0.8))}if(b3.d){e=p.be(b3.ch.c)
-n.bl(b3.ch.c.a1(0,J.Qt(e)*750))}if(f<-1600)b3.at=B.a4}}s=b3.CW
-if(s!=null&&s.d<12){g=h.a7(0,s.a).be(b3.CW.b)
-if(g<5){b3.ay=!0
-f=o.be(b3.CW.b)
-m.n(0,b3.CW.b.a1(0,(5-g)*1650-f*72+850))
-if(f<-1600)b3.at=B.a4}}s=b3.w.a7(0,b3.r).a
+n.n(0,(s.a[0]<0?s.bj(0):s).a1(0,820))}else{d=p.be(r.c)
+n.bl(b5.cx.c.a1(0,d*0.8))}if(b5.d){d=p.be(b5.cx.c)
+n.bl(b5.cx.c.a1(0,J.Qt(d)*750))}if(e<-1600)b5.CW=B.a4}}else f=!1
+s=b5.cy
+if(s!=null&&s.d<12){g=h.a7(0,s.a).be(b5.cy.b)
+c=g<5
+if(c){e=o.be(b5.cy.b)
+m.n(0,b5.cy.b.a1(0,(5-g)*1650-e*72+850))
+if(e<-1600)b5.CW=B.a4}}else c=!1
+if(f)s=b5.x=6
+else{s=b5.x
+if(s>0){--s
+b5.x=s}}b5.r=s>0
+if(c)s=b5.y=6
+else{s=b5.y
+if(s>0){--s
+b5.y=s}}b5.w=s>0
+s=b5.Q.a7(0,b5.z).a
 r=s[1]
-d=s[0]
-c=new A.w(new Float64Array(2))
-c.aB(-r,d)
-c.i2()
-b=Math.atan2(s[1],s[0])
-a=-b3.b*212750
-if(a>0){if(b3.ay)a*=0.12}else if(a<0)a*=0.38
-b3.e=a
-a0=b3.ax&&!b3.ay?q*Math.sin(b-Math.atan2(3.8,9.2))*9.2/19.5:0
-s=b3.ax
+b=s[0]
+a=new A.w(new Float64Array(2))
+a.aB(-r,b)
+a.i2()
+a0=Math.atan2(s[1],s[0])
+a1=-b5.b*212750
+if(a1>0){if(b5.w)a1*=0.12}else if(a1<0)a1*=0.38
+b5.e=a1
+a2=b5.r&&!b5.w?q*Math.sin(a0-Math.atan2(3.8,9.2))*9.2/19.5:0
+s=b5.r
 r=!s
-if(r&&!b3.ay)a1=125
-else{if(!(s&&!b3.ay))s=r&&b3.ay
+if(r&&!b5.w)a3=125
+else{if(!(s&&!b5.w))s=r&&b5.w
 else s=!0
-a1=s?110:185}a2=o.a7(0,p).be(c)/19.5
-b3.f=a2
-a3=a/273+a0+a2*a1
-n.n(0,c.a1(0,a3))
-m.bl(c.a1(0,a3))
-s=b4*b4
-a4=b3.r.a0(0,p.a1(0,b4)).a0(0,n.a1(0,s))
-a5=b3.w.a0(0,o.a1(0,b4)).a0(0,m.a1(0,s))
-b3.x.Z(b3.r)
-b3.y.Z(b3.w)
-b3.r.Z(a4)
-b3.w.Z(a5)
-for(a6=0;a6<8;++a6){s=b3.w
-r=b3.r
-a7=new Float64Array(2)
-a8=new A.w(a7)
-a9=s.a
-a7[1]=a9[1]
-a7[0]=a9[0]
-a8.bl(r)
-b0=Math.sqrt(a8.geF())
-if(b0<0.001)continue
-b1=(b0-19.5)/b0
-s=b3.r
+a3=s?110:185}a4=o.a7(0,p).be(a)/19.5
+b5.f=a4
+a5=a1/273+a2+a4*a3
+n.n(0,a.a1(0,a5))
+m.bl(a.a1(0,a5))
+s=b6*b6
+a6=b5.z.a0(0,p.a1(0,b6)).a0(0,n.a1(0,s))
+a7=b5.Q.a0(0,o.a1(0,b6)).a0(0,m.a1(0,s))
+b5.as.Z(b5.z)
+b5.at.Z(b5.Q)
+b5.z.Z(a6)
+b5.Q.Z(a7)
+for(a8=0;a8<8;++a8){s=b5.Q
+r=b5.z
+a9=new Float64Array(2)
+b0=new A.w(a9)
+b1=s.a
+a9[1]=b1[1]
+a9[0]=b1[0]
+b0.bl(r)
+b2=Math.sqrt(b0.geF())
+if(b2<0.001)continue
+b3=(b2-19.5)/b2
+s=b5.z
 r=new Float64Array(2)
-d=new A.w(r)
-r[1]=a7[1]
-r[0]=a7[0]
-d.cW(b1*0.4717948717948718)
-s.n(0,d)
-d=b3.w
+b=new A.w(r)
+r[1]=a9[1]
+r[0]=a9[0]
+b.cW(b3*0.4717948717948718)
+s.n(0,b)
+b=b5.Q
 s=new Float64Array(2)
 r=new A.w(s)
-s[1]=a7[1]
-s[0]=a7[0]
-r.cW(b1*0.5282051282051282)
-d.bl(r)}b3.t2()
-s=b3.as
+s[1]=a9[1]
+s[0]=a9[0]
+r.cW(b3*0.5282051282051282)
+b.bl(r)}b5.t2()
+s=b5.ch
 s===$&&A.c()
-b2=b3.mm(s)
-if(b2!=null&&b2.d<3)b3.at=B.a4},
-t2(){var s,r,q,p=this,o=p.r
+b4=b5.mm(s)
+if(b4!=null&&b4.d<3)b5.CW=B.a4},
+t2(){var s,r,q,p=this,o=p.z
 o===$&&A.c()
-s=p.w
+s=p.Q
 s===$&&A.c()
 r=o.a0(0,s).b0(0,2)
-s=p.w.a7(0,p.r).o0().a
+s=p.Q.a7(0,p.z).o0().a
 o=s[1]
 s=s[0]
 q=new A.w(new Float64Array(2))
 q.aB(-o,s)
-p.as=p.z=r.a0(0,q.a1(0,-14))
-p.Q=r.a0(0,q.a1(0,-7))},
+p.ch=p.ax=r.a0(0,q.a1(0,-14))
+p.ay=r.a0(0,q.a1(0,-7))},
 mm(a3){var s,r,q,p,o,n,m,l,k,j,i,h,g,f,e,d,c,b,a,a0,a1,a2=this.a.wo(a3,22)
 for(s=a2.length,r=a3.a,q=null,p=1/0,o=0;o<a2.length;a2.length===s||(0,A.n)(a2),++o){n=a2[o]
 m=n.a
@@ -32560,10 +32570,10 @@ o===$&&A.c()
 o=B.d.F(o.f,3)
 n=l.gcv().aw
 n===$&&A.c()
-n=String(n.ax)
+n=String(n.r)
 m=l.gcv().aw
 m===$&&A.c()
-m=A.ct(A.N6(B.vU,"RaceRider Asymmetric Boxer Torque Calibration\nMode Context: "+s+"   |   Lines drawn: "+r+"\nDevice Tilt Input: "+q+"\nCalculated Torque: "+p+"\nAngular Velocity: "+o+"\nContacts -> Rear: "+n.toUpperCase()+" | Front: "+String(m.ay).toUpperCase()),B.y,B.m)
+m=A.ct(A.N6(B.vU,"RaceRider Hysteresis Stabilized Drive Module\nMode Context: "+s+"   |   Lines drawn: "+r+"\nDevice Tilt Input: "+q+"\nCalculated Torque: "+p+"\nAngular Velocity: "+o+"\nContacts -> Rear: "+n.toUpperCase()+" | Front: "+String(m.w).toUpperCase()),B.y,B.m)
 m.c8()
 m.aK(a,new A.F(16,84))}}
 A.r8.prototype={
@@ -35179,18 +35189,18 @@ B.nx=new A.qh(0,"proportional")
 B.ny=new A.qh(1,"even")
 B.vG=new A.bQ(-1,-1)
 B.aD=new A.oa(700)
-B.bk=new A.ed(B.X,12,B.aD,null,null)
-B.vH=new A.bC("[ CLEAR ALL ]",B.z,B.bk)
 B.nz=new A.ed(B.X,10,B.aD,0.8,null)
-B.vI=new A.bC("[ TELEMETRY ACTIVE ]",B.z,B.nz)
+B.vH=new A.bC("[ ENGINE: HYSTERESIS BALANCED ]",B.z,B.nz)
+B.bk=new A.ed(B.X,12,B.aD,null,null)
+B.vI=new A.bC("[ CLEAR ALL ]",B.z,B.bk)
+B.vJ=new A.bC("[ TELEMETRY ACTIVE ]",B.z,B.nz)
 B.at=new A.ed(B.X,11,B.aD,null,null)
-B.vJ=new A.bC("\u270b HAND PAN",B.z,B.at)
+B.vK=new A.bC("\u270b HAND PAN",B.z,B.at)
 B.vV=new A.ed(B.X,17,B.aD,null,1.25)
-B.vK=new A.bC("\ud83c\udfc1 VICTORY! \ud83c\udfc1\nTRACK CLEARED",B.z,B.vV)
-B.vL=new A.bC("\ud83c\udfc1 FINISH GATE",B.z,B.at)
-B.vM=new A.bC("[ UNDO LINE ]",B.z,B.bk)
-B.vN=new A.bC("\u270f\ufe0f PEN DRAW",B.z,B.at)
-B.vO=new A.bC("[ ENGINE: ASYMMETRIC BOXER ]",B.z,B.nz)
+B.vL=new A.bC("\ud83c\udfc1 VICTORY! \ud83c\udfc1\nTRACK CLEARED",B.z,B.vV)
+B.vM=new A.bC("\ud83c\udfc1 FINISH GATE",B.z,B.at)
+B.vN=new A.bC("[ UNDO LINE ]",B.z,B.bk)
+B.vO=new A.bC("\u270f\ufe0f PEN DRAW",B.z,B.at)
 B.vP=new A.bC("\ud83d\udfe2 START LINE",B.z,B.at)
 B.vQ=new A.bC("RESTART RUN",B.z,B.bk)
 B.vR=new A.bC("[ ZOOM + ]",B.z,B.at)
