@@ -32312,36 +32312,36 @@ A.E_.prototype={}
 A.nc.prototype={
 D(){return"BikeState."+this.b}}
 A.vH.prototype={
-x0(b5){var s,r,q,p,o,n,m,l,k,j,i,h,g,f,e,d,c,b,a,a0,a1,a2,a3,a4,a5,a6,a7,a8,a9,b0,b1,b2,b3,b4=this
-if(b4.at===B.a4){s=b4.r
+x0(b6){var s,r,q,p,o,n,m,l,k,j,i,h,g,f,e,d,c,b,a,a0,a1,a2,a3,a4,a5,a6,a7,a8,a9,b0,b1,b2,b3,b4,b5=this
+if(b5.at===B.a4){s=b5.r
 s===$&&A.c()
-r=b4.x
+r=b5.x
 r===$&&A.c()
 s.n(0,s.a7(0,r).a1(0,0.98))
-r=b4.w
+r=b5.w
 r===$&&A.c()
-s=b4.y
+s=b5.y
 s===$&&A.c()
 r.n(0,r.a7(0,s).a1(0,0.98))
-return}s=b4.ax||b4.ay?b4.cx=0:++b4.cx
-if(b4.ay)b4.cy=0
-else ++b4.cy
+return}s=b5.ax||b5.ay?b5.cx=0:++b5.cx
+if(b5.ay)b5.cy=0
+else ++b5.cy
 q=s>=12?230:180
-s=b4.r
+s=b5.r
 s===$&&A.c()
-r=b4.x
+r=b5.x
 r===$&&A.c()
-p=s.a7(0,r).b0(0,b5)
-r=b4.w
+p=s.a7(0,r).b0(0,b6)
+r=b5.w
 r===$&&A.c()
-s=b4.y
+s=b5.y
 s===$&&A.c()
-o=r.a7(0,s).b0(0,b5)
+o=r.a7(0,s).b0(0,b6)
 n=new A.w(new Float64Array(2))
 n.aA(0,q)
 m=new A.w(new Float64Array(2))
 m.aA(0,q)
-s=b4.w.a7(0,b4.r).o_().a
+s=b5.w.a7(0,b5.r).o_().a
 r=s[1]
 s=s[0]
 l=new A.w(new Float64Array(2))
@@ -32352,87 +32352,90 @@ A.EK(k,0.2)
 j=new A.w(new Float64Array(2))
 j.Z(l)
 A.EK(j,-0.5)
-i=b4.r.a0(0,k.a1(0,4.5))
-h=b4.w.a0(0,j.a1(0,4.5))
-b4.ch=b4.mn(i)
-b4.CW=b4.mn(h)
-b4.ax=b4.ay=!1
-s=b4.ch
-if(s!=null&&s.d<12){g=i.a7(0,s.a).be(b4.ch.b)
-if(g<5){b4.ax=!0
-f=p.be(b4.ch.b)
-n.n(0,b4.ch.b.a1(0,(5-g)*1650-f*72+850))
-s=b4.e
-r=b4.ch
+i=b5.r.a0(0,k.a1(0,4.5))
+h=b5.w.a0(0,j.a1(0,4.5))
+b5.ch=b5.mn(i)
+b5.CW=b5.mn(h)
+b5.ax=b5.ay=!1
+s=b5.ch
+if(s!=null&&s.d<12){g=i.a7(0,s.a).be(b5.ch.b)
+if(g<5){b5.ax=!0
+f=p.be(b5.ch.b)
+n.n(0,b5.ch.b.a1(0,(5-g)*1650-f*72+850))
+s=b5.e
+r=b5.ch
 if(s){s=r.c
 n.n(0,(s.a[0]<0?s.bk(0):s).a1(0,820))}else{e=p.be(r.c)
-n.bm(b4.ch.c.a1(0,e*0.8))}if(b4.f){e=p.be(b4.ch.c)
-n.bm(b4.ch.c.a1(0,J.Qp(e)*750))}if(f<-1600)b4.at=B.a4}}s=b4.CW
-if(s!=null&&s.d<12){g=h.a7(0,s.a).be(b4.CW.b)
-if(g<5){b4.ay=!0
-f=o.be(b4.CW.b)
-m.n(0,b4.CW.b.a1(0,(5-g)*1650-f*72+850))
-if(f<-1600)b4.at=B.a4}}s=b4.w.a7(0,b4.r).a
+n.bm(b5.ch.c.a1(0,e*0.8))}if(b5.f){e=p.be(b5.ch.c)
+n.bm(b5.ch.c.a1(0,J.Qp(e)*750))}if(f<-1600)b5.at=B.a4}}s=b5.CW
+if(s!=null&&s.d<12){g=h.a7(0,s.a).be(b5.CW.b)
+if(g<5){b5.ay=!0
+f=o.be(b5.CW.b)
+m.n(0,b5.CW.b.a1(0,(5-g)*1650-f*72+850))
+if(f<-1600)b5.at=B.a4}}s=b5.w.a7(0,b5.r).a
 r=s[1]
 d=s[0]
 c=new A.w(new Float64Array(2))
 c.aA(-r,d)
 c.i2()
 b=Math.atan2(s[1],s[0])
-s=b4.d
-r=b4.b
+s=b5.d
+r=b5.b
 d=-r
 if(!s){a=d*212750
-if(a>0&&b4.ay)a*=0.12}else{a0=-(b4.c/b5)*8510
+if(a>0&&b5.ay)a*=0.12}else{a0=-(b5.c/b6)*8510
 a=d*212750+a0
-a1=b4.cy>5&&b4.ax
-if(b4.ax&&b4.ay)if(r>0){a=B.d.bH(a0,-1/0,0)
+a1=b5.cy>5&&b5.ax
+s=b5.ch
+a2=(s!=null?s.d:1/0)>1&&!b5.ax
+s=b5.ax
+if(s&&b5.ay)if(r>0){a=B.d.bH(a0,-1/0,0)
 if(Math.abs(a)<85100)a=0}else a*=0.12
-else if(a1)a=a>0?a*0.12:a}a2=b4.ax&&!b4.ay?q*Math.sin(b-Math.atan2(3.8,9.2))*9.2/19.5:0
-s=b4.ax
+else if(a1){if(a>0)a*=0.12}else if(!s&&b5.ay)if(r>0)a=a2?a:a*0.12}a3=b5.ax&&!b5.ay?q*Math.sin(b-Math.atan2(3.8,9.2))*9.2/19.5:0
+s=b5.ax
 r=!s
-if(r&&!b4.ay)a3=125
-else{if(!(s&&!b4.ay))s=r&&b4.ay
+if(r&&!b5.ay)a4=125
+else{if(!(s&&!b5.ay))s=r&&b5.ay
 else s=!0
-a3=s?110:185}a4=a/273+a2+o.a7(0,p).be(c)/19.5*a3
-n.n(0,c.a1(0,a4))
-m.bm(c.a1(0,a4))
-s=b5*b5
-a5=b4.r.a0(0,p.a1(0,b5)).a0(0,n.a1(0,s))
-a6=b4.w.a0(0,o.a1(0,b5)).a0(0,m.a1(0,s))
-b4.x.Z(b4.r)
-b4.y.Z(b4.w)
-b4.r.Z(a5)
-b4.w.Z(a6)
-for(a7=0;a7<8;++a7){s=b4.w
-r=b4.r
-a8=new Float64Array(2)
-a9=new A.w(a8)
-b0=s.a
-a8[1]=b0[1]
-a8[0]=b0[0]
-a9.bm(r)
-b1=Math.sqrt(a9.geG())
-if(b1<0.001)continue
-b2=(b1-19.5)/b1
-s=b4.r
+a4=s?110:185}a5=a/273+a3+o.a7(0,p).be(c)/19.5*a4
+n.n(0,c.a1(0,a5))
+m.bm(c.a1(0,a5))
+s=b6*b6
+a6=b5.r.a0(0,p.a1(0,b6)).a0(0,n.a1(0,s))
+a7=b5.w.a0(0,o.a1(0,b6)).a0(0,m.a1(0,s))
+b5.x.Z(b5.r)
+b5.y.Z(b5.w)
+b5.r.Z(a6)
+b5.w.Z(a7)
+for(a8=0;a8<8;++a8){s=b5.w
+r=b5.r
+a9=new Float64Array(2)
+b0=new A.w(a9)
+b1=s.a
+a9[1]=b1[1]
+a9[0]=b1[0]
+b0.bm(r)
+b2=Math.sqrt(b0.geG())
+if(b2<0.001)continue
+b3=(b2-19.5)/b2
+s=b5.r
 r=new Float64Array(2)
 d=new A.w(r)
-r[1]=a8[1]
-r[0]=a8[0]
-d.cU(b2*0.4717948717948718)
+r[1]=a9[1]
+r[0]=a9[0]
+d.cU(b3*0.4717948717948718)
 s.n(0,d)
-d=b4.w
+d=b5.w
 s=new Float64Array(2)
 r=new A.w(s)
-s[1]=a8[1]
-s[0]=a8[0]
-r.cU(b2*0.5282051282051282)
-d.bm(r)}b4.t1()
-s=b4.as
+s[1]=a9[1]
+s[0]=a9[0]
+r.cU(b3*0.5282051282051282)
+d.bm(r)}b5.t1()
+s=b5.as
 s===$&&A.c()
-b3=b4.mn(s)
-if(b3!=null&&b3.d<3)b4.at=B.a4},
+b4=b5.mn(s)
+if(b4!=null&&b4.d<3)b5.at=B.a4},
 t1(){var s,r,q,p=this,o=p.r
 o===$&&A.c()
 s=p.w
