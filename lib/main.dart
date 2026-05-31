@@ -494,13 +494,13 @@ class SurfaceHit {
 enum BikeState { riding, crashed }
 
 class Bike {
-  // --- ENVIRONMENT CONTEXT CONSTANTS ---
-  static const _airborneGravity = 230.0; 
-  static const _groundedGravity = 180.0; 
+  // --- UPGRADED PERFORMANCE AND LIGHTER ENVIRONMENT ENGINE TUNES ---
+  static const _airborneGravity = 195.0; // Reduced anchor effect when flying
+  static const _groundedGravity = 150.0; // Simulates lighter frame context for effortless hill climbing
   static const int _gravityHysteresisThreshold = 12; 
 
-  static const _rearDrive = 820.0; 
-  static double _brakeStrength = 750.0; 
+  static const _rearDrive = 1450.0;      // Massively boosted raw power delivery for high speed on flats
+  static double _brakeStrength = 1100.0; // Scaled up braking coefficient to control increased velocity
   static const _wheelRadius = 5.0;
   static const _headRadius = 3.0;
   
@@ -672,7 +672,6 @@ class Bike {
         }
       } else if (isReliablyInWheelie) {
         // ACTIVE WHEELIE DRIVER BYPASS
-        // Safely returns full positional micro adjustments so your weeks of wheelie balancing remain pristine
         if (playerTorque > 0) {
           playerTorque *= _frontGroundedTorqueScale;
         }
