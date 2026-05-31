@@ -541,7 +541,6 @@ class Bike {
   static double _airborneRotationDamping = 125.0;  
   static const double _maxSurfaceDist = 12.0;
 
-  // INCREASED HYSTERESIS MAX: Boosted to 15 frames for rock-solid contact data stabilization
   static const int _maxContactHysteresisFrames = 15;
 
   final SpatialGrid spatialGrid;
@@ -671,11 +670,15 @@ class Bike {
     Vector2 tangent = Vector2(-axle.y, axle.x)..normalize();
     double angle = atan2(axle.y, axle.x);
 
+    // --- RE-FIXED AND BALANCED ASYMMETRIC TORQUE INPUT ---
     double playerTorque = -tilt * _playerTorqueStrength;
-    if (playerTorque > 0) {
-      if (frontOnGround) playerTorque *= _frontGroundedTorqueScale;
-    } else if (playerTorque < 0) {
-      playerTorque *= _frontWheelieTorqueScale;
+    
+    if (playerTorque < 0) {
+      // NOSE UP (Pulling back / Wheelie): Highly snappy and responsive
+      playerTorque *= _frontWheelieTorqueScale; // 0.38
+    } else if (playerTorque > 0) {
+      // NOSE DOWN (Leaning forward): Properly scaled down to maintain chassis stability
+      if (frontOnGround) playerTorque *= _frontGroundedTorqueScale; // 0.12
     }
 
     telemetryCalculatedTorque = playerTorque;
