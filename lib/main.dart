@@ -329,7 +329,6 @@ class RaceRiderGame extends FlameGame with DragCallbacks, TapCallbacks {
     }
     
     if (currentMode == AppState.ride) {
-      // Victory Evaluator: Rider's head must be in upper-right quadrant of flag base point
       if (player.headPos.x >= finishLinePoint.x && player.headPos.y <= finishLinePoint.y) {
         currentMode = AppState.victory;
         isGas = isBrake = false;
@@ -573,7 +572,6 @@ class Bike {
       _airborneFrames++; 
     }
 
-    // Track front axle hysteresis frame context to block micro-lift exploits
     if (frontOnGround) {
       _frontAirborneFrames = 0;
     } else {
@@ -654,6 +652,10 @@ class Bike {
       playerTorque = positionTorque + snapTorque;
 
       bool isReliablyInWheelie = _frontAirborneFrames > 5 && rearOnGround;
+      
+      // Evaluate if the rear wheel is physically floating clear of the track geometry
+      double rearClearance = (_rearSurface != null) ? _rearSurface!.distance : double.infinity;
+      bool rearIsCleanlyAirborne = rearClearance > (_wheelRadius * 0.2) && !rearOnGround;
 
       if (rearOnGround && frontOnGround) {
         // BOTH WHEELS GROUNDED
@@ -673,6 +675,16 @@ class Bike {
         // Safely returns full positional micro adjustments so your weeks of wheelie balancing remain pristine
         if (playerTorque > 0) {
           playerTorque *= _frontGroundedTorqueScale;
+        }
+      } else if (!rearOnGround && frontOnGround) {
+        // ACTIVE STOPPIE / FRONT-WHEEL BALANCE MANEUVER
+        if (tilt > 0) {
+          if (rearIsCleanlyAirborne) {
+            // Rear axle has broken clean of the 0.2 radius dead-zone. Full pro balancing torque unlocked!
+          } else {
+            // Rear wheel is floating too close to the surface line. Throttle power down to drop it back to track.
+            playerTorque *= _frontGroundedTorqueScale;
+          }
         }
       }
     }
