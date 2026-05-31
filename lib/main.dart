@@ -711,17 +711,18 @@ class Bike {
 
     double playerTorque = -totalCombinedTilt * _playerTorqueStrength;
 
-    // --- STRATEGIC EXPLICIT THREE-STATE GROUND LOGIC ---
+   // --- STRATEGIC EXPLICIT THREE-STATE GROUND LOGIC ---
     if (rearOnGround && frontOnGround) {
       telemetryActiveStateLabel = 'DUAL GROUNDED';
-      if (playerTorque < 0) {
-        // NOSE UP: Provide strong breakaway torque to instantly pop a wheelie cleanly
+      if (playerTorque > 0) {
+        // NOSE UP: (Flipped to > 0) Provide strong breakaway torque to instantly pop a wheelie cleanly
         playerTorque *= 1.45;
-      } else if (playerTorque > 0) {
-        // NOSE DOWN: Suppress heavily so leaning forward never lifts rear tire on flat ground
+      } else if (playerTorque < 0) {
+        // NOSE DOWN: (Flipped to < 0) Suppress heavily so leaning forward never lifts rear tire on flat ground
         playerTorque *= _frontGroundedTorqueScale; // 0.12
       }
-    } 
+    }
+	
     else if (rearOnGround && !frontOnGround) {
       telemetryActiveStateLabel = 'ACTIVE WHEELIE (REAR WHEEL ONLY)';
       // AGILITY ZONE: Remove torque dampers entirely. Gives player full physical authority
