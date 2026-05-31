@@ -32452,7 +32452,7 @@ a.aB(-r,b)
 a.i2()
 a0=Math.atan2(s[1],s[0])
 a1=-b5.b*212750
-if(!(a1>0))if(a1<0)a1*=0.15
+if(a1>0){if(b5.w)a1*=0.12}else if(a1<0)a1*=0.38
 b5.e=a1
 a2=b5.r&&!b5.w?q*Math.sin(a0-Math.atan2(3.8,9.2))*9.2/19.5:0
 s=b5.r
@@ -32625,7 +32625,7 @@ n===$&&A.c()
 n=String(n.r)
 m=l.gcv().aw
 m===$&&A.c()
-m=A.ct(A.JN(B.vV,"RaceRider Surgical Line Deletion Driver\nMode Context: "+s+"   |   Lines drawn: "+r+"\nDevice Tilt Input: "+q+"\nCalculated Torque: "+p+"\nAngular Velocity: "+o+"\nContacts -> Rear: "+n.toUpperCase()+" | Front: "+String(m.w).toUpperCase()),B.y,B.m)
+m=A.ct(A.JN(B.vV,"RaceRider Hysteresis & Victory Master Engine\nMode Context: "+s+"   |   Lines drawn: "+r+"\nDevice Tilt Input: "+q+"\nCalculated Torque: "+p+"\nAngular Velocity: "+o+"\nContacts -> Rear: "+n.toUpperCase()+" | Front: "+String(m.w).toUpperCase()),B.y,B.m)
 m.c7()
 m.aL(a,new A.F(16,84))}}
 A.r8.prototype={
