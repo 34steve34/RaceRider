@@ -61,10 +61,10 @@ class SpatialGrid {
 }
 
 enum AppState { design, ride, victory }
-enum DesignTool { draw, startFlag, finishFlag, pan }
+enum DesignTool { draw, startFlag, finishFlag, pan, delete }
 
 class RaceRiderGame extends FlameGame with DragCallbacks, TapCallbacks {
-  static const buildLabel = 'Hysteresis Stabilized Drive Module';
+  static const buildLabel = 'Surgical Line Deletion Driver';
   late Bike player;
   final List<TrackSegment> trackSegments = [];
   final SpatialGrid grid = SpatialGrid(cellSize: 80.0);
@@ -130,12 +130,15 @@ class RaceRiderGame extends FlameGame with DragCallbacks, TapCallbacks {
         _clearCanvas();
         return;
       }
-      if (x >= 135 && x < 245) {
-        _undoLastSegment();
+      if (x >= 135 && x < 255) {
+        // Upper menu action triggers the delete tool state toggle directly now
+        if (currentMode == AppState.design) {
+          activeTool = (activeTool == DesignTool.delete) ? DesignTool.draw : DesignTool.delete;
+        }
         return;
       }
       if (currentMode == AppState.design) {
-        if (x >= 255 && x < 345) {
+        if (x >= 265 && x < 345) {
           camera.viewfinder.zoom = (camera.viewfinder.zoom + 0.15).clamp(0.4, 3.5);
           return;
         }
@@ -181,6 +184,8 @@ class RaceRiderGame extends FlameGame with DragCallbacks, TapCallbacks {
         startSpawnPoint = worldPos;
       } else if (activeTool == DesignTool.finishFlag) {
         finishLinePoint = worldPos;
+      } else if (activeTool == DesignTool.delete) {
+        _performLineDeletionAt(worldPos);
       }
     } else if (currentMode == AppState.ride) {
       isBrake = x < size.x / 2;
@@ -201,6 +206,12 @@ class RaceRiderGame extends FlameGame with DragCallbacks, TapCallbacks {
 
     if (activeTool == DesignTool.pan) {
       camera.viewfinder.position -= event.localDelta / camera.viewfinder.zoom;
+      return;
+    }
+
+    if (activeTool == DesignTool.delete) {
+      final worldPos = _screenToWorld(event.localEndPosition);
+      _performLineDeletionAt(worldPos);
       return;
     }
 
@@ -232,15 +243,39 @@ class RaceRiderGame extends FlameGame with DragCallbacks, TapCallbacks {
     _lastCreatedSegment = null;
   }
 
-  void _undoLastSegment() {
-    if (trackSegments.isEmpty) return;
-    trackSegments.removeLast();
-    grid.clear();
-    for (final seg in trackSegments) {
-      grid.insert(seg);
+  // SURGICAL DELETION SUBROUTINE: Scans local space and drops intersected segments
+  void _performLineDeletionAt(Vector2 point) {
+    final double searchRadius = 18.0; 
+    final candidates = grid.getNearby(point, searchRadius);
+    TrackSegment? toDelete;
+    double closestDist = double.infinity;
+
+    for (final seg in candidates) {
+      final l2 = seg.delta.length2;
+      if (l2 == 0) continue;
+      final double t = ((point - seg.a).dot(seg.delta) / l2).clamp(0.0, 1.0);
+      final projection = seg.a + seg.delta * t;
+      final dist = (point - projection).length;
+
+      if (dist < searchRadius && dist < closestDist) {
+        closestDist = dist;
+        toDelete = seg;
+      }
     }
-    _lastDrawnPoint = null;
-    _lastCreatedSegment = null;
+
+    if (toDelete != null) {
+      // Safely unlink neighboring path reference nodes
+      if (toDelete.prev != null) toDelete.prev!.next = toDelete.next;
+      if (toDelete.next != null) toDelete.next!.prev = toDelete.prev;
+      
+      trackSegments.remove(toDelete);
+
+      // Re-index layout geometry cleanly
+      grid.clear();
+      for (final seg in trackSegments) {
+        grid.insert(seg);
+      }
+    }
   }
 
   void _toggleMode() {
@@ -263,6 +298,7 @@ class RaceRiderGame extends FlameGame with DragCallbacks, TapCallbacks {
     _lastDrawnPoint = null;
     _lastCreatedSegment = null;
     currentMode = AppState.design;
+    activeTool = DesignTool.draw;
     _restartBike();
   }
 
@@ -396,19 +432,24 @@ class RaceRiderGame extends FlameGame with DragCallbacks, TapCallbacks {
     TextPainter(text: const TextSpan(text: '[ TELEMETRY ACTIVE ]', style: TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold, letterSpacing: 0.8)), textDirection: TextDirection.ltr)
       ..layout()..paint(canvas, const Offset(286, 60));
 
+    // Clear Canvas Row Button
     canvas.drawRRect(RRect.fromRectAndRadius(const Rect.fromLTWH(12, 12, 115, 36), const Radius.circular(6)), Paint()..color = Colors.redAccent.withOpacity(0.85));
     TextPainter(text: const TextSpan(text: '[ CLEAR ALL ]', style: TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.bold)), textDirection: TextDirection.ltr)
       ..layout()..paint(canvas, const Offset(24, 22));
 
-    final undoOpacity = trackSegments.isNotEmpty ? 0.85 : 0.3;
-    canvas.drawRRect(RRect.fromRectAndRadius(const Rect.fromLTWH(139, 12, 110, 36), const Radius.circular(6)), Paint()..color = Colors.blueGrey[700]!.withOpacity(undoOpacity));
-    TextPainter(text: const TextSpan(text: '[ UNDO LINE ]', style: TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.bold)), textDirection: TextDirection.ltr)
-      ..layout()..paint(canvas, const Offset(153, 22));
+    // UPGRADED DELETE BUTTON: Now acts as a persistent toggle tool state indicators
+    final isDeleting = activeTool == DesignTool.delete && currentMode == AppState.design;
+    final deleteBtnColor = isDeleting ? Colors.red[900]! : Colors.orange[800]!;
+    final deleteBtnLabel = isDeleting ? '⚙️ TARGETING' : '[ DELETE LINE ]';
+    
+    canvas.drawRRect(RRect.fromRectAndRadius(const Rect.fromLTWH(139, 12, 116, 36), const Radius.circular(6)), Paint()..color = deleteBtnColor.withOpacity(0.9));
+    TextPainter(text: TextSpan(text: deleteBtnLabel, style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold)), textDirection: TextDirection.ltr)
+      ..layout()..paint(canvas, const Offset(150, 22));
 
     if (currentMode == AppState.design) {
-      canvas.drawRRect(RRect.fromRectAndRadius(const Rect.fromLTWH(260, 12, 85, 36), const Radius.circular(6)), Paint()..color = Colors.purple[700]!.withOpacity(0.9));
+      canvas.drawRRect(RRect.fromRectAndRadius(const Rect.fromLTWH(265, 12, 80, 36), const Radius.circular(6)), Paint()..color = Colors.purple[700]!.withOpacity(0.9));
       TextPainter(text: const TextSpan(text: '[ ZOOM + ]', style: TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold)), textDirection: TextDirection.ltr)
-        ..layout()..paint(canvas, const Offset(275, 23));
+        ..layout()..paint(canvas, const Offset(278, 23));
 
       canvas.drawRRect(RRect.fromRectAndRadius(const Rect.fromLTWH(355, 12, 85, 36), const Radius.circular(6)), Paint()..color = Colors.purple[700]!.withOpacity(0.9));
       TextPainter(text: const TextSpan(text: '[ ZOOM - ]', style: TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold)), textDirection: TextDirection.ltr)
@@ -505,7 +546,6 @@ class Bike {
   static double _airborneRotationDamping = 125.0;  
   static const double _maxSurfaceDist = 12.0;
 
-  // Hysteresis Constant: number of consecutive frames to keep state stable
   static const int _maxContactHysteresisFrames = 6;
 
   final SpatialGrid spatialGrid;
@@ -516,11 +556,9 @@ class Bike {
   double telemetryCalculatedTorque = 0.0;
   double telemetryAngularVelocity = 0.0;
 
-  // Stabilized persistent contact states
   bool rearOnGround = false;
   bool frontOnGround = false;
 
-  // Hidden frame buffers for structural hysteresis filtering
   int _rearGroundedBuffer = 0;
   int _frontGroundedBuffer = 0;
 
@@ -619,7 +657,6 @@ class Bike {
       }
     }
 
-    // --- HYSTERESIS STABILIZATION ROUTINE ---
     if (rawRearIntersection) {
       _rearGroundedBuffer = _maxContactHysteresisFrames;
     } else if (_rearGroundedBuffer > 0) {
