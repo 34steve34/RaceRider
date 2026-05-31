@@ -64,7 +64,7 @@ enum AppState { design, ride, victory }
 enum DesignTool { draw, startFlag, finishFlag, pan, delete }
 
 class RaceRiderGame extends FlameGame with DragCallbacks, TapCallbacks {
-  static const buildLabel = 'Surgical Line Deletion Driver';
+  static const buildLabel = 'Hysteresis & Victory Master Engine';
   late Bike player;
   final List<TrackSegment> trackSegments = [];
   final SpatialGrid grid = SpatialGrid(cellSize: 80.0);
@@ -131,7 +131,6 @@ class RaceRiderGame extends FlameGame with DragCallbacks, TapCallbacks {
         return;
       }
       if (x >= 135 && x < 255) {
-        // Upper menu action triggers the delete tool state toggle directly now
         if (currentMode == AppState.design) {
           activeTool = (activeTool == DesignTool.delete) ? DesignTool.draw : DesignTool.delete;
         }
@@ -243,7 +242,6 @@ class RaceRiderGame extends FlameGame with DragCallbacks, TapCallbacks {
     _lastCreatedSegment = null;
   }
 
-  // SURGICAL DELETION SUBROUTINE: Scans local space and drops intersected segments
   void _performLineDeletionAt(Vector2 point) {
     final double searchRadius = 18.0; 
     final candidates = grid.getNearby(point, searchRadius);
@@ -264,13 +262,11 @@ class RaceRiderGame extends FlameGame with DragCallbacks, TapCallbacks {
     }
 
     if (toDelete != null) {
-      // Safely unlink neighboring path reference nodes
       if (toDelete.prev != null) toDelete.prev!.next = toDelete.next;
       if (toDelete.next != null) toDelete.next!.prev = toDelete.prev;
       
       trackSegments.remove(toDelete);
 
-      // Re-index layout geometry cleanly
       grid.clear();
       for (final seg in trackSegments) {
         grid.insert(seg);
@@ -349,13 +345,13 @@ class RaceRiderGame extends FlameGame with DragCallbacks, TapCallbacks {
       return;
     }
     
+    // --- INTEGRATED RE-FIXED VICTORY GATE CHECK ---
     if (currentMode == AppState.ride) {
-  // Checks if the player is both to the right of the flag AND above the bottom base point of the pole
-  if (player.headPos.x >= finishLinePoint.x && player.headPos.y <= finishLinePoint.y) {
-    currentMode = AppState.victory;
-    isGas = isBrake = false;
-  }
-}
+      if (player.headPos.x >= finishLinePoint.x && player.headPos.y <= finishLinePoint.y) {
+        currentMode = AppState.victory;
+        isGas = isBrake = false;
+      }
+    }
     
     if (!player.hasFiniteState) {
       _restartBike();
@@ -433,12 +429,10 @@ class RaceRiderGame extends FlameGame with DragCallbacks, TapCallbacks {
     TextPainter(text: const TextSpan(text: '[ TELEMETRY ACTIVE ]', style: TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold, letterSpacing: 0.8)), textDirection: TextDirection.ltr)
       ..layout()..paint(canvas, const Offset(286, 60));
 
-    // Clear Canvas Row Button
     canvas.drawRRect(RRect.fromRectAndRadius(const Rect.fromLTWH(12, 12, 115, 36), const Radius.circular(6)), Paint()..color = Colors.redAccent.withOpacity(0.85));
     TextPainter(text: const TextSpan(text: '[ CLEAR ALL ]', style: TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.bold)), textDirection: TextDirection.ltr)
       ..layout()..paint(canvas, const Offset(24, 22));
 
-    // UPGRADED DELETE BUTTON: Now acts as a persistent toggle tool state indicators
     final isDeleting = activeTool == DesignTool.delete && currentMode == AppState.design;
     final deleteBtnColor = isDeleting ? Colors.red[900]! : Colors.orange[800]!;
     final deleteBtnLabel = isDeleting ? '⚙️ TARGETING' : '[ DELETE LINE ]';
@@ -547,6 +541,7 @@ class Bike {
   static double _airborneRotationDamping = 125.0;  
   static const double _maxSurfaceDist = 12.0;
 
+  // INCREASED HYSTERESIS MAX: Boosted to 15 frames for rock-solid contact data stabilization
   static const int _maxContactHysteresisFrames = 15;
 
   final SpatialGrid spatialGrid;
@@ -676,23 +671,14 @@ class Bike {
     Vector2 tangent = Vector2(-axle.y, axle.x)..normalize();
     double angle = atan2(axle.y, axle.x);
 
-    // 1. Calculate the base torque (inverted so positive tilt equals nose-up torque)
     double playerTorque = -tilt * _playerTorqueStrength;
-
-    // 2. Apply scaling based on intended direction and wheel states
     if (playerTorque > 0) {
-    // NOSE UP (Wheelie): If the front wheel is still on the ground, 
-    // we apply full power to break contact and lift the nose.
-    if (frontOnGround) {
-       playerTorque *= 1.0; // Keeps 100% torque to forcefully pop the wheelie
-    }
+      if (frontOnGround) playerTorque *= _frontGroundedTorqueScale;
     } else if (playerTorque < 0) {
-      // NOSE DOWN: Squash the torque heavily so it feels weak 
-      // and doesn't aggressively throw the rear wheel into the air.
-      playerTorque *= 0.15; 
+      playerTorque *= _frontWheelieTorqueScale;
     }
 
-     telemetryCalculatedTorque = playerTorque;
+    telemetryCalculatedTorque = playerTorque;
 
     double gravTorqueAccel = 0.0;
     if (rearOnGround && !frontOnGround) {
