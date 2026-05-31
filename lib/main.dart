@@ -64,7 +64,7 @@ enum AppState { design, ride, victory }
 enum DesignTool { draw, startFlag, finishFlag, pan }
 
 class RaceRiderGame extends FlameGame with DragCallbacks, TapCallbacks {
-  static const buildLabel = 'Asymmetric Torque Telemetry Module';
+  static const buildLabel = 'Asymmetric Boxer Torque Calibration';
   late Bike player;
   final List<TrackSegment> trackSegments = [];
   final SpatialGrid grid = SpatialGrid(cellSize: 80.0);
@@ -96,6 +96,9 @@ class RaceRiderGame extends FlameGame with DragCallbacks, TapCallbacks {
     super.onLoad();
     _clearCanvas();
     _accelSub = accelerometerEvents.listen((e) => rawTilt = e.y);
+    
+    // Add the telemetry display component to ensure numbers update live onto screen
+    add(DebugOverlay());
   }
 
   @override
@@ -124,7 +127,7 @@ class RaceRiderGame extends FlameGame with DragCallbacks, TapCallbacks {
       }
     }
 
-    // Check interaction for Top Context Menu
+    // Top Main Menu Interaction Region
     if (y < 60) {
       if (x < 125) {
         _clearCanvas();
@@ -148,12 +151,6 @@ class RaceRiderGame extends FlameGame with DragCallbacks, TapCallbacks {
         _toggleMode();
         return;
       }
-    }
-
-    // REPOSITIONED INTERACTION REGION: Shifted upwards directly under Clear/Undo buttons
-    if (y >= 54 && y <= 80 && x >= 290 && x <= 480) {
-      // Intentionally left available for future toggle features if needed
-      return;
     }
 
     if (currentMode == AppState.design && y > size.y - 65) {
@@ -394,16 +391,16 @@ class RaceRiderGame extends FlameGame with DragCallbacks, TapCallbacks {
   }
   
   void _renderUIOverlay(Canvas canvas) {
-    // REPOSITIONED INTERACTIVE SWITCHES (Shifted upwards immediately under main toolbar buttons)
+    // REPOSITIONED INTERACTIVE SWITCHES: Moved right beneath the clear/undo row
     canvas.drawRRect(RRect.fromRectAndRadius(const Rect.fromLTWH(12, 54, 255, 24), const Radius.circular(4)), Paint()..color = const Color(0xFFFF007F));
-    TextPainter(text: const TextSpan(text: '[ ENGINE: ASYMMETRIC TORQUE ]', style: TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold, letterSpacing: 0.8)), textDirection: TextDirection.ltr)
+    TextPainter(text: const TextSpan(text: '[ ENGINE: ASYMMETRIC BOXER ]', style: TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold, letterSpacing: 0.8)), textDirection: TextDirection.ltr)
       ..layout()..paint(canvas, const Offset(20, 60));
 
     canvas.drawRRect(RRect.fromRectAndRadius(const Rect.fromLTWH(274, 54, 185, 24), const Radius.circular(4)), Paint()..color = Colors.indigo[800]!);
     TextPainter(text: const TextSpan(text: '[ TELEMETRY ACTIVE ]', style: TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold, letterSpacing: 0.8)), textDirection: TextDirection.ltr)
       ..layout()..paint(canvas, const Offset(286, 60));
 
-    // Toolbar Base Layer
+    // Base menu line items
     canvas.drawRRect(RRect.fromRectAndRadius(const Rect.fromLTWH(12, 12, 115, 36), const Radius.circular(6)), Paint()..color = Colors.redAccent.withOpacity(0.85));
     TextPainter(text: const TextSpan(text: '[ CLEAR ALL ]', style: TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.bold)), textDirection: TextDirection.ltr)
       ..layout()..paint(canvas, const Offset(24, 22));
@@ -503,11 +500,10 @@ class Bike {
   static double _playerTorqueStrength = 212750.0;  
   static double _cogDistanceFromRear = 9.2;       
   static double _cogHeight = 3.8;
-
-  // --- ASYMMETRIC BALANCE CALIBRATION COEFFS ---
-  // Reduces front wheelie sensitivity to make it much distinct from rear wheelies
-  static const double _frontWheelieTorqueScale = 0.38; 
   static double _frontGroundedTorqueScale = 0.12;
+  
+  // BOXER WEIGHT PROFILE: Scaled torque down globally for forward snaps to match short wheel layout
+  static const double _frontWheelieTorqueScale = 0.38; 
 
   static double _wheelbase = 19.5;                
   static double _bikeMass = 14.0;                 
@@ -522,7 +518,7 @@ class Bike {
   bool isGas = false;
   bool isBrake = false;
 
-  // Real-time telemetry tracking properties
+  // Real-time calculation sinks for direct display feeds
   double telemetryCalculatedTorque = 0.0;
   double telemetryAngularVelocity = 0.0;
 
@@ -626,17 +622,14 @@ class Bike {
     Vector2 tangent = Vector2(-axle.y, axle.x)..normalize();
     double angle = atan2(axle.y, axle.x);
 
-    // --- ASYMMETRIC BALANCE ROTATION BLOCK ---
+    // BOXER TORQUE CONTROLLER: Snappy input reaction with structural payload partitioning
     double playerTorque = -tilt * _playerTorqueStrength;
     
     if (playerTorque > 0) {
-      // Leaning backward (Trying to perform a traditional rear wheelie)
-      if (frontOnGround) {
-        playerTorque *= _frontGroundedTorqueScale;
-      }
+      // Heavyweight Boxer punch (pulling backward up against gravity)
+      if (frontOnGround) playerTorque *= _frontGroundedTorqueScale;
     } else if (playerTorque < 0) {
-      // Leaning forward (Trying to perform a front wheelie/stoppie)
-      // Scaled down globally to balance structural geometric pivot differences
+      // Lightweight Boxer punch (snappy, low-impact jab forward onto nose axle)
       playerTorque *= _frontWheelieTorqueScale;
     }
 
@@ -773,7 +766,7 @@ class DebugOverlay extends Component with HasGameRef<RaceRiderGame> {
   void render(Canvas canvas) {
     final modeStr = gameRef.currentMode == AppState.ride ? 'RIDING MODE' : gameRef.currentMode == AppState.victory ? 'VICTORY LOCKED' : 'DESIGN MODE';
     
-    // REPOSITIONED TELEMETRY HUB: Shifted up to clear the rider workspace view completely
+    // REPOSITIONED TELEMETRY HUD: Clean layout output shifted right beneath clear/undo bar
     final double startingYOffset = 84.0;
     
     String telemetryText = 'RaceRider ${RaceRiderGame.buildLabel}\n'
@@ -787,7 +780,7 @@ class DebugOverlay extends Component with HasGameRef<RaceRiderGame> {
       textDirection: TextDirection.ltr, 
       text: TextSpan(
         text: telemetryText, 
-        style: const TextStyle(color: Colors.yellow, fontSize: 10, fontWeight: FontWeight.bold, height: 1.3)
+        style: const TextStyle(color: Colors.yellow, fontSize: 10, fontWeight: FontWeight.bold, height: 1.35)
       )
     )..layout()..paint(canvas, Offset(16, startingYOffset));
   }
