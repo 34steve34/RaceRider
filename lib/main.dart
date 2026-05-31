@@ -676,14 +676,23 @@ class Bike {
     Vector2 tangent = Vector2(-axle.y, axle.x)..normalize();
     double angle = atan2(axle.y, axle.x);
 
-    double playerTorque = -tilt * _playerTorqueStrength;
+    // 1. Calculate the base torque (inverted so positive tilt equals nose-up torque)
+    double playerTorque = tilt * _playerTorqueStrength;
+
+    // 2. Apply scaling based on intended direction and wheel states
     if (playerTorque > 0) {
-      if (frontOnGround) playerTorque *= _frontGroundedTorqueScale;
+    // NOSE UP (Wheelie): If the front wheel is still on the ground, 
+    // we apply full power to break contact and lift the nose.
+    if (frontOnGround) {
+       playerTorque *= 1.0; // Keeps 100% torque to forcefully pop the wheelie
+    }
     } else if (playerTorque < 0) {
-      playerTorque *= _frontWheelieTorqueScale;
+      // NOSE DOWN: Squash the torque heavily so it feels weak 
+      // and doesn't aggressively throw the rear wheel into the air.
+      playerTorque *= 0.15; 
     }
 
-    telemetryCalculatedTorque = playerTorque;
+     telemetryCalculatedTorque = playerTorque;
 
     double gravTorqueAccel = 0.0;
     if (rearOnGround && !frontOnGround) {
