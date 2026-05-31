@@ -32493,8 +32493,8 @@ a1=Math.abs(a1)>0.08?a1:0
 a2=-B.d.bx(b6.b+a1*0.12,-1.2,1.2)*212750
 s=b6.x
 if(s&&b6.y){b6.w="DUAL GROUNDED"
-if(a2<0)a2*=1.45
-else if(a2>0)a2*=0.12}else if(s&&!b6.y)b6.w="ACTIVE WHEELIE (REAR WHEEL ONLY)"
+if(a2>0)a2*=1.45
+else if(a2<0)a2*=0.12}else if(s&&!b6.y)b6.w="ACTIVE WHEELIE (REAR WHEEL ONLY)"
 else if(!s&&b6.y){b6.w="PRO-LEAN TRIPPED (FRONT WHEEL ONLY)"
 if(a2>0)a2*=0.15}else b6.w="AIRBORNE PITCH ADJUSTMENT"
 b6.f=a2
