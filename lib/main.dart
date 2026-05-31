@@ -670,16 +670,25 @@ class Bike {
     Vector2 tangent = Vector2(-axle.y, axle.x)..normalize();
     double angle = atan2(axle.y, axle.x);
 
-    // --- RE-FIXED AND BALANCED ASYMMETRIC TORQUE INPUT ---
+   // 1. Calculate the raw, uninhibited player torque based on device tilt
     double playerTorque = -tilt * _playerTorqueStrength;
     
-    if (playerTorque < 0) {
-      // NOSE UP (Pulling back / Wheelie): Highly snappy and responsive
-      playerTorque *= _frontWheelieTorqueScale; // 0.38
-    } else if (playerTorque > 0) {
-      // NOSE DOWN (Leaning forward): Properly scaled down to maintain chassis stability
-      if (frontOnGround) playerTorque *= _frontGroundedTorqueScale; // 0.12
+    // 2. ONLY dampen the torque if a wheel is restricting that specific movement on the ground
+    if (playerTorque > 0) {
+      // LEANING FORWARD: Only weaken it if the front wheel is glued to the track
+      // This prevents nose-diving into the dirt while riding flat
+      if (frontOnGround) {
+        playerTorque *= _frontGroundedTorqueScale; // 0.12
+      }
+    } else if (playerTorque < 0) {
+      // LEANING BACKWARD (Wheelie): Only weaken it if BOTH wheels are firmly on the ground
+      // This prevents the bike from instantly flipping over backwards from a dead stop
+      if (rearOnGround && frontOnGround) {
+        playerTorque *= _frontWheelieTorqueScale; // 0.38
+      }
     }
+    // NOTE: If you are airborne, both 'if' conditions are skipped! 
+    // You get 100% raw, snappy power pulling up and pushing down.
 
     telemetryCalculatedTorque = playerTorque;
 
