@@ -350,11 +350,12 @@ class RaceRiderGame extends FlameGame with DragCallbacks, TapCallbacks {
     }
     
     if (currentMode == AppState.ride) {
-      if (player.headPos.x >= finishLinePoint.x) {
-        currentMode = AppState.victory;
-        isGas = isBrake = false;
-      }
-    }
+  // Checks if the player is both to the right of the flag AND above the bottom base point of the pole
+  if (player.headPos.x >= finishLinePoint.x && player.headPos.y <= finishLinePoint.y) {
+    currentMode = AppState.victory;
+    isGas = isBrake = false;
+  }
+}
     
     if (!player.hasFiniteState) {
       _restartBike();
