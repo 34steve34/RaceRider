@@ -64,7 +64,7 @@ enum AppState { design, ride, victory }
 enum DesignTool { draw, startFlag, finishFlag, pan }
 
 class RaceRiderGame extends FlameGame with DragCallbacks, TapCallbacks {
-  static const buildLabel = 'Asymmetric Boxer Torque Calibration';
+  static const buildLabel = 'Hysteresis Stabilized Drive Module';
   late Bike player;
   final List<TrackSegment> trackSegments = [];
   final SpatialGrid grid = SpatialGrid(cellSize: 80.0);
@@ -96,8 +96,6 @@ class RaceRiderGame extends FlameGame with DragCallbacks, TapCallbacks {
     super.onLoad();
     _clearCanvas();
     _accelSub = accelerometerEvents.listen((e) => rawTilt = e.y);
-    
-    // Add the telemetry display component to ensure numbers update live onto screen
     add(DebugOverlay());
   }
 
@@ -127,7 +125,6 @@ class RaceRiderGame extends FlameGame with DragCallbacks, TapCallbacks {
       }
     }
 
-    // Top Main Menu Interaction Region
     if (y < 60) {
       if (x < 125) {
         _clearCanvas();
@@ -391,16 +388,14 @@ class RaceRiderGame extends FlameGame with DragCallbacks, TapCallbacks {
   }
   
   void _renderUIOverlay(Canvas canvas) {
-    // REPOSITIONED INTERACTIVE SWITCHES: Moved right beneath the clear/undo row
     canvas.drawRRect(RRect.fromRectAndRadius(const Rect.fromLTWH(12, 54, 255, 24), const Radius.circular(4)), Paint()..color = const Color(0xFFFF007F));
-    TextPainter(text: const TextSpan(text: '[ ENGINE: ASYMMETRIC BOXER ]', style: TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold, letterSpacing: 0.8)), textDirection: TextDirection.ltr)
+    TextPainter(text: const TextSpan(text: '[ ENGINE: HYSTERESIS BALANCED ]', style: TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold, letterSpacing: 0.8)), textDirection: TextDirection.ltr)
       ..layout()..paint(canvas, const Offset(20, 60));
 
     canvas.drawRRect(RRect.fromRectAndRadius(const Rect.fromLTWH(274, 54, 185, 24), const Radius.circular(4)), Paint()..color = Colors.indigo[800]!);
     TextPainter(text: const TextSpan(text: '[ TELEMETRY ACTIVE ]', style: TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold, letterSpacing: 0.8)), textDirection: TextDirection.ltr)
       ..layout()..paint(canvas, const Offset(286, 60));
 
-    // Base menu line items
     canvas.drawRRect(RRect.fromRectAndRadius(const Rect.fromLTWH(12, 12, 115, 36), const Radius.circular(6)), Paint()..color = Colors.redAccent.withOpacity(0.85));
     TextPainter(text: const TextSpan(text: '[ CLEAR ALL ]', style: TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.bold)), textDirection: TextDirection.ltr)
       ..layout()..paint(canvas, const Offset(24, 22));
@@ -481,7 +476,6 @@ class SurfaceHit {
 enum BikeState { riding, crashed }
 
 class Bike {
-  // --- ENVIRONMENT CONTEXT CONSTANTS ---
   static const _airborneGravity = 230.0; 
   static const _groundedGravity = 180.0; 
   static const int _gravityHysteresisThreshold = 12; 
@@ -501,8 +495,6 @@ class Bike {
   static double _cogDistanceFromRear = 9.2;       
   static double _cogHeight = 3.8;
   static double _frontGroundedTorqueScale = 0.12;
-  
-  // BOXER WEIGHT PROFILE: Scaled torque down globally for forward snaps to match short wheel layout
   static const double _frontWheelieTorqueScale = 0.38; 
 
   static double _wheelbase = 19.5;                
@@ -513,24 +505,31 @@ class Bike {
   static double _airborneRotationDamping = 125.0;  
   static const double _maxSurfaceDist = 12.0;
 
+  // Hysteresis Constant: number of consecutive frames to keep state stable
+  static const int _maxContactHysteresisFrames = 6;
+
   final SpatialGrid spatialGrid;
   double tilt = 0.0;
   bool isGas = false;
   bool isBrake = false;
 
-  // Real-time calculation sinks for direct display feeds
   double telemetryCalculatedTorque = 0.0;
   double telemetryAngularVelocity = 0.0;
+
+  // Stabilized persistent contact states
+  bool rearOnGround = false;
+  bool frontOnGround = false;
+
+  // Hidden frame buffers for structural hysteresis filtering
+  int _rearGroundedBuffer = 0;
+  int _frontGroundedBuffer = 0;
 
   late Vector2 rearPos, frontPos;
   late Vector2 rearOldPos, frontOldPos;
   late Vector2 frameTopPos, headPos, collisionHeadPos;
 
   BikeState state = BikeState.crashed;
-  bool rearOnGround = false;
-  bool frontOnGround = false;
   SurfaceHit? _rearSurface, _frontSurface;
-
   int _airborneFrames = 0;
 
   double get _massRear => (_wheelbase - _cogDistanceFromRear) / _wheelbase;
@@ -583,12 +582,14 @@ class Bike {
 
     _rearSurface = _nearestSurface(rTarget);
     _frontSurface = _nearestSurface(fTarget);
-    rearOnGround = frontOnGround = false;
+
+    bool rawRearIntersection = false;
+    bool rawFrontIntersection = false;
 
     if (_rearSurface != null && _rearSurface!.distance < _maxSurfaceDist) {
       double sd = (rTarget - _rearSurface!.point).dot(_rearSurface!.normal);
       if (sd < _wheelRadius) {
-        rearOnGround = true;
+        rawRearIntersection = true;
         double penetration = _wheelRadius - sd;
         double vNorm = rVel.dot(_rearSurface!.normal);
         rAccel.add(_rearSurface!.normal * (penetration * suspensionStrength - (vNorm * suspensionDamping) + _microMagnetPull));
@@ -610,7 +611,7 @@ class Bike {
     if (_frontSurface != null && _frontSurface!.distance < _maxSurfaceDist) {
       double sd = (fTarget - _frontSurface!.point).dot(_frontSurface!.normal);
       if (sd < _wheelRadius) {
-        frontOnGround = true;
+        rawFrontIntersection = true;
         double penetration = _wheelRadius - sd;
         double vNorm = fVel.dot(_frontSurface!.normal);
         fAccel.add(_frontSurface!.normal * (penetration * suspensionStrength - (vNorm * suspensionDamping) + _microMagnetPull));
@@ -618,18 +619,29 @@ class Bike {
       }
     }
 
+    // --- HYSTERESIS STABILIZATION ROUTINE ---
+    if (rawRearIntersection) {
+      _rearGroundedBuffer = _maxContactHysteresisFrames;
+    } else if (_rearGroundedBuffer > 0) {
+      _rearGroundedBuffer--;
+    }
+    rearOnGround = _rearGroundedBuffer > 0;
+
+    if (rawFrontIntersection) {
+      _frontGroundedBuffer = _maxContactHysteresisFrames;
+    } else if (_frontGroundedBuffer > 0) {
+      _frontGroundedBuffer--;
+    }
+    frontOnGround = _frontGroundedBuffer > 0;
+
     Vector2 axle = frontPos - rearPos;
     Vector2 tangent = Vector2(-axle.y, axle.x)..normalize();
     double angle = atan2(axle.y, axle.x);
 
-    // BOXER TORQUE CONTROLLER: Snappy input reaction with structural payload partitioning
     double playerTorque = -tilt * _playerTorqueStrength;
-    
     if (playerTorque > 0) {
-      // Heavyweight Boxer punch (pulling backward up against gravity)
       if (frontOnGround) playerTorque *= _frontGroundedTorqueScale;
     } else if (playerTorque < 0) {
-      // Lightweight Boxer punch (snappy, low-impact jab forward onto nose axle)
       playerTorque *= _frontWheelieTorqueScale;
     }
 
@@ -765,8 +777,6 @@ class DebugOverlay extends Component with HasGameRef<RaceRiderGame> {
   @override
   void render(Canvas canvas) {
     final modeStr = gameRef.currentMode == AppState.ride ? 'RIDING MODE' : gameRef.currentMode == AppState.victory ? 'VICTORY LOCKED' : 'DESIGN MODE';
-    
-    // REPOSITIONED TELEMETRY HUD: Clean layout output shifted right beneath clear/undo bar
     final double startingYOffset = 84.0;
     
     String telemetryText = 'RaceRider ${RaceRiderGame.buildLabel}\n'
