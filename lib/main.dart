@@ -64,7 +64,7 @@ enum AppState { design, ride, victory }
 enum DesignTool { draw, startFlag, finishFlag, pan }
 
 class RaceRiderGame extends FlameGame with DragCallbacks, TapCallbacks {
-  static const buildLabel = 'Hysteresis Gravity Context Loop';
+  static const buildLabel = 'Asymmetric Torque Telemetry Module';
   late Bike player;
   final List<TrackSegment> trackSegments = [];
   final SpatialGrid grid = SpatialGrid(cellSize: 80.0);
@@ -77,14 +77,10 @@ class RaceRiderGame extends FlameGame with DragCallbacks, TapCallbacks {
   
   double rawTilt = 0.0;
   double smoothedTilt = 0.0;
-  double lastSmoothedTilt = 0.0; 
   double tiltZero = 0.0;
   bool tiltCalibrated = false;
   bool isGas = false;
   bool isBrake = false;
-
-  // TOGGLE CONTROLLER FOR TESTING MECHANICS
-  bool useVelocityFlickMechanic = true; 
   
   StreamSubscription? _accelSub;
   Vector2? _lastDrawnPoint;
@@ -128,6 +124,7 @@ class RaceRiderGame extends FlameGame with DragCallbacks, TapCallbacks {
       }
     }
 
+    // Check interaction for Top Context Menu
     if (y < 60) {
       if (x < 125) {
         _clearCanvas();
@@ -153,9 +150,9 @@ class RaceRiderGame extends FlameGame with DragCallbacks, TapCallbacks {
       }
     }
 
-    // Toggle Box Mechanic Switch Interaction (Below Context Bar)
-    if (y >= 110 && y <= 136 && x >= 290 && x <= 480) {
-      useVelocityFlickMechanic = !useVelocityFlickMechanic;
+    // REPOSITIONED INTERACTION REGION: Shifted upwards directly under Clear/Undo buttons
+    if (y >= 54 && y <= 80 && x >= 290 && x <= 480) {
+      // Intentionally left available for future toggle features if needed
       return;
     }
 
@@ -286,17 +283,11 @@ class RaceRiderGame extends FlameGame with DragCallbacks, TapCallbacks {
       tiltCalibrated = true;
     }
     
-    lastSmoothedTilt = smoothedTilt;
     final normalized = ((rawTilt - tiltZero) / 8.0).clamp(-1.0, 1.0);
     smoothedTilt = smoothedTilt * 0.15 + normalized * 0.85;
     if (smoothedTilt.abs() < 0.05) smoothedTilt = 0.0;
     
-    // Smooth the raw tilt velocity frame-to-frame to eliminate high-frequency jitter
-    double rawVelocity = (smoothedTilt - lastSmoothedTilt);
-    player.tiltVelocity = (player.tiltVelocity * 0.70) + (rawVelocity * 0.30);
-    
     player.tilt = smoothedTilt;
-    player.useVelocityFlickMechanic = useVelocityFlickMechanic;
     player.isGas = (currentMode == AppState.victory) ? false : isGas;
     player.isBrake = (currentMode == AppState.victory) ? true : isBrake;
     
@@ -329,7 +320,7 @@ class RaceRiderGame extends FlameGame with DragCallbacks, TapCallbacks {
     }
     
     if (currentMode == AppState.ride) {
-      if (player.headPos.x >= finishLinePoint.x && player.headPos.y <= finishLinePoint.y) {
+      if (player.headPos.x >= finishLinePoint.x) {
         currentMode = AppState.victory;
         isGas = isBrake = false;
       }
@@ -403,17 +394,16 @@ class RaceRiderGame extends FlameGame with DragCallbacks, TapCallbacks {
   }
   
   void _renderUIOverlay(Canvas canvas) {
-    canvas.drawRRect(RRect.fromRectAndRadius(const Rect.fromLTWH(12, 110, 265, 26), const Radius.circular(4)), Paint()..color = const Color(0xFFFF007F));
-    TextPainter(text: const TextSpan(text: '[ HYSTERESIS GRAVITY ACTIVE: v.408 ]', style: TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold, letterSpacing: 1.1)), textDirection: TextDirection.ltr)
-      ..layout()..paint(canvas, const Offset(22, 116));
+    // REPOSITIONED INTERACTIVE SWITCHES (Shifted upwards immediately under main toolbar buttons)
+    canvas.drawRRect(RRect.fromRectAndRadius(const Rect.fromLTWH(12, 54, 255, 24), const Radius.circular(4)), Paint()..color = const Color(0xFFFF007F));
+    TextPainter(text: const TextSpan(text: '[ ENGINE: ASYMMETRIC TORQUE ]', style: TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold, letterSpacing: 0.8)), textDirection: TextDirection.ltr)
+      ..layout()..paint(canvas, const Offset(20, 60));
 
-    // DYNAMIC INTERACTIVE SWITCH PANEL FOR TESTING THE TORQUE MODES
-    final toggleColor = useVelocityFlickMechanic ? Colors.indigo[700]! : Colors.teal[700]!;
-    final toggleText = useVelocityFlickMechanic ? '[ TORQUE: FLICK-BASED ]' : '[ TORQUE: STANDARD ]';
-    canvas.drawRRect(RRect.fromRectAndRadius(const Rect.fromLTWH(290, 110, 190, 26), const Radius.circular(4)), Paint()..color = toggleColor);
-    TextPainter(text: TextSpan(text: toggleText, style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold, letterSpacing: 0.8)), textDirection: TextDirection.ltr)
-      ..layout()..paint(canvas, const Offset(302, 116));
+    canvas.drawRRect(RRect.fromRectAndRadius(const Rect.fromLTWH(274, 54, 185, 24), const Radius.circular(4)), Paint()..color = Colors.indigo[800]!);
+    TextPainter(text: const TextSpan(text: '[ TELEMETRY ACTIVE ]', style: TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold, letterSpacing: 0.8)), textDirection: TextDirection.ltr)
+      ..layout()..paint(canvas, const Offset(286, 60));
 
+    // Toolbar Base Layer
     canvas.drawRRect(RRect.fromRectAndRadius(const Rect.fromLTWH(12, 12, 115, 36), const Radius.circular(6)), Paint()..color = Colors.redAccent.withOpacity(0.85));
     TextPainter(text: const TextSpan(text: '[ CLEAR ALL ]', style: TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.bold)), textDirection: TextDirection.ltr)
       ..layout()..paint(canvas, const Offset(24, 22));
@@ -494,13 +484,13 @@ class SurfaceHit {
 enum BikeState { riding, crashed }
 
 class Bike {
-  // --- UPGRADED PERFORMANCE AND LIGHTER ENVIRONMENT ENGINE TUNES ---
-  static const _airborneGravity = 195.0; // Reduced anchor effect when flying
-  static const _groundedGravity = 150.0; // Simulates lighter frame context for effortless hill climbing
+  // --- ENVIRONMENT CONTEXT CONSTANTS ---
+  static const _airborneGravity = 230.0; 
+  static const _groundedGravity = 180.0; 
   static const int _gravityHysteresisThreshold = 12; 
 
-  static const _rearDrive = 1450.0;      // Massively boosted raw power delivery for high speed on flats
-  static double _brakeStrength = 1100.0; // Scaled up braking coefficient to control increased velocity
+  static const _rearDrive = 820.0; 
+  static double _brakeStrength = 750.0; 
   static const _wheelRadius = 5.0;
   static const _headRadius = 3.0;
   
@@ -513,7 +503,12 @@ class Bike {
   static double _playerTorqueStrength = 212750.0;  
   static double _cogDistanceFromRear = 9.2;       
   static double _cogHeight = 3.8;
+
+  // --- ASYMMETRIC BALANCE CALIBRATION COEFFS ---
+  // Reduces front wheelie sensitivity to make it much distinct from rear wheelies
+  static const double _frontWheelieTorqueScale = 0.38; 
   static double _frontGroundedTorqueScale = 0.12;
+
   static double _wheelbase = 19.5;                
   static double _bikeMass = 14.0;                 
 
@@ -524,10 +519,12 @@ class Bike {
 
   final SpatialGrid spatialGrid;
   double tilt = 0.0;
-  double tiltVelocity = 0.0; 
-  bool useVelocityFlickMechanic = true;
   bool isGas = false;
   bool isBrake = false;
+
+  // Real-time telemetry tracking properties
+  double telemetryCalculatedTorque = 0.0;
+  double telemetryAngularVelocity = 0.0;
 
   late Vector2 rearPos, frontPos;
   late Vector2 rearOldPos, frontOldPos;
@@ -539,7 +536,6 @@ class Bike {
   SurfaceHit? _rearSurface, _frontSurface;
 
   int _airborneFrames = 0;
-  int _frontAirborneFrames = 0; 
 
   double get _massRear => (_wheelbase - _cogDistanceFromRear) / _wheelbase;
   double get _massFront => _cogDistanceFromRear / _wheelbase;
@@ -556,8 +552,8 @@ class Bike {
     _syncFrameAndCollision();
   }
 
-  bool get hasFiniteState => rearPos.x.isFinite && frontPos.x.isFinite;
   Vector2 get position => (rearPos + frontPos) / 2.0;
+  bool get hasFiniteState => rearPos.x.isFinite && frontPos.x.isFinite;
 
   void stepPhysics(double dt) {
     if (state == BikeState.crashed) {
@@ -570,12 +566,6 @@ class Bike {
       _airborneFrames = 0; 
     } else {
       _airborneFrames++; 
-    }
-
-    if (frontOnGround) {
-      _frontAirborneFrames = 0;
-    } else {
-      _frontAirborneFrames++;
     }
 
     final double currentGravity = (_airborneFrames >= _gravityHysteresisThreshold)
@@ -636,57 +626,21 @@ class Bike {
     Vector2 tangent = Vector2(-axle.y, axle.x)..normalize();
     double angle = atan2(axle.y, axle.x);
 
-    // --- ENHANCED ROTATION DRIVER CONTROLLER ---
-    double playerTorque = 0.0;
-
-    if (!useVelocityFlickMechanic) {
-      // STANDARD MODE (Baseline referencing)
-      playerTorque = -tilt * _playerTorqueStrength;
-      if (playerTorque > 0 && frontOnGround) playerTorque *= _frontGroundedTorqueScale;
-    } else {
-      // DUAL-DRIVER SMOOTH FLICK MODE
-      double positionTorque = -tilt * _playerTorqueStrength;
-      
-      // Integrated safely with time step to prevent solver injection shock waves
-      double snapTorque = -(tiltVelocity / dt) * (_playerTorqueStrength * 0.04);
-      playerTorque = positionTorque + snapTorque;
-
-      bool isReliablyInWheelie = _frontAirborneFrames > 5 && rearOnGround;
-      
-      // Evaluate if the rear wheel is physically floating clear of the track geometry
-      double rearClearance = (_rearSurface != null) ? _rearSurface!.distance : double.infinity;
-      bool rearIsCleanlyAirborne = rearClearance > (_wheelRadius * 0.2) && !rearOnGround;
-
-      if (rearOnGround && frontOnGround) {
-        // BOTH WHEELS GROUNDED
-        if (tilt > 0) {
-          // Leaning forward: Lock out position torque completely to keep the rear tire glued.
-          // Requires deliberate, smooth swift flick velocity updates to kick a stoppie.
-          playerTorque = snapTorque.clamp(double.negativeInfinity, 0.0);
-          if (playerTorque.abs() < _playerTorqueStrength * 0.40) {
-            playerTorque = 0.0; 
-          }
-        } else {
-          // Leaning backward: Standard baseline pop is scaled correctly
-          playerTorque *= _frontGroundedTorqueScale;
-        }
-      } else if (isReliablyInWheelie) {
-        // ACTIVE WHEELIE DRIVER BYPASS
-        if (playerTorque > 0) {
-          playerTorque *= _frontGroundedTorqueScale;
-        }
-      } else if (!rearOnGround && frontOnGround) {
-        // ACTIVE STOPPIE / FRONT-WHEEL BALANCE MANEUVER
-        if (tilt > 0) {
-          if (rearIsCleanlyAirborne) {
-            // Rear axle has broken clean of the 0.2 radius dead-zone. Full pro balancing torque unlocked!
-          } else {
-            // Rear wheel is floating too close to the surface line. Throttle power down to drop it back to track.
-            playerTorque *= _frontGroundedTorqueScale;
-          }
-        }
+    // --- ASYMMETRIC BALANCE ROTATION BLOCK ---
+    double playerTorque = -tilt * _playerTorqueStrength;
+    
+    if (playerTorque > 0) {
+      // Leaning backward (Trying to perform a traditional rear wheelie)
+      if (frontOnGround) {
+        playerTorque *= _frontGroundedTorqueScale;
       }
+    } else if (playerTorque < 0) {
+      // Leaning forward (Trying to perform a front wheelie/stoppie)
+      // Scaled down globally to balance structural geometric pivot differences
+      playerTorque *= _frontWheelieTorqueScale;
     }
+
+    telemetryCalculatedTorque = playerTorque;
 
     double gravTorqueAccel = 0.0;
     if (rearOnGround && !frontOnGround) {
@@ -697,6 +651,8 @@ class Bike {
 
     double damping = (!rearOnGround && !frontOnGround) ? _airborneRotationDamping : ((rearOnGround && !frontOnGround) || (!rearOnGround && frontOnGround)) ? _wheelieRotationDamping : _landingRotationDamping;
     double rotVel = (fVel - rVel).dot(tangent) / _wheelbase;
+    telemetryAngularVelocity = rotVel;
+
     double linearTorqueAccel = (playerTorque / (_wheelbase * _bikeMass)) + gravTorqueAccel + (rotVel * damping);
 
     rAccel.add(tangent * linearTorqueAccel);
@@ -817,28 +773,22 @@ class DebugOverlay extends Component with HasGameRef<RaceRiderGame> {
   void render(Canvas canvas) {
     final modeStr = gameRef.currentMode == AppState.ride ? 'RIDING MODE' : gameRef.currentMode == AppState.victory ? 'VICTORY LOCKED' : 'DESIGN MODE';
     
-    TextPainter(textDirection: TextDirection.ltr, text: TextSpan(
-      text: 'RaceRider ${RaceRiderGame.buildLabel}\nState: $modeStr\nLines Active: ${gameRef.trackSegments.length}\nZoom: ${gameRef.camera.viewfinder.zoom.toStringAsFixed(2)}', 
-      style: const TextStyle(color: Colors.yellow, fontSize: 11, fontWeight: FontWeight.bold)
-    ))..layout()..paint(canvas, const Offset(16, 60));
+    // REPOSITIONED TELEMETRY HUB: Shifted up to clear the rider workspace view completely
+    final double startingYOffset = 84.0;
+    
+    String telemetryText = 'RaceRider ${RaceRiderGame.buildLabel}\n'
+        'Mode Context: $modeStr   |   Lines drawn: ${gameRef.trackSegments.length}\n'
+        'Device Tilt Input: ${gameRef.player.tilt.toStringAsFixed(3)}\n'
+        'Calculated Torque: ${gameRef.player.telemetryCalculatedTorque.toStringAsFixed(1)}\n'
+        'Angular Velocity: ${gameRef.player.telemetryAngularVelocity.toStringAsFixed(3)}\n'
+        'Contacts -> Rear: ${gameRef.player.rearOnGround.toString().toUpperCase()} | Front: ${gameRef.player.frontOnGround.toString().toUpperCase()}';
 
-    if (gameRef.currentMode == AppState.ride || gameRef.currentMode == AppState.victory) {
-      final bool frontGrounded = gameRef.player.frontOnGround;
-      final String groundText = ' FRONT GROUNDED: ${frontGrounded ? "TRUE " : "FALSE "}';
-      final Color groundColor = frontGrounded ? const Color(0xFF00FF88) : const Color(0xFFFF3333);
-
-      TextPainter(
-        textDirection: TextDirection.ltr, 
-        text: TextSpan(
-          text: groundText, 
-          style: TextStyle(
-            color: groundColor, 
-            fontSize: 13, 
-            fontWeight: FontWeight.w900, 
-            backgroundColor: Colors.black.withOpacity(0.7)
-          )
-        )
-      )..layout()..paint(canvas, const Offset(16, 148));
-    }
+    TextPainter(
+      textDirection: TextDirection.ltr, 
+      text: TextSpan(
+        text: telemetryText, 
+        style: const TextStyle(color: Colors.yellow, fontSize: 10, fontWeight: FontWeight.bold, height: 1.3)
+      )
+    )..layout()..paint(canvas, Offset(16, startingYOffset));
   }
 }
