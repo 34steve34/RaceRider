@@ -85,6 +85,7 @@ class RaceRiderGame extends FlameGame with DragCallbacks, TapCallbacks {
   bool isGas = false;
   bool isBrake = false;
   
+  // Cleanly split subscriptions to match stable sensors_plus package
   StreamSubscription? _accelSub;
   StreamSubscription? _gyroSub;
   Vector2? _lastDrawnPoint;
@@ -100,14 +101,14 @@ class RaceRiderGame extends FlameGame with DragCallbacks, TapCallbacks {
     super.onLoad();
     _clearCanvas();
     
-    // Combined sensor stream to keep Accelerometer and Gyroscope frames strictly synchronized
-    _sensorSub = sensorEvents.listen((SensorEvent event) {
-      if (event.type == SensorType.accelerometer) {
-        rawTilt = event.y;
-      } else if (event.type == SensorType.gyroscope) {
-        // Z-Axis measures the rotation velocity in landscape mode
-        rawGyro = event.z;
-      }
+    // Listen to separate streams to maintain perfect compatibility across platforms
+    _accelSub = accelerometerEvents.listen((AccelerometerEvent event) {
+      rawTilt = event.y;
+    });
+
+    _gyroSub = gyroscopeEvents.listen((GyroscopeEvent event) {
+      // Z-Axis measures rotation velocity in landscape orientation
+      rawGyro = event.z;
     });
     
     add(DebugOverlay());
@@ -115,7 +116,8 @@ class RaceRiderGame extends FlameGame with DragCallbacks, TapCallbacks {
 
   @override
   void onRemove() {
-    _sensorSub?.cancel();
+    _accelSub?.cancel();
+    _gyroSub?.cancel();
     super.onRemove();
   }
 
@@ -550,8 +552,7 @@ class Bike {
   static double _cogHeight = 3.8;
   static double _frontGroundedTorqueScale = 0.12;
 
-  // --- THE GYROSCOPE TUNING COEFFECIENT ---
-  // Adjust this scale to fine-tune your wrist snap leverage
+  // --- THE GYROSCOPE TUNING COEFFICIENT ---
   static double _gyroVelocityScale = 0.12;
   static const double _gyroNoiseDeadzone = 0.08;
 
