@@ -197,7 +197,7 @@ class RaceRiderGame extends FlameGame with DragCallbacks, TapCallbacks {
         _lastCreatedSegment = null;
       } else if (activeTool == DesignTool.startFlag) {
         startSpawnPoint = worldPos;
-      } else if (activeTool == DesignTool.finishFlag) {
+      } else if (activeTool == DesignFlag.finishFlag) {
         finishLinePoint = worldPos;
       } else if (activeTool == DesignTool.delete) {
         _performLineDeletionAt(worldPos);
@@ -535,12 +535,13 @@ class Bike {
   static const _groundedGravity = 180.0; 
   static const int _gravityHysteresisThreshold = 12; 
 
-  static const _rearDrive = 820.0; 
-  static double _brakeStrength = 750.0; 
+  // --- TRACTION & SPEED OVERHAUL TUNING VARIABLES ---
+  static const _rearDrive = 1450.0;          // Boosted from 820 to give explosive, vertical-climbing thrust
+  static double _brakeStrength = 1300.0;     // Balanced deceleration to match higher acceleration curves
   static const _wheelRadius = 5.0;
   static const _headRadius = 3.0;
   
-  static double _microMagnetPull = 850.0; 
+  static double _microMagnetPull = 1200.0;   // Increased to hold wheels firmly on extreme slopes and loop interiors
   static double _impactCrashLimit = 1600.0;       
   static double suspensionTravel = 4.5; 
   static double suspensionStrength = 1650.0;     
@@ -658,12 +659,20 @@ class Bike {
         if (isGas) {
           rAccel.add(_forwardTangent(_rearSurface!.tangent) * _rearDrive);
         } else {
+          // FIX STICKY GAS: Prevent infinite mechanical equilibrium when bike drops to rest on hills.
+          // By bypassing tangential dampening at low velocities, gravity pulls the bike backwards fluidly.
           double vTan = rVel.dot(_rearSurface!.tangent);
-          rAccel.sub(_rearSurface!.tangent * (vTan * 0.8));
+          if (vTan.abs() > 0.1) {
+            rAccel.sub(_rearSurface!.tangent * (vTan * 0.35)); // Reduced from 0.8 to eliminate stickiness
+          }
         }
         if (isBrake) {
           double vTan = rVel.dot(_rearSurface!.tangent);
-          rAccel.sub(_rearSurface!.tangent * (vTan.sign * _brakeStrength));
+          if (vTan.abs() > 0.05) {
+            rAccel.sub(_rearSurface!.tangent * (vTan.sign * _brakeStrength));
+          } else {
+            rAccel.sub(rVel * 15.0); // Hard anchor when stopping completely
+          }
         }
         if (vNorm < -_impactCrashLimit) _crash();
       }
@@ -680,7 +689,6 @@ class Bike {
       }
     }
 
-    // Process Hysteresis contact buffers cleanly
     if (rawRearIntersection) {
       _rearGroundedBuffer = _maxContactHysteresisFrames;
     } else if (_rearGroundedBuffer > 0) {
@@ -705,34 +713,29 @@ class Bike {
       filteredGyro = gyroVelocity;
     }
     
-    // Combine absolute angle with relative physical velocity change
     double totalCombinedTilt = tilt + (filteredGyro * _gyroVelocityScale);
     totalCombinedTilt = totalCombinedTilt.clamp(-1.2, 1.2);
 
     double playerTorque = -totalCombinedTilt * _playerTorqueStrength;
 
-   // --- STRATEGIC EXPLICIT THREE-STATE GROUND LOGIC ---
+    // --- STRATEGIC EXPLICIT THREE-STATE GROUND LOGIC ---
     if (rearOnGround && frontOnGround) {
       telemetryActiveStateLabel = 'DUAL GROUNDED';
       if (playerTorque > 0) {
-        // NOSE UP: (Flipped to > 0) Provide strong breakaway torque to instantly pop a wheelie cleanly
+        // NOSE UP: (Flipped polarity) Provide strong breakaway torque to instantly pop a wheelie cleanly
         playerTorque *= 1.45;
       } else if (playerTorque < 0) {
-        // NOSE DOWN: (Flipped to < 0) Suppress heavily so leaning forward never lifts rear tire on flat ground
+        // NOSE DOWN: (Flipped polarity) Suppress heavily so leaning forward never lifts rear tire on flat ground
         playerTorque *= _frontGroundedTorqueScale; // 0.12
       }
-    }
-	
+    } 
     else if (rearOnGround && !frontOnGround) {
       telemetryActiveStateLabel = 'ACTIVE WHEELIE (REAR WHEEL ONLY)';
-      // AGILITY ZONE: Remove torque dampers entirely. Gives player full physical authority
-      // to rapidly pull the wheel up or slam it down flat at any angle.
       playerTorque *= 1.0; 
     } 
     else if (!rearOnGround && frontOnGround) {
       telemetryActiveStateLabel = 'PRO-LEAN TRIPPED (FRONT WHEEL ONLY)';
       if (playerTorque > 0) {
-        // Throttle torque input so professional end-of-ramp weight slams don't swap out into loops
         playerTorque *= 0.15;
       }
     } 
