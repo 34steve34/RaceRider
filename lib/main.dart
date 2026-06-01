@@ -101,13 +101,11 @@ class RaceRiderGame extends FlameGame with DragCallbacks, TapCallbacks {
     super.onLoad();
     _clearCanvas();
     
-    // Listen to separate streams to maintain perfect compatibility across platforms
     _accelSub = accelerometerEvents.listen((AccelerometerEvent event) {
       rawTilt = event.y;
     });
 
     _gyroSub = gyroscopeEvents.listen((GyroscopeEvent event) {
-      // Z-Axis measures rotation velocity in landscape orientation
       rawGyro = event.z;
     });
     
@@ -208,10 +206,40 @@ class RaceRiderGame extends FlameGame with DragCallbacks, TapCallbacks {
     }
   }
 
+  // --- HARD INPUT SAFETY RESETS ---
   @override
   void onTapUp(TapUpEvent event) {
     if (currentMode == AppState.ride) {
-      isGas = isBrake = false;
+      isGas = false;
+      isBrake = false;
+    }
+  }
+
+  @override
+  void onTapCancel(TapCancelEvent event) {
+    if (currentMode == AppState.ride) {
+      isGas = false;
+      isBrake = false;
+    }
+  }
+
+  @override
+  void onDragEnd(DragEndEvent event) {
+    _lastDrawnPoint = null;
+    _lastCreatedSegment = null;
+    if (currentMode == AppState.ride) {
+      isGas = false;
+      isBrake = false;
+    }
+  }
+
+  @override
+  void onDragCancel(DragCancelEvent event) {
+    _lastDrawnPoint = null;
+    _lastCreatedSegment = null;
+    if (currentMode == AppState.ride) {
+      isGas = false;
+      isBrake = false;
     }
   }
 
@@ -250,12 +278,6 @@ class RaceRiderGame extends FlameGame with DragCallbacks, TapCallbacks {
         _lastDrawnPoint = worldPos;
       }
     }
-  }
-
-  @override
-  void onDragEnd(DragEndEvent event) {
-    _lastDrawnPoint = null;
-    _lastCreatedSegment = null;
   }
 
   void _performLineDeletionAt(Vector2 point) {
@@ -325,12 +347,10 @@ class RaceRiderGame extends FlameGame with DragCallbacks, TapCallbacks {
       tiltCalibrated = true;
     }
     
-    // Process absolute position from accelerometer
     final normalizedAccel = ((rawTilt - tiltZero) / 8.0).clamp(-1.0, 1.0);
     smoothedTilt = smoothedTilt * 0.15 + normalizedAccel * 0.85;
     if (smoothedTilt.abs() < 0.04) smoothedTilt = 0.0;
     
-    // Feed both absolute tilt and raw gyro velocity down to the bike physics engine
     player.tilt = smoothedTilt;
     player.gyroVelocity = rawGyro;
     
@@ -535,25 +555,22 @@ class Bike {
   static const _groundedGravity = 180.0; 
   static const int _gravityHysteresisThreshold = 12; 
 
-  // --- TRACTION & SPEED OVERHAUL TUNING VARIABLES ---
-  static const _rearDrive = 1450.0;          // Boosted from 820 to give explosive, vertical-climbing thrust
-  static double _brakeStrength = 1300.0;     // Balanced deceleration to match higher acceleration curves
+  static const _rearDrive = 1450.0;          
+  static double _brakeStrength = 1300.0;     
   static const _wheelRadius = 5.0;
   static const _headRadius = 3.0;
   
-  static double _microMagnetPull = 1200.0;   // Increased to hold wheels firmly on extreme slopes and loop interiors
+  static double _microMagnetPull = 1200.0;   
   static double _impactCrashLimit = 1600.0;       
   static double suspensionTravel = 4.5; 
   static double suspensionStrength = 1650.0;     
   static double suspensionDamping = 72.0; 
   
-  // Base Physics Tuning Variables
   static double _playerTorqueStrength = 212750.0;  
   static double _cogDistanceFromRear = 9.2;       
   static double _cogHeight = 3.8;
   static double _frontGroundedTorqueScale = 0.12;
 
-  // --- THE GYROSCOPE TUNING COEFFICIENT ---
   static double _gyroVelocityScale = 0.12;
   static const double _gyroNoiseDeadzone = 0.08;
 
@@ -569,7 +586,6 @@ class Bike {
 
   final SpatialGrid spatialGrid;
   
-  // Pipeline sensor properties
   double tilt = 0.0;
   double gyroVelocity = 0.0;
   
@@ -659,11 +675,13 @@ class Bike {
         if (isGas) {
           rAccel.add(_forwardTangent(_rearSurface!.tangent) * _rearDrive);
         } else {
-          // FIX STICKY GAS: Prevent infinite mechanical equilibrium when bike drops to rest on hills.
-          // By bypassing tangential dampening at low velocities, gravity pulls the bike backwards fluidly.
           double vTan = rVel.dot(_rearSurface!.tangent);
-          if (vTan.abs() > 0.1) {
-            rAccel.sub(_rearSurface!.tangent * (vTan * 0.35)); // Reduced from 0.8 to eliminate stickiness
+          // UNIVERSAL MECHANICAL ANCHOR:
+          // If gas is fully off, drop the kinetic anchor when speeds approach near zero.
+          if (vTan.abs() < 3.5) {
+            rAccel.sub(rVel * 25.0); 
+          } else {
+            rAccel.sub(_rearSurface!.tangent * (vTan * 0.20)); 
           }
         }
         if (isBrake) {
@@ -671,7 +689,7 @@ class Bike {
           if (vTan.abs() > 0.05) {
             rAccel.sub(_rearSurface!.tangent * (vTan.sign * _brakeStrength));
           } else {
-            rAccel.sub(rVel * 15.0); // Hard anchor when stopping completely
+            rAccel.sub(rVel * 15.0); 
           }
         }
         if (vNorm < -_impactCrashLimit) _crash();
@@ -707,7 +725,6 @@ class Bike {
     Vector2 tangent = Vector2(-axle.y, axle.x)..normalize();
     double angle = atan2(axle.y, axle.x);
 
-    // --- INTEGRATED HYBRID SENSOR INPUT PIPELINE ---
     double filteredGyro = 0.0;
     if (gyroVelocity.abs() > _gyroNoiseDeadzone) {
       filteredGyro = gyroVelocity;
@@ -718,15 +735,13 @@ class Bike {
 
     double playerTorque = -totalCombinedTilt * _playerTorqueStrength;
 
-    // --- STRATEGIC EXPLICIT THREE-STATE GROUND LOGIC ---
+    // --- THREE-STATE GROUND LOGIC WITH STOPPIE SUPPRESSION ---
     if (rearOnGround && frontOnGround) {
       telemetryActiveStateLabel = 'DUAL GROUNDED';
       if (playerTorque > 0) {
-        // NOSE UP: (Flipped polarity) Provide strong breakaway torque to instantly pop a wheelie cleanly
         playerTorque *= 1.45;
       } else if (playerTorque < 0) {
-        // NOSE DOWN: (Flipped polarity) Suppress heavily so leaning forward never lifts rear tire on flat ground
-        playerTorque *= _frontGroundedTorqueScale; // 0.12
+        playerTorque *= _frontGroundedTorqueScale; 
       }
     } 
     else if (rearOnGround && !frontOnGround) {
@@ -735,8 +750,11 @@ class Bike {
     } 
     else if (!rearOnGround && frontOnGround) {
       telemetryActiveStateLabel = 'PRO-LEAN TRIPPED (FRONT WHEEL ONLY)';
+      // Suppress forward lean pitch when front tire lands solo to prevent over-rotation stoppies
       if (playerTorque > 0) {
-        playerTorque *= 0.15;
+        playerTorque *= 0.08;
+      } else {
+        playerTorque *= 0.02; 
       }
     } 
     else {
@@ -758,6 +776,11 @@ class Bike {
         : ((rearOnGround && !frontOnGround) || (!rearOnGround && frontOnGround)) 
             ? _wheelieRotationDamping 
             : _landingRotationDamping;
+
+    // Heavy rotational damping to squash front-wheel pivot momentum
+    if (!rearOnGround && frontOnGround) {
+      damping = 550.0; 
+    }
             
     double rotVel = (fVel - rVel).dot(tangent) / _wheelbase;
     telemetryAngularVelocity = rotVel;
