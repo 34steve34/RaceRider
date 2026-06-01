@@ -197,7 +197,7 @@ class RaceRiderGame extends FlameGame with DragCallbacks, TapCallbacks {
         _lastCreatedSegment = null;
       } else if (activeTool == DesignTool.startFlag) {
         startSpawnPoint = worldPos;
-      } else if (activeTool == DesignFlag.finishFlag) {
+      } else if (activeTool == DesignTool.finishFlag) {
         finishLinePoint = worldPos;
       } else if (activeTool == DesignTool.delete) {
         _performLineDeletionAt(worldPos);
